@@ -17,6 +17,7 @@ import { cancelOrderCall } from '@/features/orders/api/orders';
 import { useOrder } from '@/features/orders/hooks/useOrder';
 import { useItemReplacementState } from '@/features/orders/hooks/useItemReplacementState';
 import { SummaryRow } from '@/features/orders/components/SummaryRow';
+import { useItemReviewState } from '@/features/reviews/hooks/useItemReviewState';
 import {
   estimatedDelivery,
   formatDate,
@@ -53,6 +54,7 @@ export default function OrderDetailPage() {
 
   const { order, loading, error, notFound, refresh } = useOrder(orderId, uid);
   const { canReplace, replacementFor } = useItemReplacementState(order, uid);
+  const { reviewedFor } = useItemReviewState(order, uid);
 
   const [showCancel, setShowCancel] = useState(false);
   const [cancelling, setCancelling] = useState(false);
@@ -176,7 +178,7 @@ export default function OrderDetailPage() {
                       )}
                     </div>
                     {isDelivered && (
-                      <div className="mt-2">
+                      <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1.5">
                         {existing ? (
                           <span className="inline-flex items-center gap-2 text-xs">
                             <span className="font-medium text-muted">{existing.requestId || 'Return request'}</span>
@@ -190,6 +192,17 @@ export default function OrderDetailPage() {
                             Return / Replace
                           </Link>
                         ) : null}
+
+                        {reviewedFor(item.productId) ? (
+                          <span className="text-xs font-medium text-muted">Reviewed</span>
+                        ) : (
+                          <Link
+                            href={`/account/orders/${order.id}/review?productId=${encodeURIComponent(item.productId)}&variantId=${encodeURIComponent(item.variantId)}`}
+                            className="text-xs font-medium text-primary hover:underline"
+                          >
+                            Write review
+                          </Link>
+                        )}
                       </div>
                     )}
                   </div>
