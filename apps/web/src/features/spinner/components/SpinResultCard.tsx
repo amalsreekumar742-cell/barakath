@@ -81,7 +81,7 @@ export function SpinResultCard({ result, spinsRemaining, spinning, onSpinAgain }
             <button
               type="button"
               onClick={handleCopy}
-              className="inline-flex shrink-0 items-center gap-1.5 rounded-md border border-border-strong bg-surface px-2.5 py-1.5 text-xs font-bold text-foreground hover:bg-subtle"
+              className="inline-flex shrink-0 items-center gap-1.5 rounded-md border border-border-strong bg-surface px-2.5 py-1.5 text-xs font-medium text-foreground hover:bg-subtle"
             >
               {copied ? <Check size={14} aria-hidden /> : <Copy size={14} aria-hidden />}
               {copied ? 'Copied' : 'Copy'}

@@ -41,7 +41,7 @@ export function OrderCard({ order, reordering, onReorder }: OrderCardProps) {
   return (
     <div className="rounded-xl border border-border bg-surface p-4 sm:p-5">
       <div className="flex items-center justify-between gap-3">
-        <Link href={detailHref} className="min-w-0 truncate text-sm font-extrabold text-foreground hover:underline">
+        <Link href={detailHref} className="min-w-0 truncate text-sm font-semibold text-foreground hover:underline">
           {orderReference(order.id)}
         </Link>
         <StatusBadge status={order.status} />
@@ -58,7 +58,7 @@ export function OrderCard({ order, reordering, onReorder }: OrderCardProps) {
           />
         ))}
         {extra > 0 && (
-          <span className="flex size-12 shrink-0 items-center justify-center rounded-md border border-border bg-subtle text-xs font-bold text-muted">
+          <span className="flex size-12 shrink-0 items-center justify-center rounded-md border border-border bg-subtle text-xs font-medium text-muted">
             +{extra}
           </span>
         )}
@@ -67,10 +67,10 @@ export function OrderCard({ order, reordering, onReorder }: OrderCardProps) {
       <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
         <p className="text-sm text-muted">
           {totalItems(order)} {totalItems(order) === 1 ? 'item' : 'items'} ·{' '}
-          <span className="font-extrabold text-gold-strong">{formatInr(order.grandTotal)}</span>
+          <span className="font-semibold text-gold-strong">{formatInr(order.grandTotal)}</span>
         </p>
 
-        <div className="flex flex-wrap items-center gap-3 text-xs font-bold">
+        <div className="flex flex-wrap items-center gap-3 text-xs font-medium">
           {isActive && (
             <Link href={`${detailHref}/track`} className="text-primary hover:underline">
               Track

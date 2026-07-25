@@ -79,7 +79,7 @@ export function CouponWallet({ customerId, variant }: CouponWalletProps) {
             role="tab"
             aria-selected={tab === t.key}
             onClick={() => setTab(t.key)}
-            className={`rounded-md px-4 py-1.5 text-sm font-bold transition ${
+            className={`rounded-md px-4 py-1.5 text-sm font-medium transition ${
               tab === t.key ? 'bg-surface text-foreground shadow-sm' : 'text-muted hover:text-foreground'
             }`}
           >

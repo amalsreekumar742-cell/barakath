@@ -52,7 +52,7 @@ export function QuickFilters({ pathname, currentParams, active }: QuickFiltersPr
             type="button"
             onClick={() => select(opt.value)}
             aria-pressed={isActive}
-            className={`inline-flex h-[30px] items-center rounded-full px-3.5 text-[13px] font-bold transition ${
+            className={`inline-flex h-[30px] items-center rounded-full px-3.5 text-[13px] font-medium transition ${
               isActive
                 ? 'bg-primary text-white'
                 : 'border border-border-strong bg-surface text-foreground hover:bg-subtle'

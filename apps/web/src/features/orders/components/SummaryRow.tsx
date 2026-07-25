@@ -13,14 +13,14 @@ export interface SummaryRowProps {
 export function SummaryRow({ label, value, emphasis }: SummaryRowProps) {
   return (
     <div className="flex items-center justify-between py-1.5 text-sm">
-      <span className={emphasis === 'total' ? 'font-extrabold text-foreground' : 'text-muted'}>{label}</span>
+      <span className={emphasis === 'total' ? 'font-semibold text-foreground' : 'text-muted'}>{label}</span>
       <span
         className={
           emphasis === 'total'
             ? 'font-display text-lg font-extrabold text-gold-strong'
             : emphasis === 'discount'
-              ? 'font-bold text-success'
-              : 'font-bold text-foreground'
+              ? 'font-medium text-success'
+              : 'font-medium text-foreground'
         }
       >
         {value}

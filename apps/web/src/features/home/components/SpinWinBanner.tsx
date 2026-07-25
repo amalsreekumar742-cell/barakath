@@ -26,7 +26,7 @@ export function SpinWinBanner() {
         </span>
 
         <div className="relative z-10 flex-1">
-          <p className="text-xs font-extrabold uppercase tracking-[0.18em] text-white/85">
+          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-white/85">
             Spin &amp; Win
           </p>
           <h2 className="mt-2 font-display text-2xl font-extrabold tracking-tight text-white sm:text-[28px]">
@@ -37,7 +37,7 @@ export function SpinWinBanner() {
           </p>
         </div>
 
-        <span className="relative z-10 inline-flex shrink-0 items-center rounded-full bg-white px-6 py-3 text-sm font-bold text-ink shadow-sm transition group-hover:bg-white/90">
+        <span className="relative z-10 inline-flex shrink-0 items-center rounded-full bg-white px-6 py-3 text-sm font-medium text-ink shadow-sm transition group-hover:bg-white/90">
           Spin now
         </span>
       </Link>

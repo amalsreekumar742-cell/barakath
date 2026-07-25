@@ -90,7 +90,7 @@ export function AddMoneyModal({ isOpen, onClose }: AddMoneyModalProps) {
           Wallet money never expires and can be used at checkout on any order.
         </p>
 
-        <label htmlFor="top-up-amount" className="mt-5 block text-xs font-bold text-muted">
+        <label htmlFor="top-up-amount" className="mt-5 block text-xs font-medium text-muted">
           Enter amount
         </label>
         <div className="mt-1.5 flex items-center gap-2 rounded-lg border-2 border-primary bg-surface px-4 py-3">
@@ -114,7 +114,7 @@ export function AddMoneyModal({ isOpen, onClose }: AddMoneyModalProps) {
               type="button"
               disabled={toppingUp}
               onClick={() => setAmountInput(String(amount))}
-              className={`rounded-md border py-2.5 text-xs font-bold transition disabled:cursor-not-allowed disabled:opacity-50 ${
+              className={`rounded-md border py-2.5 text-xs font-medium transition disabled:cursor-not-allowed disabled:opacity-50 ${
                 parsedAmount === amount
                   ? 'border-primary bg-primary text-white'
                   : 'border-border-strong bg-surface text-muted hover:text-foreground'

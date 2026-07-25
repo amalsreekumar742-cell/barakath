@@ -31,7 +31,7 @@ export function TaxonomyChips({ categories, subcategories, categoryNameById }: T
         <Link
           key={category.id}
           href={`/category/${encodeURIComponent(category.name)}`}
-          className="inline-flex items-center gap-1.5 rounded-full border border-primary/30 bg-primary-subtle px-3 py-1.5 text-xs font-bold text-primary transition hover:bg-primary hover:text-white"
+          className="inline-flex items-center gap-1.5 rounded-full border border-primary/30 bg-primary-subtle px-3 py-1.5 text-xs font-medium text-primary transition hover:bg-primary hover:text-white"
         >
           <LayoutGrid className="size-3.5" aria-hidden />
           {category.name}
@@ -46,7 +46,7 @@ export function TaxonomyChips({ categories, subcategories, categoryNameById }: T
           <Link
             key={subcategory.id}
             href={href}
-            className="inline-flex items-center gap-1.5 rounded-full border border-border bg-subtle px-3 py-1.5 text-xs font-bold text-foreground transition hover:border-primary hover:text-primary"
+            className="inline-flex items-center gap-1.5 rounded-full border border-border bg-subtle px-3 py-1.5 text-xs font-medium text-foreground transition hover:border-primary hover:text-primary"
           >
             <Layers className="size-3.5" aria-hidden />
             {subcategory.name}

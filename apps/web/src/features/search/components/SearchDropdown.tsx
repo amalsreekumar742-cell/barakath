@@ -38,7 +38,7 @@ export interface SearchDropdownProps {
   onClearRecent: () => void;
 }
 
-const GROUP_LABEL = 'px-3 pt-3 pb-1 text-[11px] font-extrabold uppercase tracking-wider text-faint';
+const GROUP_LABEL = 'px-3 pt-3 pb-1 text-[11px] font-semibold uppercase tracking-wider text-faint';
 const ROW =
   'flex items-center gap-3 px-3 py-2 text-sm text-foreground hover:bg-subtle focus-visible:bg-subtle focus-visible:outline-none';
 
@@ -82,7 +82,7 @@ export function SearchDropdown({
           <button
             type="button"
             onClick={onClearRecent}
-            className="px-3 pt-3 pb-1 text-[11px] font-bold text-primary hover:underline"
+            className="px-3 pt-3 pb-1 text-[11px] font-medium text-primary hover:underline"
           >
             Clear all
           </button>
@@ -116,7 +116,7 @@ export function SearchDropdown({
       <button type="button" onClick={() => onPickTerm(trimmed)} className={`${ROW} w-full text-left`}>
         <Search className="size-4 shrink-0 text-primary" aria-hidden />
         <span className="truncate">
-          Search for <span className="font-bold text-foreground">“{trimmed}”</span>
+          Search for <span className="font-medium text-foreground">“{trimmed}”</span>
         </span>
         <ArrowUpRight className="ml-auto size-4 shrink-0 text-faint" aria-hidden />
       </button>
@@ -164,7 +164,7 @@ export function SearchDropdown({
                     ) : null}
                   </span>
                   {p.minPrice > 0 ? (
-                    <span className="shrink-0 text-sm font-extrabold text-gold-strong">
+                    <span className="shrink-0 text-sm font-semibold text-gold-strong">
                       ₹{p.minPrice.toLocaleString('en-IN')}
                     </span>
                   ) : null}
