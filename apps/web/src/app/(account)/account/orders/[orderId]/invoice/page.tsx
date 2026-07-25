@@ -144,10 +144,10 @@ export default function InvoicePage() {
           <div className="flex items-start justify-between gap-4">
             <div>
               <p className="font-display text-2xl font-extrabold text-foreground">{business.name}</p>
-              <p className="mt-0.5 text-xs font-bold tracking-wide text-muted uppercase">Tax Invoice</p>
+              <p className="mt-0.5 text-xs font-medium tracking-wide text-muted uppercase">Tax Invoice</p>
             </div>
             <div className="text-right">
-              <p className="text-sm font-extrabold text-foreground">{invoiceNo}</p>
+              <p className="text-sm font-semibold text-foreground">{invoiceNo}</p>
               <p className="mt-0.5 text-xs text-muted">{formatDate(order.createdAt)}</p>
             </div>
           </div>
@@ -156,15 +156,15 @@ export default function InvoicePage() {
         {/* Seller / buyer */}
         <div className="grid grid-cols-1 gap-4 rounded-xl border border-border bg-surface p-6 sm:grid-cols-2">
           <div>
-            <p className="text-[11px] font-extrabold tracking-wide text-faint uppercase">Seller</p>
-            <p className="mt-1.5 text-sm font-bold text-foreground">{business.name}</p>
+            <p className="text-[11px] font-semibold tracking-wide text-faint uppercase">Seller</p>
+            <p className="mt-1.5 text-sm font-medium text-foreground">{business.name}</p>
             {business.address && <p className="text-xs text-muted">{business.address}</p>}
             {business.gstin && <p className="text-xs text-muted">GSTIN: {business.gstin}</p>}
             {business.trn && <p className="text-xs text-muted">TRN: {business.trn}</p>}
           </div>
           <div>
-            <p className="text-[11px] font-extrabold tracking-wide text-faint uppercase">Billed to</p>
-            <p className="mt-1.5 text-sm font-bold text-foreground">{address.fullName || order.userName}</p>
+            <p className="text-[11px] font-semibold tracking-wide text-faint uppercase">Billed to</p>
+            <p className="mt-1.5 text-sm font-medium text-foreground">{address.fullName || order.userName}</p>
             <p className="text-xs text-muted">
               {[address.addressLine1, address.addressLine2, address.landmark, address.city, address.state, address.pincode]
                 .filter((p) => p && p.trim())
@@ -193,7 +193,7 @@ export default function InvoicePage() {
               <div key={`${item.productId}-${item.variantId}-${i}`} className="flex items-start gap-3 py-2.5 text-sm">
                 <span className="w-5 shrink-0 text-muted">{i + 1}.</span>
                 <div className="min-w-0 flex-1">
-                  <p className="font-bold text-foreground">{item.productName}</p>
+                  <p className="font-medium text-foreground">{item.productName}</p>
                   <p className="text-xs text-muted">
                     {[item.variantName, item.variantColor].filter(Boolean).join(' · ')}
                   </p>
@@ -201,7 +201,7 @@ export default function InvoicePage() {
                     {item.quantity} × {money(item.offerPrice)}
                   </p>
                 </div>
-                <span className="font-extrabold text-foreground">{money(item.subtotal)}</span>
+                <span className="font-semibold text-foreground">{money(item.subtotal)}</span>
               </div>
             ))}
           </div>

@@ -120,7 +120,7 @@ export default function RequestReplacementPage() {
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src={item.productImage} alt="" className="size-16 shrink-0 rounded-md border border-border object-cover" />
           <div className="min-w-0">
-            <p className="line-clamp-2 text-sm font-extrabold text-foreground">{item.productName}</p>
+            <p className="line-clamp-2 text-sm font-semibold text-foreground">{item.productName}</p>
             <p className="mt-1 text-xs text-muted">
               {[item.variantName, item.variantColor].filter(Boolean).join(' · ')}
               {item.variantName || item.variantColor ? ' · ' : ''}Qty {item.quantity} · {money(item.subtotal)}
@@ -145,7 +145,7 @@ export default function RequestReplacementPage() {
                 >
                   {reason === r && <span className="size-2.5 rounded-full bg-primary" />}
                 </span>
-                <span className={`text-sm ${reason === r ? 'font-extrabold text-foreground' : 'font-semibold text-foreground'}`}>
+                <span className={`text-sm ${reason === r ? 'font-semibold text-foreground' : 'font-semibold text-foreground'}`}>
                   {r}
                 </span>
               </button>

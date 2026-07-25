@@ -139,7 +139,7 @@ function WalletBody({ uid }: { uid: string }) {
           kept as a secondary row rather than dropped. */}
       <div className="grid grid-cols-1 gap-3 lg:grid-cols-[1.4fr_1fr_1fr]">
         <div className="rounded-2xl bg-gradient-to-br from-[#2a2118] to-[#4a3a22] p-6 text-white">
-          <p className="text-[11px] font-bold uppercase tracking-widest text-gold">Withdrawable earnings</p>
+          <p className="text-[11px] font-semibold uppercase tracking-widest text-gold">Withdrawable earnings</p>
           <p className="mt-3 font-display text-[38px] font-extrabold leading-none">{formatInr(user.affiliateBalance)}</p>
           <p className="mt-2 text-xs text-white/75">Lifetime {formatInr(lifetimeEarnings)} earned</p>
         </div>

@@ -159,7 +159,7 @@ function WishlistPageContent() {
                 title="No saved items match these filters"
                 subtitle="Try widening your price range or clearing a filter."
               />
-              <Link href={pathname} className="text-[13px] font-bold text-primary hover:underline">
+              <Link href={pathname} className="text-[13px] font-medium text-primary hover:underline">
                 Clear all filters
               </Link>
             </div>

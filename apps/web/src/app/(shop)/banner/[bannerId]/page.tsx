@@ -99,7 +99,7 @@ export default async function BannerPage({ params, searchParams }: BannerPagePro
             href={banner.linkValue}
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex items-center gap-2 rounded-md bg-gold px-5 py-2.5 text-sm font-bold text-ink transition hover:bg-gold-strong hover:text-white"
+            className="inline-flex items-center gap-2 rounded-md bg-gold px-5 py-2.5 text-sm font-medium text-ink transition hover:bg-gold-strong hover:text-white"
           >
             Visit link
             <ExternalLink className="size-4" aria-hidden />
@@ -171,7 +171,7 @@ function BannerPager({
   if (!hasPrev && !hasNext) return null;
 
   const base =
-    'inline-flex h-9 min-w-9 items-center justify-center rounded-md border px-3 text-[13px] font-bold transition border-border-strong bg-surface text-foreground';
+    'inline-flex h-9 min-w-9 items-center justify-center rounded-md border px-3 text-[13px] font-medium transition border-border-strong bg-surface text-foreground';
   const enabled = `${base} hover:bg-subtle`;
   const disabled = `${base} cursor-not-allowed opacity-40`;
 

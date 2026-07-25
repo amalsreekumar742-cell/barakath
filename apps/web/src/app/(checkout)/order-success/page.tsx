@@ -218,7 +218,7 @@ function OrderSuccessContent() {
         </p>
 
         <div className="mt-8 w-full rounded-lg border border-border bg-surface p-6 text-left">
-          <Row label="Order ID" value={reference} valueClassName="font-bold text-foreground" />
+          <Row label="Order ID" value={reference} valueClassName="font-medium text-foreground" />
           <Row
             label="Amount paid"
             value={`₹${order.grandTotal.toFixed(2)}`}
@@ -232,7 +232,7 @@ function OrderSuccessContent() {
           </Button>
           <Link
             href="/"
-            className="inline-flex h-12 items-center justify-center rounded-lg border border-border-strong bg-surface px-6 text-[15px] font-bold text-foreground transition hover:bg-subtle"
+            className="inline-flex h-12 items-center justify-center rounded-lg border border-border-strong bg-surface px-6 text-[15px] font-medium text-foreground transition hover:bg-subtle"
           >
             Continue shopping
           </Link>

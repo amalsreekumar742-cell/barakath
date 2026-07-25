@@ -35,7 +35,7 @@ export default function SettingsPage() {
 
           <div className="rounded-xl border border-border bg-surface p-5">
             <h2 className="font-display text-lg font-extrabold text-foreground">Legal</h2>
-            <div className="mt-3 flex flex-col gap-2 text-sm font-bold text-primary">
+            <div className="mt-3 flex flex-col gap-2 text-sm font-medium text-primary">
               <Link href="/privacy-policy" className="hover:underline">
                 Privacy Policy
               </Link>

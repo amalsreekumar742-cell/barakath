@@ -27,7 +27,7 @@ export default function HomeError({
 
   return (
     <main className="mx-auto flex min-h-[60vh] w-full max-w-md flex-col items-center justify-center px-5 text-center">
-      <p className="text-xs font-extrabold uppercase tracking-[0.18em] text-gold-strong">
+      <p className="text-xs font-semibold uppercase tracking-[0.18em] text-gold-strong">
         {Constants.APP_NAME}
       </p>
       <h1 className="mt-3 font-display text-2xl font-extrabold text-foreground">
@@ -39,7 +39,7 @@ export default function HomeError({
       <button
         type="button"
         onClick={() => reset()}
-        className="mt-6 inline-flex items-center gap-2 rounded-full bg-primary px-5 py-2.5 text-sm font-bold text-white transition hover:bg-primary-dark focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+        className="mt-6 inline-flex items-center gap-2 rounded-full bg-primary px-5 py-2.5 text-sm font-medium text-white transition hover:bg-primary-dark focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
       >
         <RotateCcw size={16} strokeWidth={2.25} aria-hidden />
         Try again
