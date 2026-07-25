@@ -92,7 +92,7 @@ export function FlashCountdown({ endDate, onExpire, className = '' }: FlashCount
     <span
       // WHY `bg-error` (red) and not `bg-ink`: the design's flash-sale countdown is a red pill — red
       // signals urgency/limited-time the way the rest of the neutral palette deliberately doesn't.
-      className={`inline-flex items-center gap-1 rounded-full bg-error px-2.5 py-1 font-display text-xs font-extrabold tabular-nums text-white ${className}`}
+      className={`inline-flex items-center gap-1 rounded-full bg-error px-2.5 py-1 font-display text-xs font-semibold tabular-nums text-white ${className}`}
       role="timer"
       aria-label={`Flash sale ends in ${pad(hours)} hours ${pad(minutes)} minutes ${pad(seconds)} seconds`}
     >

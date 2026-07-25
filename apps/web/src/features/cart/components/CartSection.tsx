@@ -138,7 +138,7 @@ export function CartSection() {
     <div className="grid gap-5 lg:grid-cols-[1fr_360px] lg:items-start">
       <section aria-label="Your bag" className="rounded-xl border border-border bg-surface p-6">
         <div className="flex items-baseline justify-between gap-3">
-          <p className="font-display text-lg font-extrabold text-foreground">Your bag</p>
+          <p className="font-display text-lg font-semibold text-foreground">Your bag</p>
           <span className="text-sm font-medium text-muted">
             {itemCount} item{itemCount === 1 ? '' : 's'}
           </span>

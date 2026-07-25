@@ -94,7 +94,7 @@ export function AddMoneyModal({ isOpen, onClose }: AddMoneyModalProps) {
           Enter amount
         </label>
         <div className="mt-1.5 flex items-center gap-2 rounded-lg border-2 border-primary bg-surface px-4 py-3">
-          <span className="font-display text-2xl font-extrabold text-foreground">₹</span>
+          <span className="font-display text-2xl font-medium text-foreground">₹</span>
           <input
             id="top-up-amount"
             type="text"
@@ -103,7 +103,7 @@ export function AddMoneyModal({ isOpen, onClose }: AddMoneyModalProps) {
             disabled={toppingUp}
             onChange={(e) => setAmountInput(e.target.value.replace(/[^0-9]/g, '').slice(0, 7))}
             placeholder="0"
-            className="w-full bg-transparent font-display text-2xl font-extrabold text-foreground outline-none placeholder:text-faint disabled:cursor-not-allowed"
+            className="w-full bg-transparent font-display text-2xl font-medium text-foreground outline-none placeholder:text-faint disabled:cursor-not-allowed"
           />
         </div>
 

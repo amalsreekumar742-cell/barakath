@@ -138,7 +138,7 @@ function CategoryDirectoryCard({ category }: { category: CategoryProps }) {
           )}
         </div>
         <div className={hasSubCategories ? 'px-4 pt-4 pb-2' : 'p-4'}>
-          <div className="truncate font-display text-base font-extrabold text-foreground">
+          <div className="truncate font-display text-base font-semibold text-foreground">
             {category.name}
           </div>
         </div>

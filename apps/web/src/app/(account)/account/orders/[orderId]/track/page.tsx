@@ -102,7 +102,7 @@ export default function TrackOrderPage() {
       <div className="space-y-4">
         <div className="rounded-xl border border-border bg-surface p-5">
           <StatusBadge status={order.status} />
-          <p className="mt-2.5 font-display text-xl font-extrabold text-foreground">
+          <p className="mt-2.5 font-display text-xl font-semibold text-foreground">
             {isDelivered
               ? `Delivered on ${formatDateShort(eta)}`
               : isCancelled

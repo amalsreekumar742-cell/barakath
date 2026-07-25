@@ -17,7 +17,7 @@ export function ReviewCard({ review }: { review: ReviewProps }) {
     <li className="border-b border-border py-5 last:border-b-0">
       <div className="flex items-center justify-between gap-3">
         <div className="flex items-center gap-2">
-          <span className="font-display text-sm font-extrabold text-foreground">
+          <span className="font-display text-sm font-semibold text-foreground">
             {review.userName || 'Barakath customer'}
           </span>
           {review.isVerifiedPurchase && (

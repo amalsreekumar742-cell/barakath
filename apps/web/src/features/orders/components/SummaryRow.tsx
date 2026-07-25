@@ -17,7 +17,7 @@ export function SummaryRow({ label, value, emphasis }: SummaryRowProps) {
       <span
         className={
           emphasis === 'total'
-            ? 'font-display text-lg font-extrabold text-gold-strong'
+            ? 'font-display text-lg font-semibold text-gold-strong'
             : emphasis === 'discount'
               ? 'font-medium text-success'
               : 'font-medium text-foreground'

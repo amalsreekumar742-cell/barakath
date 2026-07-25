@@ -17,7 +17,7 @@ export function StatCard({ label, value, secondary, className = '' }: StatCardPr
   return (
     <div className={`rounded-2xl border border-border bg-surface p-4 ${className}`}>
       <p className="text-xs font-medium text-muted">{label}</p>
-      <p className="mt-2 font-display text-xl font-extrabold text-foreground">{value}</p>
+      <p className="mt-2 font-display text-xl font-semibold text-foreground">{value}</p>
       {secondary && <p className="mt-1 text-xs text-faint">{secondary}</p>}
     </div>
   );

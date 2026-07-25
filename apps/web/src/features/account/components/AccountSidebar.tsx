@@ -219,7 +219,7 @@ function Avatar({ profileImage, initial, size }: { profileImage?: string; initia
   }
   return (
     <div
-      className="flex shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-primary to-primary-dark font-display font-extrabold text-white"
+      className="flex shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-primary to-primary-dark font-display font-semibold text-white"
       style={{ width: size, height: size, fontSize: size * 0.4 }}
       aria-hidden
     >

@@ -8,6 +8,7 @@ import { MegaMenu } from './header/MegaMenu';
 import { AccountMenu } from './header/AccountMenu';
 import { CartButton } from './header/CartButton';
 import { WishlistButton } from './header/WishlistButton';
+import { WalletButton } from './header/WalletButton';
 import { MobileNav } from './header/MobileNav';
 
 /**
@@ -57,6 +58,7 @@ export function Header({ categories }: HeaderProps) {
             <span className="hidden sm:inline-flex">
               <WishlistButton />
             </span>
+            <WalletButton />
             <CartButton />
             <AccountMenu />
           </div>

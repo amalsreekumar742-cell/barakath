@@ -46,8 +46,12 @@ export default function SpinWinPage() {
 
         {uid && (
           <div id="coupon-wallet">
-            <h2 className="font-display text-lg font-extrabold text-foreground">My coupons</h2>
-            <p className="mt-1 text-sm text-muted">Codes you&apos;ve won, ready to use at checkout.</p>
+            <h1 className="font-display text-2xl font-extrabold tracking-tight text-foreground">
+              Spin &amp; win daily rewards
+            </h1>
+            <p className="mt-2 text-sm text-muted">
+              Rewards drop straight into your coupon wallet, ready to use at checkout.
+            </p>
             <div className="mt-4 rounded-xl border border-border bg-surface p-5">
               <CouponWallet key={couponRefreshToken} variant="embedded" customerId={uid} />
             </div>

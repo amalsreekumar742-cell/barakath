@@ -47,32 +47,28 @@ export function ReferralCodeCard({ code }: { code: string }) {
   }
 
   return (
-    <div className="rounded-2xl border border-border bg-surface p-4">
-      <div className="flex items-center justify-between gap-3">
-        <p className="text-sm font-semibold text-foreground">Your referral code</p>
-        <button
-          type="button"
-          onClick={handleCopy}
-          className="inline-flex shrink-0 items-center gap-1.5 text-xs font-medium text-primary hover:underline"
-        >
-          <Copy size={14} aria-hidden />
-          Copy
-        </button>
-      </div>
+    <div className="rounded-2xl border border-border bg-surface p-[22px]">
+      <p className="mb-3.5 font-display text-[15px] font-semibold text-foreground">Your referral</p>
 
-      <div className="mt-3 flex items-center gap-3">
-        <div className="min-w-0 flex-1 rounded-lg bg-success-subtle px-4 py-3">
-          <p className="truncate font-mono text-xl font-semibold tracking-widest text-success">{code}</p>
-        </div>
-        <Button variant="primary" size="lg" onClick={handleShare} iconLeft={<Share2 size={16} />}>
-          Share
-        </Button>
-      </div>
+      <button
+        type="button"
+        onClick={handleCopy}
+        className="flex w-full items-center justify-between rounded-[10px] border border-dashed border-gold-border bg-gold-subtle px-3.5 py-3.5 text-left"
+      >
+        <span className="truncate font-mono text-base font-semibold tracking-wider text-gold-strong">
+          {code}
+        </span>
+        <Copy size={18} className="shrink-0 text-gold-strong" aria-hidden />
+      </button>
 
       <p className="mt-3 text-xs leading-relaxed text-muted">
         You earn a fixed commission every time someone shops with your code. It clears 7 days after the
         sale, then admin confirms it.
       </p>
+
+      <Button variant="secondary" size="lg" fullWidth onClick={handleShare} iconLeft={<Share2 size={16} />} className="mt-3.5">
+        Share link
+      </Button>
     </div>
   );
 }

@@ -215,7 +215,7 @@ export function CouponPanel({ items, appliedCoupon, uid, isAuthenticated }: Coup
 
   return (
     <div>
-      <p className="font-display text-base font-extrabold text-foreground">Apply a coupon</p>
+      <p className="font-display text-base font-semibold text-foreground">Apply a coupon</p>
 
       <form onSubmit={onSubmitCode} className="mt-3 flex gap-2">
         <input

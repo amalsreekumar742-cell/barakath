@@ -132,134 +132,140 @@ function WalletBody({ uid }: { uid: string }) {
   const lifetimeEarnings = user.pendingCommission + user.confirmedCommission;
 
   return (
-    <div className="space-y-6">
-      {/* Earnings overview (design marker 10): a wide "Withdrawable earnings" hero card + Pending +
-          Confirmed, 1.4fr/1fr/1fr — matching the design's hero-plus-two-tile row exactly. Referrals,
-          Lifetime earnings and This month are real, useful figures the design doesn't show on this row;
-          kept as a secondary row rather than dropped. */}
-      <div className="grid grid-cols-1 gap-3 lg:grid-cols-[1.4fr_1fr_1fr]">
-        <div className="rounded-2xl bg-gradient-to-br from-[#2a2118] to-[#4a3a22] p-6 text-white">
-          <p className="text-[11px] font-semibold uppercase tracking-widest text-gold">Withdrawable earnings</p>
-          <p className="mt-3 font-display text-[38px] font-extrabold leading-none">{formatInr(user.affiliateBalance)}</p>
-          <p className="mt-2 text-xs text-white/75">Lifetime {formatInr(lifetimeEarnings)} earned</p>
-        </div>
-        <StatCard
-          label="Pending commission"
-          value={formatInr(user.pendingCommission)}
-          secondary="Clears after delivery"
-        />
-        <StatCard label="Confirmed" value={formatInr(user.confirmedCommission)} secondary="Ready to withdraw" />
-      </div>
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
-        <StatCard label="Referrals" value={user.totalReferrals} />
-        <StatCard label="Lifetime earnings" value={formatInr(lifetimeEarnings)} />
-        <StatCard label="This month" value={thisMonth.loading ? '—' : formatInr(thisMonth.amount)} />
-      </div>
+    <div>
+      {/* Main column (hero + stats + history + bank accounts) + a 340px sidebar (referral + withdraw),
+          matching design marker 10's layout exactly instead of stacking everything in one column. */}
+      <div className="flex flex-col items-start gap-5 lg:flex-row">
+        <div className="w-full flex-1 space-y-6">
+          {/* Earnings overview: a wide "Withdrawable earnings" hero card + Pending + Confirmed,
+              1.4fr/1fr/1fr — matching the design's hero-plus-two-tile row exactly. Referrals, Lifetime
+              earnings and This month are real, useful figures the design doesn't show on this row;
+              kept as a secondary row rather than dropped. */}
+          <div className="grid grid-cols-1 gap-3 lg:grid-cols-[1.4fr_1fr_1fr]">
+            <div className="rounded-2xl bg-gradient-to-br from-[#2a2118] to-[#4a3a22] p-6 text-white">
+              <p className="text-[11px] font-semibold uppercase tracking-widest text-gold">Withdrawable earnings</p>
+              <p className="mt-3 font-display text-[38px] font-semibold leading-none">{formatInr(user.affiliateBalance)}</p>
+              <p className="mt-2 text-xs text-white/75">Lifetime {formatInr(lifetimeEarnings)} earned</p>
+            </div>
+            <StatCard
+              label="Pending commission"
+              value={formatInr(user.pendingCommission)}
+              secondary="Clears after delivery"
+            />
+            <StatCard label="Confirmed" value={formatInr(user.confirmedCommission)} secondary="Ready to withdraw" />
+          </div>
+          <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
+            <StatCard label="Referrals" value={user.totalReferrals} />
+            <StatCard label="Lifetime earnings" value={formatInr(lifetimeEarnings)} />
+            <StatCard label="This month" value={thisMonth.loading ? '—' : formatInr(thisMonth.amount)} />
+          </div>
 
-      {/* Refer & earn / Withdraw funds (design marker 24) — side by side on desktop, matching the
-          design's two-column layout, instead of routing "Withdraw" to a separate page. */}
-      <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-2">
-        <ReferralCodeCard code={user.affiliateCode} />
-        <WithdrawPanel
-          uid={uid}
-          userName={user.fullName}
-          userPhone={user.phone}
-          balance={user.affiliateBalance}
-          walletEnabled={walletEnabled}
-          bankAccounts={bankAccounts}
-          onWithdrawn={() => void withdrawals.refresh()}
-        />
-      </div>
+          {/* Commission history */}
+          <section>
+            <h2 className="mb-3 font-display text-base font-extrabold text-foreground">
+              How you earned · commission history
+            </h2>
+            <div className="rounded-2xl border border-border bg-surface p-4">
+              {commissions.isLoading ? (
+                <ListSkeleton />
+              ) : commissions.error ? (
+                <ErrorNote message={commissions.error} onRetry={commissions.refresh} />
+              ) : commissions.items.length === 0 ? (
+                <EmptyState title="No commission yet" subtitle="Share your referral code to start earning." />
+              ) : (
+                <>
+                  {commissions.items.map((t) => (
+                    <CommissionTransactionRow key={t.id} transaction={t} />
+                  ))}
+                  {commissions.isLoadingMore && <ListSkeleton count={2} />}
+                  {commissions.hasMore && !commissions.isLoadingMore && (
+                    <Button variant="secondary" size="sm" onClick={commissions.loadMore} className="mt-3">
+                      View more
+                    </Button>
+                  )}
+                </>
+              )}
+            </div>
+          </section>
 
-      {/* Commission history */}
-      <section>
-        <h2 className="mb-3 font-display text-base font-extrabold text-foreground">Commission history</h2>
-        <div className="rounded-2xl border border-border bg-surface p-4">
-          {commissions.isLoading ? (
-            <ListSkeleton />
-          ) : commissions.error ? (
-            <ErrorNote message={commissions.error} onRetry={commissions.refresh} />
-          ) : commissions.items.length === 0 ? (
-            <EmptyState title="No commission yet" subtitle="Share your referral code to start earning." />
-          ) : (
-            <>
-              {commissions.items.map((t) => (
-                <CommissionTransactionRow key={t.id} transaction={t} />
-              ))}
-              {commissions.isLoadingMore && <ListSkeleton count={2} />}
-              {commissions.hasMore && !commissions.isLoadingMore && (
-                <Button variant="secondary" size="sm" onClick={commissions.loadMore} className="mt-3">
-                  View more
+          {/* Withdrawal history */}
+          <section>
+            <h2 className="mb-3 font-display text-base font-extrabold text-foreground">Withdrawal requests</h2>
+            <div className="rounded-2xl border border-border bg-surface p-4">
+              {withdrawals.isLoading ? (
+                <ListSkeleton count={2} />
+              ) : withdrawals.error ? (
+                <ErrorNote message={withdrawals.error} onRetry={withdrawals.refresh} />
+              ) : withdrawals.items.length === 0 ? (
+                <EmptyState title="You haven't requested a withdrawal yet" />
+              ) : (
+                <>
+                  {withdrawals.items.map((w) => (
+                    <WithdrawalRow key={w.id} withdrawal={w} />
+                  ))}
+                  {withdrawals.isLoadingMore && <ListSkeleton count={2} />}
+                  {withdrawals.hasMore && !withdrawals.isLoadingMore && (
+                    <Button variant="secondary" size="sm" onClick={withdrawals.loadMore} className="mt-3">
+                      View more
+                    </Button>
+                  )}
+                </>
+              )}
+            </div>
+          </section>
+
+          {/* Bank accounts */}
+          <section>
+            <div className="mb-3 flex items-center justify-between">
+              <h2 className="font-display text-base font-extrabold text-foreground">Bank accounts</h2>
+              {bankAccounts.hasSlot && (
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  iconLeft={<Plus size={14} />}
+                  onClick={() => setShowAddBank(true)}
+                  disabled={bankAccounts.loading}
+                >
+                  Add bank account
                 </Button>
               )}
-            </>
-          )}
-        </div>
-      </section>
-
-      {/* Withdrawal history */}
-      <section>
-        <h2 className="mb-3 font-display text-base font-extrabold text-foreground">Withdrawal requests</h2>
-        <div className="rounded-2xl border border-border bg-surface p-4">
-          {withdrawals.isLoading ? (
-            <ListSkeleton count={2} />
-          ) : withdrawals.error ? (
-            <ErrorNote message={withdrawals.error} onRetry={withdrawals.refresh} />
-          ) : withdrawals.items.length === 0 ? (
-            <EmptyState title="You haven't requested a withdrawal yet" />
-          ) : (
-            <>
-              {withdrawals.items.map((w) => (
-                <WithdrawalRow key={w.id} withdrawal={w} />
-              ))}
-              {withdrawals.isLoadingMore && <ListSkeleton count={2} />}
-              {withdrawals.hasMore && !withdrawals.isLoadingMore && (
-                <Button variant="secondary" size="sm" onClick={withdrawals.loadMore} className="mt-3">
-                  View more
-                </Button>
+            </div>
+            <div className="space-y-3">
+              {bankAccounts.loading ? (
+                <ListSkeleton count={2} />
+              ) : bankAccounts.accounts.length === 0 ? (
+                <EmptyState title="No bank account saved yet" subtitle="Your withdrawals are transferred to the account you save here." />
+              ) : (
+                bankAccounts.accounts.map((account) => (
+                  <BankAccountCard
+                    key={account.id}
+                    account={account}
+                    onDelete={bankAccounts.mutating ? undefined : () => setPendingDelete(account)}
+                  />
+                ))
               )}
-            </>
-          )}
+              {!bankAccounts.hasSlot && !bankAccounts.loading && (
+                <p className="rounded-xl border border-border bg-subtle p-3 text-xs text-muted">
+                  You can save up to {Constants.AFFILIATE_MAX_BANK_ACCOUNTS} bank accounts. Delete one to add another.
+                </p>
+              )}
+            </div>
+          </section>
         </div>
-      </section>
 
-      {/* Bank accounts */}
-      <section>
-        <div className="mb-3 flex items-center justify-between">
-          <h2 className="font-display text-base font-extrabold text-foreground">Bank accounts</h2>
-          {bankAccounts.hasSlot && (
-            <Button
-              variant="secondary"
-              size="sm"
-              iconLeft={<Plus size={14} />}
-              onClick={() => setShowAddBank(true)}
-              disabled={bankAccounts.loading}
-            >
-              Add bank account
-            </Button>
-          )}
+        <div className="w-full space-y-4 lg:w-[340px] lg:shrink-0">
+          <ReferralCodeCard code={user.affiliateCode} />
+          <WithdrawPanel
+            uid={uid}
+            userName={user.fullName}
+            userPhone={user.phone}
+            balance={user.affiliateBalance}
+            walletEnabled={walletEnabled}
+            bankAccounts={bankAccounts}
+            onWithdrawn={() => void withdrawals.refresh()}
+          />
         </div>
-        <div className="space-y-3">
-          {bankAccounts.loading ? (
-            <ListSkeleton count={2} />
-          ) : bankAccounts.accounts.length === 0 ? (
-            <EmptyState title="No bank account saved yet" subtitle="Your withdrawals are transferred to the account you save here." />
-          ) : (
-            bankAccounts.accounts.map((account) => (
-              <BankAccountCard
-                key={account.id}
-                account={account}
-                onDelete={bankAccounts.mutating ? undefined : () => setPendingDelete(account)}
-              />
-            ))
-          )}
-          {!bankAccounts.hasSlot && !bankAccounts.loading && (
-            <p className="rounded-xl border border-border bg-subtle p-3 text-xs text-muted">
-              You can save up to {Constants.AFFILIATE_MAX_BANK_ACCOUNTS} bank accounts. Delete one to add another.
-            </p>
-          )}
-        </div>
-      </section>
+      </div>
 
       <AddBankAccountModal
         isOpen={showAddBank}

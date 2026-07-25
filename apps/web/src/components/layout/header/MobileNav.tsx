@@ -81,7 +81,7 @@ export function MobileNav({ categories }: MobileNavProps) {
             className="absolute inset-y-0 left-0 flex w-[86%] max-w-sm animate-fade-in flex-col bg-surface shadow-lg"
           >
             <div className="flex items-center justify-between border-b border-border px-4 py-3">
-              <span className="font-display text-lg font-extrabold text-primary">
+              <span className="font-display text-lg font-semibold text-primary">
                 {Constants.APP_NAME}
               </span>
               <button

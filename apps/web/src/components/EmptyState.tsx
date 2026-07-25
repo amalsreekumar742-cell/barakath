@@ -22,7 +22,7 @@ export function EmptyState({ icon, title, subtitle }: EmptyStateProps) {
   return (
     <div className="flex min-h-[40vh] flex-col items-center justify-center px-6 text-center">
       {icon && <div className="mb-4 text-faint">{icon}</div>}
-      <p className="font-display text-base font-extrabold text-foreground">{title}</p>
+      <p className="font-display text-base font-semibold text-foreground">{title}</p>
       {subtitle && <p className="mt-1.5 max-w-sm text-sm text-muted">{subtitle}</p>}
     </div>
   );

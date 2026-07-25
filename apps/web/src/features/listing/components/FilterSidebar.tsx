@@ -204,7 +204,7 @@ export function FilterSidebar({
 function FilterCard({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <div className="rounded-2xl border border-border bg-surface p-5">
-      <div className="mb-4 font-display text-[15px] font-extrabold text-foreground">{title}</div>
+      <div className="mb-4 font-display text-[15px] font-semibold text-foreground">{title}</div>
       {children}
     </div>
   );

@@ -52,7 +52,7 @@ export function CategoryCard({ category, hideSubtitle = false }: CategoryCardPro
         )}
       </div>
       <div className="p-4">
-        <div className="truncate font-display text-base font-extrabold text-foreground">
+        <div className="truncate font-display text-base font-semibold text-foreground">
           {category.name}
         </div>
         {!hideSubtitle && <div className="mt-1 truncate text-xs text-muted">{subtitle}</div>}

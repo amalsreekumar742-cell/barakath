@@ -74,7 +74,7 @@ export function CouponCard({
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <span
-            className={`font-display text-base font-extrabold tracking-wide ${
+            className={`font-display text-base font-semibold tracking-wide ${
               muted ? 'text-muted' : 'text-gold-strong'
             }`}
           >

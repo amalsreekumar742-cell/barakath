@@ -28,7 +28,7 @@ function Row({
       <span
         className={
           emphasis === 'total'
-            ? 'font-display text-lg font-extrabold text-gold-strong'
+            ? 'font-display text-lg font-semibold text-gold-strong'
             : emphasis === 'discount'
               ? 'font-medium text-success'
               : 'font-medium text-foreground'
@@ -57,7 +57,7 @@ function Row({
 export function OrderSummary({ totals, loading }: OrderSummaryProps) {
   return (
     <div className="rounded-xl border border-border bg-surface p-5">
-      <p className="font-display text-base font-extrabold text-foreground">Order summary</p>
+      <p className="font-display text-base font-semibold text-foreground">Order summary</p>
 
       {loading ? (
         <div className="mt-3 space-y-2.5" aria-busy="true">

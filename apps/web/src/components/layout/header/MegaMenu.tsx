@@ -144,7 +144,7 @@ export function MegaMenu({ categories }: MegaMenuProps) {
                 <Link
                   href={`/category/${encodeURIComponent(activeCategory.name)}`}
                   onClick={() => setOpen(false)}
-                  className="mb-2 inline-block font-display text-sm font-extrabold text-foreground hover:text-primary"
+                  className="mb-2 inline-block font-display text-sm font-semibold text-foreground hover:text-primary"
                 >
                   All {activeCategory.name}
                 </Link>

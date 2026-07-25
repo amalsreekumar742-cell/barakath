@@ -42,9 +42,7 @@ export default function WalletPage() {
   const uid = useAppSelector((s) => s.auth.uid);
   const authLoading = useAppSelector((s) => s.auth.authLoading);
   const user = useAppSelector((s) => s.auth.user);
-  const { rewardsTotal, refundsTotal, breakdownLoading, walletPaymentsEnabled } = useAppSelector(
-    (s) => s.wallet,
-  );
+  const { rewardsTotal, breakdownLoading, walletPaymentsEnabled } = useAppSelector((s) => s.wallet);
 
   const [addMoneyOpen, setAddMoneyOpen] = useState(false);
 
@@ -75,88 +73,90 @@ export default function WalletPage() {
       <Breadcrumb items={[{ label: 'Home', href: '/' }, { label: 'Wallet' }]} />
       <AccountPageHeader title="Wallet" subtitle="Your normal wallet balance, rewards and transaction history." />
 
-      <div className="space-y-5">
-        <WalletBalanceCard balance={user?.walletBalance ?? 0} loading={authLoading} />
+      {/* Main column + 320px sidebar, matching design marker 09's layout. */}
+      <div className="flex flex-col items-start gap-5 lg:flex-row">
+        <div className="w-full flex-1 space-y-5">
+          <WalletBalanceCard
+            balance={user?.walletBalance ?? 0}
+            loading={authLoading}
+            action={
+              <Button variant="primary" disabled={!canTopUp} onClick={() => setAddMoneyOpen(true)}>
+                Add money
+              </Button>
+            }
+          />
+          {confirmedDisabled && <p className="text-xs leading-relaxed text-muted">{WALLET_DISABLED_MESSAGE}</p>}
 
-        <div>
-          <Button variant="primary" disabled={!canTopUp} onClick={() => setAddMoneyOpen(true)}>
-            Add money
-          </Button>
-          {confirmedDisabled && <p className="mt-2 text-xs leading-relaxed text-muted">{WALLET_DISABLED_MESSAGE}</p>}
-        </div>
-
-        {/* Rewards + Refunds (spec §3.13) — no Cashback tile; cashback is removed from the product. */}
-        <div className="grid grid-cols-2 gap-4">
+          {/* Rewards received — the design's tile row also has Refunds/Cashback, but cashback is
+           *  removed from the product (see above) and refunds is intentionally not shown here either. */}
           <StatCard
             label="Rewards received"
             value={breakdownLoading ? <SkeletonText width="w-20" /> : formatInr(rewardsTotal)}
           />
-          <StatCard
-            label="Refunds received"
-            value={breakdownLoading ? <SkeletonText width="w-20" /> : formatInr(refundsTotal)}
-          />
-        </div>
 
-        <SpinWinPromoCard />
+          <Link
+            href="/account/wallet/coupons"
+            className="flex items-center justify-between rounded-xl border border-border bg-surface p-4 text-sm font-medium text-foreground hover:bg-subtle"
+          >
+            <span className="flex items-center gap-2">
+              <Ticket size={16} className="text-primary" aria-hidden />
+              My coupon wallet
+            </span>
+            <ChevronRight size={16} className="text-faint" aria-hidden />
+          </Link>
 
-        <Link
-          href="/account/wallet/coupons"
-          className="flex items-center justify-between rounded-xl border border-border bg-surface p-4 text-sm font-medium text-foreground hover:bg-subtle"
-        >
-          <span className="flex items-center gap-2">
-            <Ticket size={16} className="text-primary" aria-hidden />
-            My coupon wallet
-          </span>
-          <ChevronRight size={16} className="text-faint" aria-hidden />
-        </Link>
+          <div className="rounded-2xl border border-border bg-surface p-5">
+            <h2 className="mb-1 font-display text-base font-extrabold text-foreground">Transaction history</h2>
 
-        <div>
-          <h2 className="mb-3 font-display text-base font-extrabold text-foreground">Transaction history</h2>
-
-          {isLoading ? (
-            <div className="space-y-1" aria-busy="true">
-              {[0, 1, 2, 3, 4].map((i) => (
-                <div key={i} className="flex items-center gap-3 border-b border-border py-3 last:border-0">
-                  <div className="size-9 shrink-0 animate-pulse rounded-full bg-subtle" aria-hidden />
-                  <div className="flex-1 space-y-2">
-                    <SkeletonText width="w-1/3" />
-                    <SkeletonText width="w-1/4" />
+            {isLoading ? (
+              <div className="space-y-1" aria-busy="true">
+                {[0, 1, 2, 3, 4].map((i) => (
+                  <div key={i} className="flex items-center gap-3 border-b border-border py-3 last:border-0">
+                    <div className="size-9 shrink-0 animate-pulse rounded-full bg-subtle" aria-hidden />
+                    <div className="flex-1 space-y-2">
+                      <SkeletonText width="w-1/3" />
+                      <SkeletonText width="w-1/4" />
+                    </div>
+                    <SkeletonText width="w-14" />
                   </div>
-                  <SkeletonText width="w-14" />
-                </div>
-              ))}
-            </div>
-          ) : error ? (
-            <EmptyState icon={<WalletIcon size={40} />} title="Could not load your transactions" subtitle={error} />
-          ) : items.length === 0 ? (
-            <EmptyState
-              icon={<WalletIcon size={40} />}
-              title="No transactions yet"
-              subtitle="Rewards, refunds and order payments will show up here."
-            />
-          ) : (
-            <>
-              <div>
-                {items.map((txn) => (
-                  <TransactionRow
-                    key={txn.id}
-                    icon={walletTransactionIcon(txn.source)}
-                    label={txn.description?.trim() || txn.source}
-                    date={txn.createdAt}
-                    type={txn.type}
-                    amount={txn.amount}
-                  />
                 ))}
               </div>
-              {hasMore && (
-                <div className="mt-4 flex justify-center">
-                  <Button variant="secondary" onClick={loadMore} loading={isLoadingMore}>
-                    View more
-                  </Button>
+            ) : error ? (
+              <EmptyState icon={<WalletIcon size={40} />} title="Could not load your transactions" subtitle={error} />
+            ) : items.length === 0 ? (
+              <EmptyState
+                icon={<WalletIcon size={40} />}
+                title="No transactions yet"
+                subtitle="Rewards, refunds and order payments will show up here."
+              />
+            ) : (
+              <>
+                <div>
+                  {items.map((txn) => (
+                    <TransactionRow
+                      key={txn.id}
+                      icon={walletTransactionIcon(txn.source)}
+                      label={txn.description?.trim() || txn.source}
+                      date={txn.createdAt}
+                      type={txn.type}
+                      amount={txn.amount}
+                    />
+                  ))}
                 </div>
-              )}
-            </>
-          )}
+                {hasMore && (
+                  <div className="mt-4 flex justify-center">
+                    <Button variant="secondary" onClick={loadMore} loading={isLoadingMore}>
+                      View more
+                    </Button>
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+        </div>
+
+        <div className="w-full lg:w-[320px] lg:shrink-0">
+          <SpinWinPromoCard />
         </div>
       </div>
 

@@ -143,7 +143,7 @@ export default function InvoicePage() {
         <div className="rounded-xl border border-border bg-surface p-6">
           <div className="flex items-start justify-between gap-4">
             <div>
-              <p className="font-display text-2xl font-extrabold text-foreground">{business.name}</p>
+              <p className="font-display text-2xl font-semibold text-foreground">{business.name}</p>
               <p className="mt-0.5 text-xs font-medium tracking-wide text-muted uppercase">Tax Invoice</p>
             </div>
             <div className="text-right">

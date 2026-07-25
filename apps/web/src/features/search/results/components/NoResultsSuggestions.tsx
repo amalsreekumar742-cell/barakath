@@ -21,7 +21,7 @@ export function NoResultsSuggestions({ query, suggestions }: NoResultsSuggestion
     <div>
       <div className="flex min-h-[24vh] flex-col items-center justify-center px-6 text-center">
         <SearchX className="mb-4 size-12 text-faint" aria-hidden />
-        <p className="font-display text-base font-extrabold text-foreground">
+        <p className="font-display text-base font-medium text-foreground">
           No results for &ldquo;{query}&rdquo;
         </p>
         <p className="mt-1.5 max-w-sm text-sm text-muted">

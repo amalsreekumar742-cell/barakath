@@ -75,7 +75,7 @@ export function CheckoutSection() {
   if (!isAuthenticated) {
     return (
       <section aria-label="Checkout" className="rounded-xl border border-border bg-surface p-8 text-center">
-        <p className="font-display text-lg font-extrabold text-foreground">Sign in to check out</p>
+        <p className="font-display text-lg font-semibold text-foreground">Sign in to check out</p>
         <p className="mt-1 text-sm text-muted">Your bag is saved — sign in to add a delivery address and pay.</p>
         <Button
           variant="primary"

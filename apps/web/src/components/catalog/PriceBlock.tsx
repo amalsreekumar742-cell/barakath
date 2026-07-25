@@ -69,7 +69,7 @@ export function PriceBlock({ minPrice, maxPrice, mrp, className = '' }: PriceBlo
   return (
     <div className={className}>
       <div className="flex items-baseline gap-2">
-        <span className="font-display text-base font-extrabold text-gold-strong">{priceLabel}</span>
+        <span className="font-display text-base font-semibold text-gold-strong">{priceLabel}</span>
         {showMrp && (
           <span className="min-w-0 truncate text-xs text-faint line-through">{formatInr(mrp!)}</span>
         )}

@@ -75,7 +75,7 @@ export function SpinResultCard({ result, spinsRemaining, spinning, onSpinAgain }
       {isWin && result.couponCode && (
         <div className="mx-auto mt-6 max-w-sm">
           <div className="flex items-center justify-between gap-3 rounded-lg border border-gold-border bg-surface px-4 py-3">
-            <span className="font-display text-lg font-extrabold tracking-wide text-gold-strong">
+            <span className="font-display text-lg font-semibold tracking-wide text-gold-strong">
               {result.couponCode}
             </span>
             <button

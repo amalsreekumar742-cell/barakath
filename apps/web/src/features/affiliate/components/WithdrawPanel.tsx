@@ -66,7 +66,7 @@ export function WithdrawPanel({
 
       <div className="py-1 text-center">
         <p className="text-xs text-faint">Available</p>
-        <p className="mt-1.5 font-display text-3xl font-extrabold text-gold-strong">{formatInr(balance)}</p>
+        <p className="mt-1.5 font-display text-3xl font-semibold text-gold-strong">{formatInr(balance)}</p>
       </div>
 
       {bankAccounts.loading ? (

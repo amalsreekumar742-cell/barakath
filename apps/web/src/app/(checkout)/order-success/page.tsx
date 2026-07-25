@@ -222,7 +222,7 @@ function OrderSuccessContent() {
           <Row
             label="Amount paid"
             value={`₹${order.grandTotal.toFixed(2)}`}
-            valueClassName="font-display font-extrabold text-gold-strong"
+            valueClassName="font-display font-semibold text-gold-strong"
           />
         </div>
 

@@ -179,7 +179,7 @@ export function ProductExperience({
           </span>
         )}
         <div className="flex flex-wrap items-baseline gap-2.5">
-          <span className="font-display text-3xl font-extrabold text-gold-strong">
+          <span className="font-display text-3xl font-semibold text-gold-strong">
             {formatInr(resolved.displayPrice)}
           </span>
           {resolved.mrp > resolved.displayPrice && (

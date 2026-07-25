@@ -132,7 +132,7 @@ export default function OrderDetailPage() {
               </Link>
             )}
           </div>
-          <p className="mt-2.5 font-display text-lg font-extrabold text-foreground">
+          <p className="mt-2.5 font-display text-lg font-semibold text-foreground">
             {isDelivered
               ? `Delivered on ${formatDateShort(eta)}`
               : isCancelled
