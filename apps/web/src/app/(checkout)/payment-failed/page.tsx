@@ -115,7 +115,7 @@ function PaymentFailedContent() {
         </Button>
         <Link
           href="/cart"
-          className="inline-flex h-12 items-center justify-center rounded-lg border border-border-strong bg-surface px-6 text-[15px] font-bold text-foreground transition hover:bg-subtle"
+          className="inline-flex h-12 items-center justify-center rounded-lg border border-border-strong bg-surface px-6 text-[15px] font-medium text-foreground transition hover:bg-subtle"
         >
           Back to Cart
         </Link>

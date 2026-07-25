@@ -126,7 +126,7 @@ export default function OrderDetailPage() {
             {!isCancelled && (
               <Link
                 href={`/account/orders/${order.id}/track`}
-                className="inline-flex items-center gap-0.5 text-sm font-bold text-primary hover:underline"
+                className="inline-flex items-center gap-0.5 text-sm font-medium text-primary hover:underline"
               >
                 Track <ChevronRight size={16} />
               </Link>
@@ -164,13 +164,13 @@ export default function OrderDetailPage() {
                     className="size-16 shrink-0 rounded-md border border-border bg-subtle object-cover"
                   />
                   <div className="min-w-0 flex-1">
-                    <p className="line-clamp-2 text-sm font-bold text-foreground">{item.productName}</p>
+                    <p className="line-clamp-2 text-sm font-medium text-foreground">{item.productName}</p>
                     <p className="mt-0.5 text-xs text-muted">
                       {[item.variantName, item.variantColor].filter(Boolean).join(' · ')}
                       {item.variantName || item.variantColor ? ' · ' : ''}Qty {item.quantity}
                     </p>
                     <div className="mt-1 flex items-baseline gap-2">
-                      <span className="text-sm font-extrabold text-gold-strong">{money(item.subtotal)}</span>
+                      <span className="text-sm font-semibold text-gold-strong">{money(item.subtotal)}</span>
                       {item.mrp > item.offerPrice && (
                         <span className="text-xs text-faint line-through">{money(item.mrp * item.quantity)}</span>
                       )}
@@ -179,13 +179,13 @@ export default function OrderDetailPage() {
                       <div className="mt-2">
                         {existing ? (
                           <span className="inline-flex items-center gap-2 text-xs">
-                            <span className="font-bold text-muted">{existing.requestId || 'Return request'}</span>
+                            <span className="font-medium text-muted">{existing.requestId || 'Return request'}</span>
                             <StatusBadge status={existing.status} />
                           </span>
                         ) : eligible ? (
                           <Link
                             href={`/account/orders/${order.id}/return?productId=${encodeURIComponent(item.productId)}&variantId=${encodeURIComponent(item.variantId)}`}
-                            className="text-xs font-bold text-primary hover:underline"
+                            className="text-xs font-medium text-primary hover:underline"
                           >
                             Return / Replace
                           </Link>
@@ -202,7 +202,7 @@ export default function OrderDetailPage() {
         {/* Delivery address */}
         <section className="rounded-xl border border-border bg-surface p-5">
           <h2 className="font-display text-base font-extrabold text-foreground">Delivery address</h2>
-          <p className="mt-2 text-sm font-bold text-foreground">{order.shippingAddress.fullName}</p>
+          <p className="mt-2 text-sm font-medium text-foreground">{order.shippingAddress.fullName}</p>
           <p className="mt-1 text-sm text-muted">
             {[
               order.shippingAddress.addressLine1,
@@ -255,7 +255,7 @@ export default function OrderDetailPage() {
               <SummaryRow label="Total paid" value={money(order.grandTotal)} emphasis="total" />
             </div>
           </div>
-          {saved > 0 && <p className="mt-2 text-xs font-bold text-success">You saved {money(saved)} on this order</p>}
+          {saved > 0 && <p className="mt-2 text-xs font-medium text-success">You saved {money(saved)} on this order</p>}
         </section>
 
         {isPending && (

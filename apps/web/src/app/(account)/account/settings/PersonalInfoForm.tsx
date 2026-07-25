@@ -131,9 +131,9 @@ export function PersonalInfoForm({ uid, user }: { uid: string; user: UserDocWith
 function Field({ label, error, children }: { label: string; error?: string; children: ReactNode }) {
   return (
     <div>
-      <label className="mb-1.5 block text-xs font-extrabold uppercase tracking-wide text-muted">{label}</label>
+      <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-muted">{label}</label>
       {children}
-      {error && <p className="mt-1 text-xs font-bold text-error">{error}</p>}
+      {error && <p className="mt-1 text-xs font-medium text-error">{error}</p>}
     </div>
   );
 }

@@ -113,7 +113,7 @@ export default function TrackOrderPage() {
             {totalCount} {totalCount === 1 ? 'item' : 'items'} · {money(order.grandTotal)}
           </p>
           {saved > 0 && (
-            <span className="mt-2 inline-flex rounded-full bg-success-subtle px-2.5 py-1 text-xs font-extrabold text-success">
+            <span className="mt-2 inline-flex rounded-full bg-success-subtle px-2.5 py-1 text-xs font-semibold text-success">
               You saved {money(saved)}
             </span>
           )}
@@ -127,7 +127,7 @@ export default function TrackOrderPage() {
                 <XIcon className="size-3 text-white" aria-hidden />
               </span>
               <div>
-                <p className="text-sm font-extrabold text-foreground">Cancelled</p>
+                <p className="text-sm font-semibold text-foreground">Cancelled</p>
                 <p className="mt-0.5 text-xs text-muted">{formatDateTime(cancelledAt)}</p>
                 {order.cancelReason && <p className="mt-0.5 text-xs text-faint">{order.cancelReason}</p>}
               </div>
@@ -146,15 +146,15 @@ export default function TrackOrderPage() {
           <div className="rounded-xl border border-border bg-surface p-5">
             <h2 className="font-display text-base font-extrabold text-foreground">Courier</h2>
             {order.courierName && (
-              <p className="mt-2 text-sm font-extrabold tracking-wide text-foreground uppercase">{order.courierName}</p>
+              <p className="mt-2 text-sm font-semibold tracking-wide text-foreground uppercase">{order.courierName}</p>
             )}
             {order.trackingId && (
               <div className="mt-2 flex items-center justify-between gap-3">
-                <span className="text-sm font-bold text-muted">{order.trackingId}</span>
+                <span className="text-sm font-medium text-muted">{order.trackingId}</span>
                 <button
                   type="button"
                   onClick={copyTrackingId}
-                  className="inline-flex items-center gap-1.5 rounded-full border border-border px-3 py-1.5 text-xs font-bold text-foreground hover:bg-subtle"
+                  className="inline-flex items-center gap-1.5 rounded-full border border-border px-3 py-1.5 text-xs font-medium text-foreground hover:bg-subtle"
                 >
                   <Copy size={13} aria-hidden /> Copy
                 </button>
@@ -167,7 +167,7 @@ export default function TrackOrderPage() {
           (eligibleItems.length === 1 && eligibleItems[0] ? (
             <Link
               href={returnHref(eligibleItems[0].productId, eligibleItems[0].variantId)}
-              className="block w-full rounded-lg border border-border-strong bg-surface py-3 text-center text-sm font-bold text-foreground hover:bg-subtle"
+              className="block w-full rounded-lg border border-border-strong bg-surface py-3 text-center text-sm font-medium text-foreground hover:bg-subtle"
             >
               Return / Replace product
             </Link>
@@ -175,7 +175,7 @@ export default function TrackOrderPage() {
             <button
               type="button"
               onClick={() => setPickerOpen(true)}
-              className="block w-full rounded-lg border border-border-strong bg-surface py-3 text-center text-sm font-bold text-foreground hover:bg-subtle"
+              className="block w-full rounded-lg border border-border-strong bg-surface py-3 text-center text-sm font-medium text-foreground hover:bg-subtle"
             >
               Return / Replace product
             </button>
@@ -197,7 +197,7 @@ export default function TrackOrderPage() {
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img src={item.productImage} alt="" className="size-11 shrink-0 rounded-md border border-border object-cover" />
                 <div className="min-w-0">
-                  <p className="truncate text-sm font-bold text-foreground">{item.productName}</p>
+                  <p className="truncate text-sm font-medium text-foreground">{item.productName}</p>
                   <p className="text-xs text-muted">
                     {item.variantName ? `${item.variantName} · ` : ''}Qty {item.quantity}
                   </p>

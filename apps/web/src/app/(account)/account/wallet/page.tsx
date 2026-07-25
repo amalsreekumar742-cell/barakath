@@ -101,7 +101,7 @@ export default function WalletPage() {
 
         <Link
           href="/account/wallet/coupons"
-          className="flex items-center justify-between rounded-xl border border-border bg-surface p-4 text-sm font-bold text-foreground hover:bg-subtle"
+          className="flex items-center justify-between rounded-xl border border-border bg-surface p-4 text-sm font-medium text-foreground hover:bg-subtle"
         >
           <span className="flex items-center gap-2">
             <Ticket size={16} className="text-primary" aria-hidden />

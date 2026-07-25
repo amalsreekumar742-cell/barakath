@@ -18,7 +18,7 @@ export default function CheckoutPage() {
   return (
     <main className="mx-auto w-full max-w-6xl px-5 py-6 md:px-10">
       <div className="mb-5 flex flex-wrap items-center justify-between gap-2">
-        <ol className="flex items-center gap-1.5 text-[13px] font-bold text-muted" aria-label="Checkout progress">
+        <ol className="flex items-center gap-1.5 text-[13px] font-medium text-muted" aria-label="Checkout progress">
           <li>Bag</li>
           <li aria-hidden="true">·</li>
           <li aria-current="step" className="text-foreground">
@@ -27,7 +27,7 @@ export default function CheckoutPage() {
           <li aria-hidden="true">·</li>
           <li>Payment</li>
         </ol>
-        <span className="inline-flex items-center gap-1.5 text-[13px] font-bold text-muted">
+        <span className="inline-flex items-center gap-1.5 text-[13px] font-medium text-muted">
           <ShieldCheck size={15} className="text-success" />
           Secure checkout
         </span>

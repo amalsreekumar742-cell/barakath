@@ -196,7 +196,7 @@ export default async function CategoryPage({ params, searchParams }: CategoryPag
                 subtitle="Try widening your price range or clearing a filter."
               />
               {parsed.hasAnyParam && (
-                <Link href={basePath} className="text-[13px] font-bold text-primary hover:underline">
+                <Link href={basePath} className="text-[13px] font-medium text-primary hover:underline">
                   Clear all filters
                 </Link>
               )}
