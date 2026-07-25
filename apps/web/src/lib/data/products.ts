@@ -49,10 +49,12 @@ export type ProductSort = 'popularity' | 'newest' | 'priceAsc' | 'priceDesc' | '
  * schema, so review volume is the only honest, already-denormalised popularity proxy (the same one
  * W0's `getBestSellers` uses). Sorting by a non-existent field would silently return nothing.
  *
- * WHY `priceDesc` also orders by `minPrice` (not `maxPrice`): a query with an equality-pinned prefix
- * (`status == Active`, plus any category/flag equalities) can traverse the `minPrice` index in EITHER
- * direction, so one `minPrice` index serves both `priceAsc` and `priceDesc` — no separate `maxPrice`
- * desc index is needed, and the "from" price the card shows is the field being ordered.
+ * WHY `priceDesc` also orders by `minPrice` (not `maxPrice`): the "from" price the card shows is the
+ * field being ordered, so a customer sorting "high to low" still sees prices that agree with what's on
+ * screen. `firestore.indexes.json` carries a DEDICATED descending `minPrice` composite index per filter
+ * combination for this — verified live that an ascending index does NOT serve a descending orderBy on
+ * the same field once there's an equality-pinned prefix (`status`, category/flag equalities); each
+ * direction needs its own index.
  */
 const SORT: Record<ProductSort, { field: string; direction: 'asc' | 'desc' }> = {
   popularity: { field: 'totalReviews', direction: 'desc' },
