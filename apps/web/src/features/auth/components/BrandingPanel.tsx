@@ -20,7 +20,7 @@ export function BrandingPanel() {
         aria-hidden
       />
       <div className="relative z-10">
-        <span className="mb-8 block text-3xl font-extrabold tracking-tight text-white">
+        <span className="mb-8 block text-3xl font-semibold tracking-tight text-white">
           {Constants.APP_NAME}
         </span>
         <h1 className="max-w-md text-[44px] font-extrabold leading-[1.1] tracking-tight text-white">

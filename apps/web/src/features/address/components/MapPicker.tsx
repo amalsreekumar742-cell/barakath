@@ -131,7 +131,7 @@ export function MapPicker({ onResolved }: MapPickerProps) {
 
   return (
     <div className="space-y-2">
-      <label className="mb-1.5 block text-xs font-extrabold uppercase tracking-wide text-muted">
+      <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-muted">
         Search for your location (optional)
       </label>
       <input

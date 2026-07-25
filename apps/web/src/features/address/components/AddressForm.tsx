@@ -58,7 +58,7 @@ export function AddressForm({ onSubmit, onCancel, submitting = false, isFirstAdd
       <MapPicker onResolved={handleLocationResolved} />
 
       <div>
-        <p className="mb-2 text-xs font-extrabold uppercase tracking-wide text-muted">Address label</p>
+        <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted">Address label</p>
         <div className="flex gap-2">
           {ADDRESS_LABELS.map((option) => (
             <button
@@ -66,7 +66,7 @@ export function AddressForm({ onSubmit, onCancel, submitting = false, isFirstAdd
               type="button"
               onClick={() => setValue('label', option, { shouldValidate: true })}
               aria-pressed={label === option}
-              className={`rounded-full border px-4 py-1.5 text-sm font-bold transition ${
+              className={`rounded-full border px-4 py-1.5 text-sm font-medium transition ${
                 label === option
                   ? 'border-primary bg-primary-subtle text-primary'
                   : 'border-border-strong text-foreground hover:bg-subtle'
@@ -84,7 +84,7 @@ export function AddressForm({ onSubmit, onCancel, submitting = false, isFirstAdd
 
       <Field label="Phone number" error={errors.phone?.message}>
         <div className="flex items-center rounded-md border border-border-strong">
-          <span className="border-r border-border-strong px-3 text-sm font-bold text-muted">
+          <span className="border-r border-border-strong px-3 text-sm font-medium text-muted">
             {Constants.DEFAULT_COUNTRY_CODE}
           </span>
           <input
@@ -132,7 +132,7 @@ export function AddressForm({ onSubmit, onCancel, submitting = false, isFirstAdd
       </Field>
 
       {!isFirstAddress && (
-        <label className="flex items-center gap-2 text-sm font-bold text-foreground">
+        <label className="flex items-center gap-2 text-sm font-medium text-foreground">
           <input type="checkbox" {...register('isDefault')} className="size-4 rounded border-border-strong" />
           Set as default address
         </label>
@@ -155,9 +155,9 @@ export function AddressForm({ onSubmit, onCancel, submitting = false, isFirstAdd
 function Field({ label, error, children }: { label: string; error?: string; children: ReactNode }) {
   return (
     <div>
-      <label className="mb-1.5 block text-xs font-extrabold uppercase tracking-wide text-muted">{label}</label>
+      <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-muted">{label}</label>
       {children}
-      {error && <p className="mt-1 text-xs font-bold text-error">{error}</p>}
+      {error && <p className="mt-1 text-xs font-medium text-error">{error}</p>}
     </div>
   );
 }

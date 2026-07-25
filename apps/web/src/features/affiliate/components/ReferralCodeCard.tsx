@@ -49,11 +49,11 @@ export function ReferralCodeCard({ code }: { code: string }) {
   return (
     <div className="rounded-2xl border border-border bg-surface p-4">
       <div className="flex items-center justify-between gap-3">
-        <p className="text-sm font-extrabold text-foreground">Your referral code</p>
+        <p className="text-sm font-semibold text-foreground">Your referral code</p>
         <button
           type="button"
           onClick={handleCopy}
-          className="inline-flex shrink-0 items-center gap-1.5 text-xs font-bold text-primary hover:underline"
+          className="inline-flex shrink-0 items-center gap-1.5 text-xs font-medium text-primary hover:underline"
         >
           <Copy size={14} aria-hidden />
           Copy
@@ -62,7 +62,7 @@ export function ReferralCodeCard({ code }: { code: string }) {
 
       <div className="mt-3 flex items-center gap-3">
         <div className="min-w-0 flex-1 rounded-lg bg-success-subtle px-4 py-3">
-          <p className="truncate font-mono text-xl font-extrabold tracking-widest text-success">{code}</p>
+          <p className="truncate font-mono text-xl font-semibold tracking-widest text-success">{code}</p>
         </div>
         <Button variant="primary" size="lg" onClick={handleShare} iconLeft={<Share2 size={16} />}>
           Share

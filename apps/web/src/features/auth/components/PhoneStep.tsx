@@ -52,7 +52,7 @@ export function PhoneStep({
       </div>
 
       <div>
-        <label htmlFor="phone" className="mb-2 block text-[13px] font-bold text-foreground">
+        <label htmlFor="phone" className="mb-2 block text-[13px] font-medium text-foreground">
           Mobile number
         </label>
         <div
@@ -60,7 +60,7 @@ export function PhoneStep({
             errors.phone ? 'border-error' : 'border-border-strong'
           }`}
         >
-          <span className="border-r border-border pr-3 text-[15px] font-bold text-foreground">
+          <span className="border-r border-border pr-3 text-[15px] font-medium text-foreground">
             {Constants.DEFAULT_COUNTRY_CODE}
           </span>
           <input

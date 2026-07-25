@@ -139,7 +139,7 @@ export function CartSection() {
       <section aria-label="Your bag" className="rounded-xl border border-border bg-surface p-6">
         <div className="flex items-baseline justify-between gap-3">
           <p className="font-display text-lg font-extrabold text-foreground">Your bag</p>
-          <span className="text-sm font-bold text-muted">
+          <span className="text-sm font-medium text-muted">
             {itemCount} item{itemCount === 1 ? '' : 's'}
           </span>
         </div>
@@ -166,7 +166,7 @@ export function CartSection() {
           className="flex items-center gap-2.5 rounded-xl border border-border bg-surface px-4 py-3.5 text-left transition hover:bg-subtle"
         >
           <Tag size={16} className="shrink-0 text-primary" aria-hidden />
-          <span className="flex-1 text-sm font-bold text-foreground">
+          <span className="flex-1 text-sm font-medium text-foreground">
             {appliedCoupon ? `${appliedCoupon.code} applied` : 'Apply a coupon'}
           </span>
           <ChevronRight size={16} className="shrink-0 text-faint" aria-hidden />
@@ -179,7 +179,7 @@ export function CartSection() {
             Proceed to checkout
           </Button>
           {proceedDisabledReason && (
-            <p className="mt-2 flex items-center justify-center gap-1.5 text-xs font-bold text-error">
+            <p className="mt-2 flex items-center justify-center gap-1.5 text-xs font-medium text-error">
               <AlertTriangle size={13} aria-hidden /> {proceedDisabledReason}
             </p>
           )}

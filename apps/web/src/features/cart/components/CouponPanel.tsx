@@ -48,15 +48,15 @@ function CouponRow({
       <div className="min-w-0">
         <div className="flex items-center gap-1.5">
           <Tag size={13} className="shrink-0 text-primary" aria-hidden />
-          <span className="truncate text-sm font-extrabold text-foreground">{coupon.code}</span>
+          <span className="truncate text-sm font-semibold text-foreground">{coupon.code}</span>
           {isSpinWon && (
-            <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-gold-subtle px-1.5 py-0.5 text-[10px] font-extrabold uppercase tracking-wide text-gold-strong">
+            <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-gold-subtle px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-gold-strong">
               <Sparkles size={10} aria-hidden /> Spin win
             </span>
           )}
         </div>
         <p className="truncate text-xs text-muted">{coupon.description}</p>
-        <p className="text-xs font-bold text-success">Save {formatInr(discount)}</p>
+        <p className="text-xs font-medium text-success">Save {formatInr(discount)}</p>
       </div>
       <Button
         type="button"
@@ -78,15 +78,15 @@ function LockedCouponRow({ coupon, reason, isSpinWon }: LockedCoupon) {
       <Lock size={14} className="shrink-0 text-faint" aria-hidden />
       <div className="min-w-0">
         <div className="flex items-center gap-1.5">
-          <span className="truncate text-sm font-extrabold text-foreground">{coupon.code}</span>
+          <span className="truncate text-sm font-semibold text-foreground">{coupon.code}</span>
           {isSpinWon && (
-            <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-subtle px-1.5 py-0.5 text-[10px] font-extrabold uppercase tracking-wide text-muted">
+            <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-subtle px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-muted">
               <Sparkles size={10} aria-hidden /> Spin win
             </span>
           )}
         </div>
         <p className="truncate text-xs text-muted">{coupon.description}</p>
-        <p className="text-xs font-bold text-muted">{reason}</p>
+        <p className="text-xs font-medium text-muted">{reason}</p>
       </div>
     </div>
   );
@@ -230,15 +230,15 @@ export function CouponPanel({ items, appliedCoupon, uid, isAuthenticated }: Coup
           Apply
         </Button>
       </form>
-      {validationError && <p className="mt-1.5 text-xs font-bold text-error">{validationError}</p>}
+      {validationError && <p className="mt-1.5 text-xs font-medium text-error">{validationError}</p>}
 
       {appliedCoupon && (
         <div className="mt-3 flex items-center justify-between gap-3 rounded-lg border border-primary bg-primary-subtle px-3 py-2.5">
           <div className="flex min-w-0 items-center gap-1.5">
             <Tag size={14} className="shrink-0 text-primary" aria-hidden />
-            <span className="truncate text-sm font-extrabold text-foreground">{appliedCoupon.code}</span>
+            <span className="truncate text-sm font-semibold text-foreground">{appliedCoupon.code}</span>
             {appliedCoupon.isSpinWon && (
-              <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-gold-subtle px-1.5 py-0.5 text-[10px] font-extrabold uppercase tracking-wide text-gold-strong">
+              <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-gold-subtle px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-gold-strong">
                 <Sparkles size={10} aria-hidden /> Spin win
               </span>
             )}
@@ -270,7 +270,7 @@ export function CouponPanel({ items, appliedCoupon, uid, isAuthenticated }: Coup
         <div className="mt-4 space-y-4">
           {spinAvailable.length > 0 && (
             <div>
-              <p className="mb-2 text-xs font-extrabold uppercase tracking-wide text-muted">
+              <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted">
                 From your spins
               </p>
               <div className="space-y-2">
@@ -290,7 +290,7 @@ export function CouponPanel({ items, appliedCoupon, uid, isAuthenticated }: Coup
 
           {regularAvailable.length > 0 && (
             <div>
-              <p className="mb-2 text-xs font-extrabold uppercase tracking-wide text-muted">
+              <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted">
                 Available for you
               </p>
               <div className="space-y-2">
@@ -310,7 +310,7 @@ export function CouponPanel({ items, appliedCoupon, uid, isAuthenticated }: Coup
 
           {locked.length > 0 && (
             <div>
-              <p className="mb-2 text-xs font-extrabold uppercase tracking-wide text-muted">Locked</p>
+              <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted">Locked</p>
               <div className="space-y-2">
                 {locked.map((l) => (
                   <LockedCouponRow key={l.coupon.id} {...l} />

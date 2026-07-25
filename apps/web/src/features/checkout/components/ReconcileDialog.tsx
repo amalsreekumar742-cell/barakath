@@ -33,8 +33,8 @@ export function ReconcileDialog({ reconcile, onContinue, onCancel }: ReconcileDi
             </h2>
           </div>
           <p className="mt-2 text-sm text-muted">
-            The price you saw was <span className="font-bold text-foreground">{formatInr(reconcile.displayed)}</span>,
-            but your order now totals <span className="font-bold text-foreground">{formatInr(reconcile.amount)}</span>{' '}
+            The price you saw was <span className="font-medium text-foreground">{formatInr(reconcile.displayed)}</span>,
+            but your order now totals <span className="font-medium text-foreground">{formatInr(reconcile.amount)}</span>{' '}
             (a coupon or price may have just changed). Continue with the new amount, or cancel.
           </p>
           <div className="mt-5 flex gap-3">

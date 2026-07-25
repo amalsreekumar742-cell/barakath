@@ -68,17 +68,17 @@ export function AddressCard({
 
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-center gap-2">
-          <span className="inline-flex items-center gap-1 text-sm font-extrabold text-foreground">
+          <span className="inline-flex items-center gap-1 text-sm font-semibold text-foreground">
             <MapPin size={14} />
             {address.label}
           </span>
           {address.isDefault && (
-            <span className="rounded-full bg-primary-subtle px-2 py-0.5 text-[11px] font-extrabold uppercase tracking-wide text-primary">
+            <span className="rounded-full bg-primary-subtle px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-primary">
               Default
             </span>
           )}
         </div>
-        <p className="mt-1 text-sm font-bold text-foreground">{address.fullName}</p>
+        <p className="mt-1 text-sm font-medium text-foreground">{address.fullName}</p>
         <p className="mt-0.5 text-sm text-muted">{formatted}</p>
         <p className="mt-0.5 text-sm text-muted">{address.phone}</p>
       </div>

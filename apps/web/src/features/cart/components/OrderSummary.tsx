@@ -22,7 +22,7 @@ function Row({
 }) {
   return (
     <div className="flex items-center justify-between py-1.5 text-sm">
-      <span className={emphasis === 'total' ? 'font-extrabold text-foreground' : 'text-muted'}>
+      <span className={emphasis === 'total' ? 'font-semibold text-foreground' : 'text-muted'}>
         {label}
       </span>
       <span
@@ -30,8 +30,8 @@ function Row({
           emphasis === 'total'
             ? 'font-display text-lg font-extrabold text-gold-strong'
             : emphasis === 'discount'
-              ? 'font-bold text-success'
-              : 'font-bold text-foreground'
+              ? 'font-medium text-success'
+              : 'font-medium text-foreground'
         }
       >
         {value}

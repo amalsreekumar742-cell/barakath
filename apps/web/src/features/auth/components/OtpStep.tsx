@@ -81,7 +81,7 @@ export function OtpStep({
         <button
           type="button"
           onClick={onChangeNumber}
-          className="mb-3 inline-flex items-center gap-1 text-[13px] font-bold text-primary hover:underline"
+          className="mb-3 inline-flex items-center gap-1 text-[13px] font-medium text-primary hover:underline"
         >
           <ArrowLeft className="size-4" aria-hidden />
           Change number
@@ -122,7 +122,7 @@ export function OtpStep({
               autoComplete={i === 0 ? 'one-time-code' : 'off'}
               maxLength={1}
               aria-label={`Digit ${i + 1}`}
-              className={`aspect-square min-w-0 flex-1 rounded-lg border-2 text-center text-2xl font-extrabold text-foreground focus:border-primary focus:outline-none ${
+              className={`aspect-square min-w-0 flex-1 rounded-lg border-2 text-center text-2xl font-semibold text-foreground focus:border-primary focus:outline-none ${
                 errors.otp ? 'border-error' : d ? 'border-primary' : 'border-border-strong'
               }`}
             />
@@ -147,7 +147,7 @@ export function OtpStep({
             type="button"
             onClick={onResend}
             disabled={submitting}
-            className="font-bold text-primary hover:underline disabled:opacity-50"
+            className="font-medium text-primary hover:underline disabled:opacity-50"
           >
             Resend code
           </button>

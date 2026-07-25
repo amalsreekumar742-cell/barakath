@@ -212,7 +212,7 @@ export function CheckoutSection() {
             <div className="flex items-center gap-3 rounded-lg border border-border-strong bg-subtle p-4">
               <Truck size={18} className="shrink-0 text-primary" />
               <div>
-                <p className="text-sm font-extrabold text-foreground">Standard delivery</p>
+                <p className="text-sm font-semibold text-foreground">Standard delivery</p>
                 <p className="text-xs text-muted">Delivered in 3–5 business days.</p>
               </div>
             </div>
@@ -246,7 +246,7 @@ export function CheckoutSection() {
         />
 
         {checkout.lastFailure?.reason === 'server-error' && (
-          <p role="alert" className="text-sm font-bold text-error">
+          <p role="alert" className="text-sm font-medium text-error">
             {checkout.lastFailure.message}
           </p>
         )}

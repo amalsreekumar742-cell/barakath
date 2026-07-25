@@ -54,7 +54,7 @@ export function CartItemRow({ item, liveStock, onQuantityChange, onRequestRemove
           <div className="min-w-0">
             <Link
               href={`/product/${item.productId}`}
-              className="line-clamp-2 text-sm font-bold text-foreground hover:underline"
+              className="line-clamp-2 text-sm font-medium text-foreground hover:underline"
             >
               {item.name}
             </Link>
@@ -73,7 +73,7 @@ export function CartItemRow({ item, liveStock, onQuantityChange, onRequestRemove
         </div>
 
         {isOutOfStock ? (
-          <p className="mt-2 text-xs font-bold text-error">
+          <p className="mt-2 text-xs font-medium text-error">
             Out of stock — remove this item or check back later.
           </p>
         ) : (
@@ -88,7 +88,7 @@ export function CartItemRow({ item, liveStock, onQuantityChange, onRequestRemove
               >
                 <Minus size={14} />
               </button>
-              <span className="w-7 text-center text-sm font-bold text-foreground">{item.quantity}</span>
+              <span className="w-7 text-center text-sm font-medium text-foreground">{item.quantity}</span>
               <button
                 type="button"
                 onClick={() => onQuantityChange(Math.min(stepCap, item.quantity + 1))}
@@ -102,7 +102,7 @@ export function CartItemRow({ item, liveStock, onQuantityChange, onRequestRemove
 
             <div className="text-right">
               <div className="flex items-baseline justify-end gap-1.5">
-                <span className="text-sm font-extrabold text-gold-strong">{formatInr(lineTotal)}</span>
+                <span className="text-sm font-semibold text-gold-strong">{formatInr(lineTotal)}</span>
                 {item.mrp > item.unitPrice && (
                   <span className="text-xs text-faint line-through">
                     {formatInr(item.mrp * item.quantity)}
