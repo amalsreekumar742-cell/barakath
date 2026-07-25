@@ -1,0 +1,13 @@
+include: package:flutter_lints/flutter.yaml
+
+# Barakath app — analysis options. Extend rules as conventions solidify.
+analyzer:
+  exclude:
+    - build/**
+    - "**/*.g.dart"
+    - "**/*.freezed.dart"
+
+linter:
+  rules:
+    prefer_const_constructors: true
+    prefer_final_locals: true

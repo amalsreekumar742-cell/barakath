@@ -1,0 +1,32 @@
+{
+  "name": "functions",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Barakath Firebase Cloud Functions (privileged writes, payments, triggers).",
+  "main": "lib/index.js",
+  "engines": {
+    "node": "20"
+  },
+  "scripts": {
+    "build": "tsc",
+    "build:watch": "tsc --watch",
+    "lint": "tsc --noEmit",
+    "serve": "pnpm build && firebase emulators:start --only functions",
+    "shell": "pnpm build && firebase functions:shell",
+    "deploy": "firebase deploy --only functions",
+    "logs": "firebase functions:log",
+    "test": "echo \"no tests yet\" && exit 0"
+  },
+  "dependencies": {
+    "firebase-admin": "^12.7.0",
+    "firebase-functions": "^6.1.1",
+    "razorpay": "^2.9.5",
+    "pdfkit": "^0.15.1",
+    "uuid": "^11.0.3"
+  },
+  "devDependencies": {
+    "@types/pdfkit": "^0.13.9",
+    "@types/uuid": "^10.0.0",
+    "typescript": "^5.6.3"
+  }
+}

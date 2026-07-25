@@ -1,0 +1,183 @@
+@import "tailwindcss";
+
+/*
+ * Barakath Design System — Tailwind v4 CSS-first tokens (no tailwind.config.js).
+ *
+ * Values are taken verbatim from the design handoff token files
+ * (docs/design/design-system/tokens/{colors,scale,fonts}.css) and are IDENTICAL to
+ * apps/admin/src/index.css. WHY duplicated rather than imported: Tailwind v4 resolves
+ * @theme at build time per app, and the two apps run different bundlers (Next's PostCSS
+ * vs Vite). Keeping the values byte-identical is what makes the admin, the website and
+ * the Flutter app read as one brand — if a token changes, change it in all three.
+ *
+ * Warm, earthy, premium: evergreen primary + signature gold over warm off-white
+ * neutrals, Manrope throughout, soft warm-tinted shadows.
+ * Never inline raw hex in features — use these token utilities.
+ */
+@theme {
+  /* --- Brand: evergreen primary --- */
+  --color-primary: #0f7a5a;
+  --color-primary-dark: #166534;
+  --color-primary-subtle: #e9f4ef;
+
+  /* --- Brand: signature gold --- */
+  --color-gold: #daa227;
+  --color-gold-strong: #b8881f; /* prices, premium/affiliate tags */
+  --color-gold-subtle: #fbf4dd;
+  --color-gold-border: #e8d28a;
+
+  /* --- Surfaces (warm off-white → white) --- */
+  --color-app: #fcfcfb; /* app background */
+  --color-surface: #ffffff; /* cards (dominant surface) */
+  --color-subtle: #f8f8f8; /* chip / subtle fill */
+  --color-ink: #181717; /* near-black inverse surface */
+
+  /* --- Text hierarchy --- */
+  --color-foreground: #1f1f1f; /* primary text */
+  --color-muted: #7f7f7f; /* secondary text */
+  --color-faint: #9ea2ad; /* tertiary text */
+
+  /* --- Borders --- */
+  --color-border: #ececec; /* hairline */
+  --color-border-strong: #e5e5e5;
+
+  /* --- Semantic status (subtle bg + strong fg) --- */
+  --color-success: #16a34a;
+  --color-success-subtle: #e7f6ec;
+  --color-warning: #b8881f;
+  --color-warning-subtle: #fbf4dd;
+  --color-error: #fb3748;
+  --color-error-subtle: #feecee;
+  --color-info: #005aa5;
+  --color-info-subtle: #dfefff;
+
+  /* --- Typography: Manrope, one brand typeface --- */
+  --font-sans: "Manrope", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-display: "Manrope", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+
+  /* --- Radius (px) — controls 8, cards 16 --- */
+  --radius-xs: 4px;
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+
+  /* --- Elevation: soft, warm-tinted (never harsh black) --- */
+  --shadow-xs: 0 1px 2px rgba(95, 74, 46, 0.06);
+  --shadow-sm: 0 2px 4px rgba(27, 28, 29, 0.04), 0 1px 2px rgba(95, 74, 46, 0.04);
+  --shadow-md: 0 6px 16px rgba(95, 74, 46, 0.08), 0 1px 2px rgba(95, 74, 46, 0.04);
+  --shadow-lg: 0 16px 40px rgba(95, 74, 46, 0.12), 0 2px 6px rgba(95, 74, 46, 0.06);
+
+  /*
+   * Breakpoints — spec 3.24: desktop >= 1024, tablet 768–1023, mobile < 768.
+   * Restated rather than invented: Tailwind's defaults already put md at 768 and lg
+   * at 1024, so `md:` is "tablet and up" and `lg:` is "desktop" throughout the site.
+   *
+   * IMPORTANT: this build's compiled stylesheet does NOT emit `@media` blocks in ascending
+   * breakpoint-value order — it emits them in first-usage-in-source-scan order (confirmed by
+   * inspecting the built CSS: blocks came out as md, lg, sm, xl, not sm, md, lg, xl).
+   * Consequence: `sm:` and `md:`/`lg:`/`xl:` utilities for the SAME CSS property must never
+   * both appear on one element — whichever compiled last wins, regardless of viewport width,
+   * so a `sm:grid-cols-2` can silently outrank a `lg:grid-cols-4` even on a 1440px screen
+   * (this bit `ProductRail.tsx` — fixed there by dropping `sm:` and using the same md/lg/xl
+   * ladder every other grid on the site already uses, see `PRODUCT_GRID_CLASS`).
+   */
+  --breakpoint-md: 768px;
+  --breakpoint-lg: 1024px;
+}
+
+/* Base document styling — Manrope, warm app background, primary ink text. */
+@layer base {
+  html,
+  body {
+    height: 100%;
+  }
+  body {
+    background-color: var(--color-app);
+    color: var(--color-foreground);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+}
+
+/* Modal/dialog entrance — quiet & quick (design motion: 120–200ms). */
+@keyframes fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px) scale(0.99);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+.animate-fade-in {
+  animation: fade-in 160ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/*
+ * Print stylesheet — used by the Invoice screen (spec 3.11 §5). A4 page, no site chrome/sidebar/
+ * buttons, black on white, page-break-inside avoided on the items table.
+ *
+ * WHY "isolate the printable area" rather than adding `print:hidden` across Header/Footer/
+ * AccountSidebar: those are shared components rendered by the (account) layout, used by every
+ * account page, not just the invoice. Scoping the print rule to a single opt-in `.print-area` class
+ * (with a matching `.print-hide` for the invoice page's own on-screen-only controls) keeps this
+ * entirely local to the one screen that needs it — nothing elsewhere has to know printing exists.
+ * `visibility: hidden` (not `display: none`) on every element, then `visibility: visible` back on
+ * `.print-area` and its descendants, is the standard "print only this" trick: it still hides
+ * everything (header, sidebar, buttons) regardless of where `.print-area` sits in the DOM tree,
+ * without needing to enumerate every sibling that must disappear.
+ */
+@media print {
+  @page {
+    size: A4;
+    margin: 14mm;
+  }
+
+  body * {
+    visibility: hidden;
+  }
+
+  .print-area,
+  .print-area * {
+    visibility: visible;
+  }
+
+  .print-area {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    background: #ffffff;
+    color: #000000;
+  }
+
+  .print-hide {
+    display: none !important;
+  }
+
+  /* Keeps one order line from splitting across a page boundary mid-row. */
+  .avoid-break {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+}
+
+/* Spin & Win result confetti (win only, `features/spinner/components/Confetti.tsx`) — pieces fall and
+   fade out; each piece's own delay/duration is randomised inline per-instance, not here. */
+@keyframes confetti-fall {
+  from {
+    transform: translateY(-10px);
+    opacity: 1;
+  }
+  to {
+    transform: translateY(220px);
+    opacity: 0;
+  }
+}
+.animate-confetti-fall {
+  animation-name: confetti-fall;
+  animation-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+  animation-fill-mode: forwards;
+}

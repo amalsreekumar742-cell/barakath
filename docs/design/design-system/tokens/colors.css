@@ -1,0 +1,74 @@
+/* ============================================================
+   Barakath — Color tokens
+   Warm, earthy, premium. Evergreen primary + signature gold,
+   over warm off-white neutrals. Values taken verbatim from the
+   source Figma file (BARAKATH/Colors + Ungrouped collections).
+   ============================================================ */
+:root {
+  /* --- Brand: evergreen primary --- */
+  --brand-primary:        rgb(15,122,90);   /* Brand/Primary — CTAs, links, active */
+  --brand-primary-dark:   rgb(22,101,52);   /* Brand/Primary Dark — press / hover-down */
+  --brand-primary-subtle: rgb(233,244,239); /* tint bg for primary surfaces */
+
+  /* --- Brand: signature gold (the accent that carries the brand) --- */
+  --brand-gold:        rgb(218,162,39);   /* Brand/Gold — ratings, highlights, price */
+  --brand-gold-strong: rgb(184,136,31);   /* text-on-light gold */
+  --brand-gold-subtle: rgb(251,244,221);  /* gold wash surface */
+  --brand-gold-border: rgb(232,210,138);
+
+  /* --- Neutrals: warm off-white → ink --- */
+  --neutral-0:   rgb(255,255,255);
+  --neutral-25:  rgb(252,252,251);  /* app background (warm white) */
+  --neutral-50:  rgb(248,248,248);  /* chip / subtle fill */
+  --neutral-100: rgb(245,245,245);
+  --neutral-200: rgb(236,236,236);  /* hairline borders */
+  --neutral-300: rgb(229,229,229);  /* strong borders */
+  --neutral-500: rgb(158,162,173);
+  --neutral-600: rgb(127,127,127);  /* secondary text */
+  --neutral-800: rgb(69,74,83);
+  --neutral-900: rgb(31,31,31);     /* primary text */
+  --neutral-1000: rgb(0,0,0);
+  --ink:         rgb(24,23,23);     /* near-black inverse surface */
+
+  /* --- Semantic status --- */
+  --success:        rgb(22,163,74);
+  --success-strong: rgb(31,193,107);
+  --error:          rgb(251,55,72);
+  --error-subtle:   rgba(251,55,72,0.10);
+  --warning:        rgb(255,219,67);
+  --info:           rgb(0,90,165);
+  --info-subtle:    rgb(223,239,255);
+
+  /* --- Semantic aliases (use these in components) --- */
+  --surface-app:      var(--neutral-25);
+  --surface-card:     var(--neutral-0);
+  --surface-raised:   var(--neutral-0);
+  --surface-subtle:   var(--neutral-50);
+  --surface-inverse:  var(--ink);
+
+  --text-primary:    var(--neutral-900);
+  --text-secondary:  var(--neutral-600);
+  --text-tertiary:   var(--neutral-500);
+  --text-inverse:    var(--neutral-0);
+  --text-brand:      var(--brand-primary);
+  --text-on-primary: var(--neutral-0);
+
+  --border-subtle:  var(--neutral-200);
+  --border-default: var(--neutral-300);
+  --border-strong:  var(--neutral-500);
+
+  /* gold badge trio */
+  --badge-gold-bg:     rgb(255,248,230);
+  --badge-gold-border: rgb(232,210,138);
+  --badge-gold-text:   rgb(138,100,16);
+
+  /* focus ring */
+  --focus-ring: rgba(15,122,90,0.28);
+
+  /* overlays */
+  --scrim: rgba(24,23,23,0.45);
+  --shadow-color: rgba(95,74,46,0.08);  /* warm-tinted shadow */
+}
+
+a { color: var(--brand-primary); text-decoration: none; }
+a:hover { color: var(--brand-primary-dark); text-decoration: underline; }

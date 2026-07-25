@@ -1,0 +1,15 @@
+{
+  "projects": {
+    "default": "barakath-e6ad3"
+  },
+  "targets": {
+    "barakath-e6ad3": {
+      "hosting": {
+        "admin": [
+          "barakath-e6ad3"
+        ]
+      }
+    }
+  },
+  "etags": {}
+}

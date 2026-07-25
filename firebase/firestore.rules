@@ -1,0 +1,378 @@
+rules_version = '2';
+
+// Barakath Firestore Security Rules — starter.
+// The admin <-> customer boundary is enforced HERE (server-side), never by which app opened the page.
+// Sub-admin docs are created/updated ONLY by a Cloud Function or trusted server token — never the
+// client. Catalogue data (categories/products) is admin-writable; money/status (orders) is read-only
+// to the client and mutated server-side. Everything not explicitly allowed stays denied.
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    // A caller is an admin via the `admin: true` custom claim OR (fallback) an existing subAdmins doc.
+    // WHY both: the claim is the canonical, read-free gate (also used by Storage rules); the exists()
+    // fallback keeps access working for an admin whose claim hasn't propagated yet.
+    function isAdmin() {
+      return isSignedIn()
+        && (request.auth.token.admin == true
+          || exists(/databases/$(database)/documents/subAdmins/$(request.auth.uid)));
+    }
+
+    // The signed-in customer acting on their OWN document.
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    // A customer may edit only their own PROFILE fields. Money (walletBalance,
+    // affiliateBalance), account status and lifetime totals are server-owned —
+    // whitelisting the editable keys means a tampered client can't credit itself.
+    // `referredBy` is included because it's captured once at profile creation.
+    function onlyOwnProfileFields() {
+      return request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+        'fullName', 'email', 'whatsapp', 'profileImage', 'referredBy',
+        'keywords', 'fcmToken', 'updatedAt'
+      ]);
+    }
+
+    // --- Sub admins (spec §1.1, §1.20) — admin manages the admin directory (create/edit/suspend/delete).
+    // WHY client-writable now: the Sub Admin feature writes the Firestore doc directly as a scaffold.
+    // TODO: move to a Cloud Function so the Firebase Auth account + `admin:true` custom claim are created
+    // atomically with the doc (and revoked on delete); this rule then returns to `write: if false`. ---
+    match /subAdmins/{uid} {
+      allow read: if isSignedIn() && (request.auth.uid == uid || isAdmin());
+      allow create, update, delete: if isAdmin();
+    }
+
+    // --- Categories (spec §1.4) — admin CRUD; public read later for storefronts ---
+    match /categories/{categoryId} {
+      // Catalogue is public: guests browse the storefront before signing in.
+      allow read: if true;
+      allow write: if isAdmin();
+
+      // Sub-categories are their own docs under each category (spec §1.4).
+      match /subCategories/{subCategoryId} {
+        allow read: if true;
+        allow write: if isAdmin();
+      }
+    }
+
+    // --- Products (spec §1.5) — admin CRUD; public read later for storefronts ---
+    match /products/{productId} {
+      // Public catalogue read (guests included). Price/stock live on variants, which
+      // are equally public — nothing sensitive is stored on either.
+      allow read: if true;
+      allow write: if isAdmin();
+
+      // Variants are their own docs under each product (spec §1.5).
+      match /variants/{variantId} {
+        allow read: if true;
+        allow write: if isAdmin();
+      }
+    }
+
+    // Collection-group read for variants — enables the inventory SKU count (getCountFromServer over
+    // collectionGroup('variants')) and any cross-product variant query. Writes still go through the
+    // path-scoped products/{id}/variants rule above.
+    match /{path=**}/variants/{variantId} {
+      allow read: if isAdmin();
+    }
+
+    // Collection-group read for sub-categories — the website's search page runs
+    // collectionGroup('subCategories') to match a query term against every category's sub-categories
+    // in one read, rather than one query per category. PUBLIC (unlike variants above): a Firestore
+    // collection-group query needs its own grant even when the exact same documents are already
+    // public via the nested path (categories/{id}/subCategories/{id}, `allow read: if true` above) —
+    // this closes that gap. Variants stay admin-only there because that rule guards bulk price/stock
+    // data; a sub-category doc carries only a name and its parent category id, no pricing or stock, so
+    // the same "protect it from a one-shot scrape" concern doesn't apply.
+    match /{path=**}/subCategories/{subCategoryId} {
+      allow read: if true;
+    }
+
+    // --- Orders (spec §1.3, §1.7) — admin reads + advances status; customers place them elsewhere ---
+    // WHY allow admin update (not create/delete): the admin panel is the trusted actor (gated by the
+    // `admin` claim) that manually advances order status / cancels (spec §1.7 manual mode). Orders are
+    // CREATED by the customer app (its own rules) and are never created or hard-deleted from here.
+    match /orders/{orderId} {
+      // The customer reads their OWN orders (order success, payment retry, order history).
+      // Writes stay server-side: createPaymentOrder/verifyPayment use the Admin SDK, which bypasses
+      // rules entirely, so a client can never mint or mutate an order — amounts and payment status
+      // are computed and stamped by Cloud Functions.
+      allow read: if isAdmin() || (isSignedIn() && resource.data.userId == request.auth.uid);
+      allow update: if isAdmin();
+      // Admin MAY create an order: an approved replacement (spec §1.10) creates a free (₹0) replacement
+      // order from the admin panel. TODO: move that creation to a Cloud Function (atomicity + FCM), then
+      // this can return to `create: false`. Customer-placed orders come from the app's own rules.
+      allow create: if isAdmin();
+      allow delete: if false;
+    }
+
+    // --- Stock adjustments (spec §1.6) — admin-written audit log; entries are immutable once created ---
+    match /stockAdjustments/{adjustmentId} {
+      allow read: if isAdmin();
+      allow create: if isAdmin();
+      allow update, delete: if false;
+    }
+
+    // --- Customers (spec §1.8) — admin reads the directory + a detail; admin UPDATES a user to
+    // block/unblock (status) and to credit the wallet (walletBalance increment). Users are created by
+    // the customer app's signup flow and are never created/hard-deleted from here ("blocked, not
+    // deleted"). Addresses are a read-only subcollection for the admin. ---
+    match /users/{userId} {
+      // The customer reads their own doc (the app mirrors it live for profile + wallet display);
+      // admin reads everyone's.
+      allow read: if isAdmin() || isOwner(userId);
+      // Admin may edit freely; the customer only their own whitelisted profile fields.
+      allow update: if isAdmin() || (isOwner(userId) && onlyOwnProfileFields());
+      // Accounts are created by the verifyOTP Cloud Function and never deleted from a client.
+      allow create, delete: if false;
+
+      match /addresses/{addressId} {
+        allow read: if isAdmin() || isOwner(userId);
+        allow write: if isOwner(userId); // the customer manages their own addresses from the app
+      }
+
+      // Wishlist is entirely the customer's own — { productId, addedAt } per doc.
+      match /wishlist/{productId} {
+        allow read, write: if isOwner(userId);
+      }
+
+      // --- Saved payout accounts (spec §2.22, §4.9) — Batch 4 ---
+      // The customer manages their own; admin reads them to make the transfer.
+      // The "max 2" cap is enforced in the app: a rule cannot count sibling
+      // documents, so this is a UI invariant, not a security boundary. Nothing
+      // financial depends on the count — a third account would be an annoyance,
+      // not a loss.
+      match /bankAccounts/{accountId} {
+        allow read: if isAdmin() || isOwner(userId);
+        allow create, update, delete: if isOwner(userId);
+      }
+    }
+
+    // --- Wallet ledger (spec §1.8) — admin reads history and appends an Admin credit; entries are
+    // immutable once written. TODO: the credit should ideally be a Cloud Function transaction. ---
+    match /walletTransactions/{txnId} {
+      // Batch 4: the customer reads their OWN history in the wallet tab. This is
+      // a top-level collection filtered by `userId` — NOT a sub-collection of
+      // the user document.
+      allow read: if isAdmin()
+        || (isSignedIn() && resource.data.userId == request.auth.uid);
+      allow create: if isAdmin();
+      allow update, delete: if false;
+    }
+
+    // --- Customer wallet top-ups (spec §2.20 "Add money") ---
+    // Written ONLY by createWalletTopUpOrder / verifyWalletTopUp through the
+    // Admin SDK. No client write of any kind: `amount` here is the figure the
+    // verifier credits, so a client able to create or edit one of these could
+    // pay ₹1 and credit itself ₹10,000. Owner read is allowed so a customer's
+    // own top-up history can be surfaced; the app does not require it today.
+    match /walletTopUps/{topUpId} {
+      allow read: if isAdmin()
+        || (isSignedIn() && resource.data.userId == request.auth.uid);
+      allow write: if false;
+    }
+
+    // --- Affiliate ledger (spec §1.8, §1.14) — admin reads, and appends a Debit row when APPROVING a
+    // withdrawal (the balance deduction's ledger entry). Referral credits are still written by Cloud
+    // Functions in the app flow. Entries are immutable once written. TODO: move the withdrawal-approval
+    // write to a Cloud Function so the ledger row + balance decrement are atomic. ---
+    match /affiliateTransactions/{txnId} {
+      // Batch 4: the affiliate reads their OWN commission ledger. Top-level,
+      // filtered by `userId`.
+      allow read: if isAdmin()
+        || (isSignedIn() && resource.data.userId == request.auth.uid);
+      allow create: if isAdmin();
+      allow update, delete: if false;
+    }
+
+    // --- Affiliate withdrawals (spec §1.8, §1.14) — admin reads + processes (approve/reject); requests
+    // are created by the customer app. ---
+    match /affiliateWithdrawals/{withdrawalId} {
+      allow read: if isAdmin()
+        || (isSignedIn() && resource.data.userId == request.auth.uid);
+      allow update: if isAdmin();
+
+      // Batch 4: the affiliate FILES the request from the app. This is the one
+      // place the client writes a financial document, because no
+      // `createWithdrawalRequest` callable exists yet — so the rule carries the
+      // whole invariant instead of trusting the UI:
+      //   * it is their own uid;
+      //   * status starts Pending — they cannot self-approve;
+      //   * the amount is a positive number at or above the ₹10,000 minimum and
+      //     no more than the affiliateBalance ON THE SERVER'S COPY of their user
+      //     document, so a tampered client cannot request money it has not earned;
+      //   * admin-owned resolution fields start empty.
+      // The balance itself is untouched — admin deducts it on approval.
+      // TODO: replace with a Cloud Function and set this back to `create: false`.
+      allow create: if isSignedIn()
+        && request.resource.data.userId == request.auth.uid
+        && request.resource.data.status == 'Pending'
+        && request.resource.data.amount is number
+        && request.resource.data.amount >= 10000
+        && request.resource.data.amount <=
+             get(/databases/$(database)/documents/users/$(request.auth.uid))
+               .data.affiliateBalance
+        && request.resource.data.rejectionReason == ''
+        && request.resource.data.processedBy == '';
+
+      allow delete: if false;
+    }
+
+    // --- Payments (spec §1.9) — admin reads only. Payment records are created + verified server-side
+    // (a Cloud Function checking the Razorpay signature); the client never writes money/gateway data. ---
+    match /payments/{paymentId} {
+      allow read: if isAdmin();
+      allow write: if false;
+    }
+
+    // --- Replacement requests (spec §1.10) — admin reads + resolves (approve/reject updates the doc);
+    // requests are created by the customer app, never created/deleted from the admin panel. ---
+    match /replacements/{replacementId} {
+      allow read: if isAdmin()
+        || (isSignedIn() && resource.data.userId == request.auth.uid);
+      allow update: if isAdmin();
+
+      // Batch 4: the customer raises the request from Order Detail. Status is
+      // pinned to Pending and the admin's resolution fields must start empty, so
+      // a request cannot arrive pre-approved.
+      allow create: if isSignedIn()
+        && request.resource.data.userId == request.auth.uid
+        && request.resource.data.status == 'Pending'
+        && request.resource.data.adminNote == ''
+        && request.resource.data.replacementOrderId == '';
+
+      allow delete: if false;
+    }
+
+    // --- Reviews (spec §1.11) — admin reads, flips publish state / edits the admin reply, and hard-
+    // deletes; reviews are written by the customer app after delivery, never created from here. ---
+    match /reviews/{reviewId} {
+      // Published reviews are public (product detail renders them for guests too);
+      // unpublished/moderated ones stay admin-only.
+      allow read: if isAdmin() || resource.data.isPublished == true;
+      allow update: if isAdmin()
+        && request.resource.data.diff(resource.data).affectedKeys()
+             .hasOnly(['isPublished', 'adminResponse', 'updatedAt']);
+      allow delete: if isAdmin();
+
+      // Batch 4: the customer writes a review after delivery. Reviews are
+      // auto-published (spec §2.24), so `isPublished` is forced true here — but
+      // `adminResponse` must start empty, or a customer could author the shop's
+      // reply to their own review.
+      //
+      // "One review per product per order" is checked in the app: a rule cannot
+      // query for an existing document. A duplicate is a data-quality problem,
+      // not a security one, and the rating aggregate is recomputed server-side.
+      allow create: if isSignedIn()
+        && request.resource.data.userId == request.auth.uid
+        && request.resource.data.isPublished == true
+        && request.resource.data.adminResponse == ''
+        && request.resource.data.rating is number
+        && request.resource.data.rating >= 1
+        && request.resource.data.rating <= 5;
+    }
+
+    // --- Coupons (spec §1.12) — admin full CRUD. Public read for redemption is added when the
+    // storefront needs it. ---
+    match /coupons/{couponId} {
+      // A signed-in customer lists coupons to apply one at checkout. Coupon codes are meant to be
+      // used, not hidden — and the discount is recomputed and re-validated server-side by
+      // createPaymentOrder, so reading a coupon here grants nothing on its own.
+      allow read: if isSignedIn() || isAdmin();
+      allow create: if isAdmin();
+      allow update: if isAdmin();
+      allow delete: if isAdmin();
+    }
+
+    // --- Spinner campaigns (spec §1.13) — admin full CRUD; storefront read is added when the app
+    // needs to render active wheels. ---
+    match /spinnerCampaigns/{campaignId} {
+      // Batch 4: the app reads the active campaign to render the wheel. The
+      // segments (`slots[]`) are on this document; knowing them grants nothing,
+      // because `spinWheel` picks the winner server-side.
+      allow read: if isSignedIn() || isAdmin();
+      allow create, update, delete: if isAdmin();
+    }
+
+    // --- Spin history (spec §1.13) — admin reads the per-spin log; entries are written by the customer
+    // app under the signed-in user, never from the admin panel. ---
+    match /spinHistory/{spinId} {
+      // Batch 4: the app reads its OWN spins to show "X spins left today". The
+      // authoritative remaining-spins check still happens inside `spinWheel` —
+      // this read only drives the label.
+      allow read: if isAdmin()
+        || (isSignedIn() && resource.data.userId == request.auth.uid);
+      // Written by the spinWheel Cloud Function (Admin SDK), never a client.
+      allow write: if false;
+    }
+
+    // --- Banners (spec §1.15) — admin full CRUD; storefront read added when the app/website render
+    // banners. ---
+    match /banners/{bannerId} {
+      // Public: the storefront home carousel renders before sign-in.
+      allow read: if true;
+      allow create, update, delete: if isAdmin();
+    }
+
+    // --- Flash sales (spec §1.16) — admin full CRUD (create/toggle/delete also touch products +
+    // variants, which the product rules already allow for admins). ---
+    match /flashSales/{flashSaleId} {
+      // Public: the app needs the sale window to render its countdown.
+      allow read: if true;
+      allow create, update, delete: if isAdmin();
+    }
+
+    // --- General config (settings, versions) — admin reads ---
+    // --- General config (settings, versions) ---
+    // `general/secrets` holds the Razorpay key secret + webhook secret and is admin-only, forever.
+    // It is matched FIRST because rules are additive: a public read on the sibling doc below would
+    // otherwise also expose the secrets.
+    match /general/secrets {
+      allow read, write: if isAdmin();
+    }
+    // Every other general doc (`config`) is publishable — delivery fees, GST, support contacts, legal
+    // text, app version, and the *publishable* razorpayKeyId. The storefront reads it before sign-in,
+    // so it must be world-readable. Never put a secret in here; put it in general/secrets.
+    match /general/{docId} {
+      allow read: if docId != 'secrets';
+      allow write: if isAdmin();
+    }
+
+    // --- Variables (spec §1.21) — colour swatches + variant groups feeding the product form. Its own
+    // collection (not `general/config`) so catalogue master data is isolated from store config. Admin
+    // CRUD; opened to public read later when storefronts need variant options. ---
+    match /variables/{docId} {
+      allow read: if isAdmin();
+      allow write: if isAdmin();
+    }
+
+    // --- Notifications (spec §1.18) — admin composes/reads; a SENT notification is permanent (no delete,
+    // no un-send). Actual FCM fan-out + scheduled dispatch move to Cloud Functions. ---
+    match /notifications/{notificationId} {
+      // Batch 4: a signed-in customer reads broadcasts plus the messages
+      // addressed to them.
+      //
+      // NOTE the DEPLOYED shape (apps/admin/.../createNotification.ts), which is
+      // NOT spec §4.18: audience is `targetType` ('All' | 'Specific') with a
+      // `targetUserIds` ARRAY — there is no `customerId` field, and the deep link
+      // is `linkType`/`linkValue`, not `deepLink`/`referenceId`. The app queries
+      // targetType == 'All', and targetUserIds array-contains uid.
+      allow read: if isAdmin()
+        || (isSignedIn() && (
+              resource.data.targetType == 'All'
+              || request.auth.uid in resource.data.targetUserIds
+           ));
+      allow create, update: if isAdmin();
+      allow delete: if isAdmin() && resource.data.isSent == false;
+    }
+
+    // --- Default deny (until a collection's feature ships) ---
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
