@@ -1,6 +1,7 @@
 'use client';
 
 import { useMemo, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import type { ProductProps, VariantProps } from '@barakath/shared';
 import { resolvePrice } from '@/lib/pricing';
 import { formatInr } from '@/components/catalog/PriceBlock';
@@ -50,6 +51,7 @@ export function ProductExperience({
   activeFlashSaleEndMillis,
 }: ProductExperienceProps) {
   const dispatch = useAppDispatch();
+  const router = useRouter();
   const { requireAuth } = useRequireAuth();
   const isAuthenticated = useAppSelector((s) => s.auth.isAuthenticated);
   const user = useAppSelector((s) => s.auth.user);
@@ -76,6 +78,11 @@ export function ProductExperience({
 
   const resolved = resolvePrice(product, currentVariant);
   const inStock = currentVariant.stock > 0;
+  // Root-state access, not a `features/cart` import — `import/no-restricted-paths` forbids the latter
+  // (see `onAddToBag`'s raw-action-type note below for the same constraint).
+  const alreadyInBag = useAppSelector((s) =>
+    s.cart.items.some((i) => i.productId === product.id && i.variantId === currentVariant.id),
+  );
   const maxQty = Math.max(1, Math.min(currentVariant.stock, 10));
   const isAffiliate = isAuthenticated && (user?.affiliateCode?.trim().length ?? 0) > 0;
 
@@ -275,9 +282,9 @@ export function ProductExperience({
           fullWidth
           loading={adding}
           disabled={!inStock}
-          onClick={onAddToBag}
+          onClick={alreadyInBag ? () => router.push('/cart') : onAddToBag}
         >
-          {inStock ? 'Add to bag' : 'Out of stock'}
+          {!inStock ? 'Out of stock' : alreadyInBag ? 'Go to cart' : 'Add to bag'}
         </Button>
         <WishlistHeart productId={product.id} className="shrink-0 border border-border-strong" />
       </div>

@@ -28,6 +28,9 @@ export const metadata: Metadata = {
     'Shop premium perfumes, books, clothing and Islamic essentials at Barakath. ' +
     'Fast delivery across India.',
   applicationName: Constants.APP_NAME,
+  icons: {
+    icon: '/logo.png',
+  },
   openGraph: {
     type: 'website',
     siteName: Constants.APP_NAME,
