@@ -1,5 +1,8 @@
 {
   "name": "barakath",
   "private": true,
-  "packageManager": "pnpm@11.17.0"
+  "packageManager": "pnpm@11.17.0",
+  "devDependencies": {
+    "turbo": "^2.10.6"
+  }
 }
