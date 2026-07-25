@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, type ReactElement } from 'react';
 import ReactDOM from 'react-dom';
 
 /**
@@ -29,7 +29,7 @@ export interface ModalProps {
   children: React.ReactNode;
 }
 
-export function Modal({
+function ModalImpl({
   isOpen,
   onClose,
   maxWidth = 'max-w-lg',
@@ -83,3 +83,10 @@ export function Modal({
     document.body,
   );
 }
+
+// ReactDOM.createPortal returns ReactPortal, which @types/react's current type definitions treat as
+// incompatible with a component's JSX return type (a DefinitelyTyped inconsistency in how ReactPortal
+// relates to ReactNode, not a real runtime issue — a portal is a valid renderable node). Casting the
+// exported symbol to a plain function type sidesteps re-verifying that broken relationship at every
+// call site; behavior is unchanged.
+export const Modal = ModalImpl as (props: ModalProps) => ReactElement | null;

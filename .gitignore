@@ -13,6 +13,9 @@ functions/lib/
 # Turborepo
 .turbo/
 
+# TypeScript incremental build cache
+*.tsbuildinfo
+
 # Env files (keep .env.example committed)
 .env
 .env.*
