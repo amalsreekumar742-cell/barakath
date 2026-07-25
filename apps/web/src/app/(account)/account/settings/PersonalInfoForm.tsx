@@ -86,7 +86,7 @@ export function PersonalInfoForm({ uid, user }: { uid: string; user: UserDocWith
 
   return (
     <div className="rounded-xl border border-border bg-surface p-5">
-      <h2 className="font-display text-lg font-extrabold text-foreground">Personal info</h2>
+      <h2 className="font-display text-lg font-semibold text-foreground">Personal info</h2>
 
       <form onSubmit={handleSubmit(onSubmit)} className="mt-4 space-y-4" noValidate>
         <Field label="Full name" error={errors.fullName?.message}>

@@ -71,7 +71,7 @@ export function ProductCard({ product }: ProductCardProps) {
         )}
       </div>
 
-      <h3 className="mt-2.5 line-clamp-2 text-sm font-bold leading-snug text-foreground">
+      <h3 className="mt-2.5 line-clamp-2 text-sm font-medium leading-snug text-foreground">
         {product.name}
       </h3>
 

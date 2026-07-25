@@ -30,7 +30,7 @@ export default function HomeError({
       <p className="text-xs font-semibold uppercase tracking-[0.18em] text-gold-strong">
         {Constants.APP_NAME}
       </p>
-      <h1 className="mt-3 font-display text-2xl font-extrabold text-foreground">
+      <h1 className="mt-3 font-display text-2xl font-semibold text-foreground">
         Something went wrong
       </h1>
       <p className="mt-2 text-sm text-muted">

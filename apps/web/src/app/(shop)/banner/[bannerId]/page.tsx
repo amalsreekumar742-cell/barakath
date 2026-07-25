@@ -88,7 +88,7 @@ export default async function BannerPage({ params, searchParams }: BannerPagePro
         <Image src={banner.image} alt={banner.title} fill sizes="100vw" priority className="object-cover" />
       </div>
 
-      <h1 className="mb-6 font-display text-2xl font-extrabold tracking-tight text-foreground">
+      <h1 className="mb-6 font-display text-2xl font-semibold tracking-tight text-foreground">
         {banner.title}
       </h1>
 

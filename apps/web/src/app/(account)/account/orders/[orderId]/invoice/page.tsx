@@ -176,7 +176,7 @@ export default function InvoicePage() {
 
         {/* Order info */}
         <div className="rounded-xl border border-border bg-surface p-6">
-          <h2 className="font-display text-base font-extrabold text-foreground">Order</h2>
+          <h2 className="font-display text-base font-semibold text-foreground">Order</h2>
           <div className="mt-2">
             <SummaryRow label="Order ID" value={orderReference(order.id)} />
             <SummaryRow label="Date" value={formatDate(order.createdAt)} />
@@ -187,7 +187,7 @@ export default function InvoicePage() {
 
         {/* Items table — page-break-inside avoided (globals.css `.avoid-break`) */}
         <div className="avoid-break rounded-xl border border-border bg-surface p-6">
-          <h2 className="font-display text-base font-extrabold text-foreground">Items</h2>
+          <h2 className="font-display text-base font-semibold text-foreground">Items</h2>
           <div className="mt-2 divide-y divide-border">
             {order.items.map((item, i) => (
               <div key={`${item.productId}-${item.variantId}-${i}`} className="flex items-start gap-3 py-2.5 text-sm">
@@ -209,7 +209,7 @@ export default function InvoicePage() {
 
         {/* Summary */}
         <div className="rounded-xl border border-border bg-surface p-6">
-          <h2 className="font-display text-base font-extrabold text-foreground">Summary</h2>
+          <h2 className="font-display text-base font-semibold text-foreground">Summary</h2>
           <div className="mt-2">
             <SummaryRow label="Subtotal" value={money(order.subtotal)} />
             {order.couponDiscount > 0 && (

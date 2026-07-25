@@ -149,7 +149,7 @@ export default function OrderDetailPage() {
 
         {/* Items */}
         <section className="rounded-xl border border-border bg-surface p-5">
-          <h2 className="font-display text-base font-extrabold text-foreground">Items</h2>
+          <h2 className="font-display text-base font-semibold text-foreground">Items</h2>
           <div className="mt-3 divide-y divide-border">
             {order.items.map((item, i) => {
               const existing = replacementFor(item.productId, item.variantId);
@@ -201,7 +201,7 @@ export default function OrderDetailPage() {
 
         {/* Delivery address */}
         <section className="rounded-xl border border-border bg-surface p-5">
-          <h2 className="font-display text-base font-extrabold text-foreground">Delivery address</h2>
+          <h2 className="font-display text-base font-semibold text-foreground">Delivery address</h2>
           <p className="mt-2 text-sm font-medium text-foreground">{order.shippingAddress.fullName}</p>
           <p className="mt-1 text-sm text-muted">
             {[
@@ -220,7 +220,7 @@ export default function OrderDetailPage() {
 
         {/* Payment */}
         <section className="rounded-xl border border-border bg-surface p-5">
-          <h2 className="font-display text-base font-extrabold text-foreground">Payment</h2>
+          <h2 className="font-display text-base font-semibold text-foreground">Payment</h2>
           <div className="mt-2">
             {method && <SummaryRow label="Method" value={method} />}
             <SummaryRow label="Status" value={order.paymentStatus} />
@@ -230,7 +230,7 @@ export default function OrderDetailPage() {
 
         {/* Price summary */}
         <section className="rounded-xl border border-border bg-surface p-5">
-          <h2 className="font-display text-base font-extrabold text-foreground">Price summary</h2>
+          <h2 className="font-display text-base font-semibold text-foreground">Price summary</h2>
           <div className="mt-2 divide-y divide-border">
             <SummaryRow label="Subtotal" value={money(order.subtotal)} />
             {order.couponDiscount > 0 && (

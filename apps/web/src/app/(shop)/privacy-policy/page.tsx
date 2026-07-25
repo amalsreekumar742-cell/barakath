@@ -33,7 +33,7 @@ export default async function Page() {
   return (
     <main className="mx-auto w-full max-w-[820px] px-5 pb-16">
       <Breadcrumb items={[{ label: 'Home', href: '/' }, { label: 'Privacy policy' }]} />
-      <h1 className="font-display text-3xl font-extrabold tracking-tight text-foreground">
+      <h1 className="font-display text-3xl font-semibold tracking-tight text-foreground">
         Privacy policy
       </h1>
 
@@ -45,7 +45,7 @@ export default async function Page() {
             </p>
           )}
           <div
-            className="mt-6 text-sm leading-7 text-muted [&_a]:text-primary [&_a]:underline [&_h2]:mt-8 [&_h2]:mb-3 [&_h2]:font-display [&_h2]:text-lg [&_h2]:font-extrabold [&_h2]:text-foreground [&_h3]:mt-6 [&_h3]:mb-2 [&_h3]:font-display [&_h3]:text-base [&_h3]:font-extrabold [&_h3]:text-foreground [&_li]:mb-1 [&_ol]:mb-4 [&_ol]:list-decimal [&_ol]:pl-5 [&_p]:mb-4 [&_strong]:font-semibold [&_strong]:text-foreground [&_ul]:mb-4 [&_ul]:list-disc [&_ul]:pl-5"
+            className="mt-6 text-sm leading-7 text-muted [&_a]:text-primary [&_a]:underline [&_h2]:mt-8 [&_h2]:mb-3 [&_h2]:font-display [&_h2]:text-lg [&_h2]:font-semibold [&_h2]:text-foreground [&_h3]:mt-6 [&_h3]:mb-2 [&_h3]:font-display [&_h3]:text-base [&_h3]:font-semibold [&_h3]:text-foreground [&_li]:mb-1 [&_ol]:mb-4 [&_ol]:list-decimal [&_ol]:pl-5 [&_p]:mb-4 [&_strong]:font-semibold [&_strong]:text-foreground [&_ul]:mb-4 [&_ul]:list-disc [&_ul]:pl-5"
             // Safe: rawHtml is run through DOMPurify.sanitize immediately above render, stripping any
             // script/handler payload an admin account could have stored.
             dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(rawHtml) }}

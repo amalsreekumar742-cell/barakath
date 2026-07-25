@@ -33,7 +33,7 @@ export default function CheckoutPage() {
         </span>
       </div>
 
-      <h1 className="mb-5 font-display text-2xl font-extrabold tracking-tight text-foreground">Checkout</h1>
+      <h1 className="mb-5 font-display text-2xl font-semibold tracking-tight text-foreground">Checkout</h1>
 
       <CheckoutSection />
     </main>

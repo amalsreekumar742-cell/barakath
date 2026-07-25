@@ -125,7 +125,7 @@ export function CouponWallet({ customerId, variant }: CouponWalletProps) {
 
   return (
     <div>
-      <h2 className="font-display text-lg font-extrabold text-foreground">My coupons</h2>
+      <h2 className="font-display text-lg font-semibold text-foreground">My coupons</h2>
       <p className="mt-1 text-sm text-muted">Codes you&apos;ve won and saved to your account.</p>
       <div className="mt-4 rounded-xl border border-border bg-surface p-5">{body}</div>
     </div>

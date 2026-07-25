@@ -78,7 +78,7 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
 
       {!q ? (
         <>
-          <h1 className="mb-6 font-display text-2xl font-extrabold tracking-tight text-foreground">
+          <h1 className="mb-6 font-display text-2xl font-semibold tracking-tight text-foreground">
             Search
           </h1>
           <RecentSearches variant="main" />
@@ -122,7 +122,7 @@ async function SearchResults({
     return (
       <>
         <FetchErrorToast />
-        <h1 className="mb-6 font-display text-2xl font-extrabold tracking-tight text-foreground">
+        <h1 className="mb-6 font-display text-2xl font-semibold tracking-tight text-foreground">
           Results for <span className="text-primary">&ldquo;{q}&rdquo;</span>
         </h1>
         <p className="text-sm text-muted">
@@ -163,7 +163,7 @@ async function SearchResults({
 
   return (
     <>
-      <h1 className="mb-1 font-display text-2xl font-extrabold tracking-tight text-foreground">
+      <h1 className="mb-1 font-display text-2xl font-semibold tracking-tight text-foreground">
         Results for <span className="text-primary">&ldquo;{q}&rdquo;</span>
       </h1>
       <p className="mb-5 text-sm font-medium text-muted">

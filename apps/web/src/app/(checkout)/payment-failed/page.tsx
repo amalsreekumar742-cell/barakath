@@ -101,7 +101,7 @@ function PaymentFailedContent() {
       <span className="flex size-20 items-center justify-center rounded-full bg-error-subtle text-error">
         <XCircle className="size-10" strokeWidth={1.75} aria-hidden />
       </span>
-      <h1 className="mt-6 font-display text-[28px] font-extrabold tracking-tight text-foreground">
+      <h1 className="mt-6 font-display text-[28px] font-semibold tracking-tight text-foreground">
         Payment failed
       </h1>
       <p className="mt-2 max-w-sm text-[15px] leading-relaxed text-muted">

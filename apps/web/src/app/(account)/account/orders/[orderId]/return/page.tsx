@@ -129,7 +129,7 @@ export default function RequestReplacementPage() {
         </div>
 
         <div className="rounded-xl border border-border bg-surface p-5">
-          <h2 className="font-display text-base font-extrabold text-foreground">Reason for return</h2>
+          <h2 className="font-display text-base font-semibold text-foreground">Reason for return</h2>
           <div className="mt-2 divide-y divide-border">
             {REASONS.map((r) => (
               <button
@@ -154,7 +154,7 @@ export default function RequestReplacementPage() {
         </div>
 
         <div className="rounded-xl border border-border bg-surface p-5">
-          <h2 className="font-display text-base font-extrabold text-foreground">Describe the issue *</h2>
+          <h2 className="font-display text-base font-semibold text-foreground">Describe the issue *</h2>
           <textarea
             value={description}
             onChange={(e) => setDescription(e.target.value.slice(0, 500))}
@@ -171,7 +171,7 @@ export default function RequestReplacementPage() {
         </div>
 
         <div className="rounded-xl border border-border bg-surface p-5">
-          <h2 className="font-display text-base font-extrabold text-foreground">Upload photos *</h2>
+          <h2 className="font-display text-base font-semibold text-foreground">Upload photos *</h2>
           <div className="mt-3">
             <PhotoUpload photos={photos} onChange={setPhotos} maxPhotos={MAX_PHOTOS} />
           </div>

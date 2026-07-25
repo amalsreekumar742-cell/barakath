@@ -65,7 +65,7 @@ export function AddressBlock({
 
   return (
     <div>
-      <h3 className="mb-2 text-xs font-extrabold uppercase tracking-wide text-muted">Delivery address</h3>
+      <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted">Delivery address</h3>
 
       {addresses.length === 0 ? (
         // No saved address at all — nothing to "change" to, so the add form renders inline instead of
@@ -107,7 +107,7 @@ export function AddressBlock({
 
       <Modal isOpen={pickerOpen} onClose={() => setPickerOpen(false)} maxWidth="max-w-lg" labelledBy="address-picker-title">
         <div className="max-h-[85vh] overflow-y-auto rounded-xl bg-surface p-5">
-          <h2 id="address-picker-title" className="mb-4 font-display text-base font-extrabold text-foreground">
+          <h2 id="address-picker-title" className="mb-4 font-display text-base font-semibold text-foreground">
             Choose a delivery address
           </h2>
           <AddressPicker

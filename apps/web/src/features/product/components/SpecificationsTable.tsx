@@ -6,7 +6,7 @@ export function SpecificationsTable({ specifications }: { specifications: Specif
 
   return (
     <section>
-      <h2 className="font-display text-xl font-extrabold tracking-tight text-foreground">
+      <h2 className="font-display text-xl font-semibold tracking-tight text-foreground">
         Specifications
       </h2>
       <dl className="mt-4 divide-y divide-border overflow-hidden rounded-lg border border-border">

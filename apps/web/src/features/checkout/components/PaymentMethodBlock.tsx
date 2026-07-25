@@ -42,7 +42,7 @@ export function PaymentMethodBlock({
 
   return (
     <div>
-      <h3 className="mb-2 text-xs font-extrabold uppercase tracking-wide text-muted">Payment method</h3>
+      <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted">Payment method</h3>
       <div className="space-y-3">
         {/* Wallet toggle */}
         <label

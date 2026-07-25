@@ -121,7 +121,7 @@ export default function TrackOrderPage() {
 
         {isCancelled ? (
           <div className="rounded-xl border border-border bg-surface p-5">
-            <h2 className="font-display text-base font-extrabold text-foreground">Status</h2>
+            <h2 className="font-display text-base font-semibold text-foreground">Status</h2>
             <div className="mt-3 flex items-start gap-3">
               <span className="flex size-5 shrink-0 items-center justify-center rounded-full bg-error">
                 <XIcon className="size-3 text-white" aria-hidden />
@@ -135,7 +135,7 @@ export default function TrackOrderPage() {
           </div>
         ) : (
           <div className="rounded-xl border border-border bg-surface p-5">
-            <h2 className="font-display text-base font-extrabold text-foreground">Status</h2>
+            <h2 className="font-display text-base font-semibold text-foreground">Status</h2>
             <div className="mt-3">
               <StatusTimeline order={order} />
             </div>
@@ -144,7 +144,7 @@ export default function TrackOrderPage() {
 
         {(order.courierName || order.trackingId) && (
           <div className="rounded-xl border border-border bg-surface p-5">
-            <h2 className="font-display text-base font-extrabold text-foreground">Courier</h2>
+            <h2 className="font-display text-base font-semibold text-foreground">Courier</h2>
             {order.courierName && (
               <p className="mt-2 text-sm font-semibold tracking-wide text-foreground uppercase">{order.courierName}</p>
             )}
@@ -184,7 +184,7 @@ export default function TrackOrderPage() {
 
       <Modal isOpen={pickerOpen} onClose={() => setPickerOpen(false)} maxWidth="max-w-md" labelledBy="return-picker-heading">
         <div className="rounded-xl border border-border bg-surface p-5 shadow-lg">
-          <h2 id="return-picker-heading" className="font-display text-base font-extrabold text-foreground">
+          <h2 id="return-picker-heading" className="font-display text-base font-semibold text-foreground">
             Which item?
           </h2>
           <div className="mt-3 divide-y divide-border">

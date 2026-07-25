@@ -128,7 +128,7 @@ export function AddBankAccountModal({
     <>
       <Modal isOpen={isOpen} onClose={handleClose} maxWidth="max-w-lg" labelledBy="add-bank-heading">
         <div className="max-h-[85vh] overflow-y-auto rounded-xl border border-border bg-surface p-6 shadow-lg">
-          <h2 id="add-bank-heading" className="font-display text-lg font-extrabold text-foreground">
+          <h2 id="add-bank-heading" className="font-display text-lg font-semibold text-foreground">
             Add bank account
           </h2>
           <p className="mt-1 text-sm text-muted">Withdraw your affiliate earnings straight to this account.</p>

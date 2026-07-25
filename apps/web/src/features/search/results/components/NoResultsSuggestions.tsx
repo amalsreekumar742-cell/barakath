@@ -31,7 +31,7 @@ export function NoResultsSuggestions({ query, suggestions }: NoResultsSuggestion
 
       {suggestions.length > 0 && (
         <div className="mt-6">
-          <h2 className="mb-4 font-display text-lg font-extrabold text-foreground">You might like</h2>
+          <h2 className="mb-4 font-display text-lg font-semibold text-foreground">You might like</h2>
           <ProductGrid products={suggestions} className={SEARCH_RESULTS_GRID_CLASS} />
         </div>
       )}

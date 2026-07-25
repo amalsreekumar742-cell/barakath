@@ -33,7 +33,7 @@ export function SectionHeader({
   return (
     <div className={`flex items-center justify-between gap-4 ${className}`}>
       <div className="flex min-w-0 flex-1 items-center gap-3">
-        <h2 className="min-w-0 truncate font-display text-xl font-extrabold tracking-tight text-foreground md:text-2xl">
+        <h2 className="min-w-0 truncate font-display text-xl font-semibold tracking-tight text-foreground md:text-2xl">
           {title}
         </h2>
         {trailing}

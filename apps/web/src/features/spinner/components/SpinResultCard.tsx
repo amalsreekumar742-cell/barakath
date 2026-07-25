@@ -62,7 +62,7 @@ export function SpinResultCard({ result, spinsRemaining, spinning, onSpinAgain }
         {isWin ? <Gift className="size-11" aria-hidden /> : <Frown className="size-11" aria-hidden />}
       </div>
 
-      <h1 className="mx-auto mt-7 max-w-md font-display text-3xl font-extrabold tracking-tight text-foreground sm:text-4xl">
+      <h1 className="mx-auto mt-7 max-w-md font-display text-3xl font-semibold tracking-tight text-foreground sm:text-4xl">
         {isWin && details ? `You won ${formatSpinRewardAmount(details)}!` : isWin ? result.slotLabel : 'Better luck next time'}
       </h1>
 

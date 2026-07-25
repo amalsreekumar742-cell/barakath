@@ -98,7 +98,7 @@ export default function NotificationsPage() {
         <>
           {today.length > 0 && (
             <section className="mb-4">
-              <h2 className="mb-1 text-xs font-extrabold uppercase tracking-wide text-muted">Today</h2>
+              <h2 className="mb-1 text-xs font-semibold uppercase tracking-wide text-muted">Today</h2>
               {today.map((n) => (
                 <NotificationRow key={n.id} notification={n} isRead={readIds.has(n.id)} onOpen={handleOpen} />
               ))}
@@ -106,7 +106,7 @@ export default function NotificationsPage() {
           )}
           {earlier.length > 0 && (
             <section>
-              <h2 className="mb-1 text-xs font-extrabold uppercase tracking-wide text-muted">Earlier</h2>
+              <h2 className="mb-1 text-xs font-semibold uppercase tracking-wide text-muted">Earlier</h2>
               {earlier.map((n) => (
                 <NotificationRow key={n.id} notification={n} isRead={readIds.has(n.id)} onOpen={handleOpen} />
               ))}

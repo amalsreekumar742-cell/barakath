@@ -106,7 +106,7 @@ export default function WalletPage() {
           </Link>
 
           <div className="rounded-2xl border border-border bg-surface p-5">
-            <h2 className="mb-1 font-display text-base font-extrabold text-foreground">Transaction history</h2>
+            <h2 className="mb-1 font-display text-base font-semibold text-foreground">Transaction history</h2>
 
             {isLoading ? (
               <div className="space-y-1" aria-busy="true">

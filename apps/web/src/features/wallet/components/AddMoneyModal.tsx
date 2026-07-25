@@ -83,7 +83,7 @@ export function AddMoneyModal({ isOpen, onClose }: AddMoneyModalProps) {
   return (
     <Modal isOpen={isOpen} onClose={handleClose} maxWidth="max-w-md" labelledBy="add-money-heading">
       <div className="rounded-xl border border-border bg-surface p-6 shadow-lg">
-        <h2 id="add-money-heading" className="font-display text-lg font-extrabold text-foreground">
+        <h2 id="add-money-heading" className="font-display text-lg font-semibold text-foreground">
           Add money
         </h2>
         <p className="mt-1 text-sm text-muted">

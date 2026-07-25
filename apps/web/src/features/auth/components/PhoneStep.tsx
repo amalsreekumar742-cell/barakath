@@ -43,7 +43,7 @@ export function PhoneStep({
       noValidate
     >
       <div>
-        <h2 className="text-[26px] font-extrabold leading-tight tracking-tight text-foreground">
+        <h2 className="text-[26px] font-semibold leading-tight tracking-tight text-foreground">
           Enter your mobile number
         </h2>
         <p className="mt-1.5 text-sm text-muted">

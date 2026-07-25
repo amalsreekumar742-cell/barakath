@@ -86,7 +86,7 @@ export function OtpStep({
           <ArrowLeft className="size-4" aria-hidden />
           Change number
         </button>
-        <h2 className="text-[26px] font-extrabold leading-tight tracking-tight text-foreground">
+        <h2 className="text-[26px] font-semibold leading-tight tracking-tight text-foreground">
           Enter {length}-digit code
         </h2>
         <p className="mt-1.5 text-sm text-muted">

@@ -26,7 +26,7 @@ export function ReviewsSection({ product, firstPage, hasMore }: ReviewsSectionPr
   return (
     <section id="reviews" className="scroll-mt-24">
       <div className="flex items-center gap-3">
-        <h2 className="font-display text-xl font-extrabold tracking-tight text-foreground">
+        <h2 className="font-display text-xl font-semibold tracking-tight text-foreground">
           Ratings &amp; reviews
         </h2>
         {product.totalReviews > 0 && (

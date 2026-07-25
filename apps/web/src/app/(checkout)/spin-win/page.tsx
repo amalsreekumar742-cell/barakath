@@ -46,7 +46,7 @@ export default function SpinWinPage() {
 
         {uid && (
           <div id="coupon-wallet">
-            <h1 className="font-display text-2xl font-extrabold tracking-tight text-foreground">
+            <h1 className="font-display text-2xl font-semibold tracking-tight text-foreground">
               Spin &amp; win daily rewards
             </h1>
             <p className="mt-2 text-sm text-muted">

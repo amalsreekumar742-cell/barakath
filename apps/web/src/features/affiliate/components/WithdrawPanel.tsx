@@ -43,7 +43,7 @@ export function WithdrawPanel({
   if (expanded) {
     return (
       <div className="rounded-2xl border border-border bg-surface p-5">
-        <h3 className="mb-4 font-display text-base font-extrabold text-foreground">Withdraw funds</h3>
+        <h3 className="mb-4 font-display text-base font-semibold text-foreground">Withdraw funds</h3>
         <WithdrawForm
           uid={uid}
           userName={userName}
@@ -62,7 +62,7 @@ export function WithdrawPanel({
 
   return (
     <div className="flex flex-col gap-3.5 rounded-2xl border border-border bg-surface p-5">
-      <h3 className="font-display text-base font-extrabold text-foreground">Withdraw funds</h3>
+      <h3 className="font-display text-base font-semibold text-foreground">Withdraw funds</h3>
 
       <div className="py-1 text-center">
         <p className="text-xs text-faint">Available</p>

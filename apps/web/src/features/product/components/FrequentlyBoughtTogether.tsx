@@ -15,7 +15,7 @@ export function FrequentlyBoughtTogether({ items }: { items: BundleItem[] }) {
 
   return (
     <section>
-      <h2 className="font-display text-xl font-extrabold tracking-tight text-foreground">
+      <h2 className="font-display text-xl font-semibold tracking-tight text-foreground">
         Frequently bought together
       </h2>
 

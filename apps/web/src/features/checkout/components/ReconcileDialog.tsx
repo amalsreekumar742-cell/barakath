@@ -28,7 +28,7 @@ export function ReconcileDialog({ reconcile, onContinue, onCancel }: ReconcileDi
         <div className="rounded-xl bg-surface p-5">
           <div className="flex items-center gap-2">
             <AlertTriangle size={18} className="text-warning" />
-            <h2 id="reconcile-title" className="font-display text-base font-extrabold text-foreground">
+            <h2 id="reconcile-title" className="font-display text-base font-semibold text-foreground">
               The amount changed
             </h2>
           </div>

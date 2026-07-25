@@ -59,7 +59,7 @@ export function DangerZone({ uid }: { uid: string }) {
     <div className="rounded-xl border border-error/30 bg-error-subtle p-5">
       <div className="flex items-center gap-2 text-error">
         <AlertTriangle size={18} aria-hidden />
-        <h2 className="font-display text-lg font-extrabold">Danger zone</h2>
+        <h2 className="font-display text-lg font-semibold">Danger zone</h2>
       </div>
       <p className="mt-2 text-sm text-muted">
         Deleting your account permanently erases your name, email, WhatsApp number, profile photo and

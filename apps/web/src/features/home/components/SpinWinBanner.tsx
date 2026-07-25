@@ -29,7 +29,7 @@ export function SpinWinBanner() {
           <p className="text-xs font-semibold uppercase tracking-[0.18em] text-white/85">
             Spin &amp; Win
           </p>
-          <h2 className="mt-2 font-display text-2xl font-extrabold tracking-tight text-white sm:text-[28px]">
+          <h2 className="mt-2 font-display text-2xl font-semibold tracking-tight text-white sm:text-[28px]">
             Feeling lucky today?
           </h2>
           <p className="mt-2 max-w-md text-sm text-white/85">

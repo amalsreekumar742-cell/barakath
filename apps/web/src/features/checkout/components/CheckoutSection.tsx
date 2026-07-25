@@ -208,7 +208,7 @@ export function CheckoutSection() {
         <div className="rounded-xl border border-border bg-surface p-5 md:p-6">
           {/* Delivery method — Standard only, informational (spec §2.13): a single fixed row, not a choice. */}
           <div className="mb-5">
-            <h3 className="mb-2 text-xs font-extrabold uppercase tracking-wide text-muted">Delivery method</h3>
+            <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted">Delivery method</h3>
             <div className="flex items-center gap-3 rounded-lg border border-border-strong bg-subtle p-4">
               <Truck size={18} className="shrink-0 text-primary" />
               <div>

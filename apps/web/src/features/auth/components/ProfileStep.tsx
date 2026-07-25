@@ -45,7 +45,7 @@ export function ProfileStep({
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4" noValidate>
       <div>
-        <h1 className="text-[26px] font-extrabold leading-tight tracking-tight text-foreground">
+        <h1 className="text-[26px] font-semibold leading-tight tracking-tight text-foreground">
           Create your profile
         </h1>
         <p className="mt-1.5 text-sm text-muted">

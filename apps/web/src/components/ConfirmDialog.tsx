@@ -54,7 +54,7 @@ export function ConfirmDialog({
       labelledBy={titleId}
     >
       <div className="rounded-xl border border-border bg-surface p-6 shadow-lg">
-        <h2 id={titleId} className="font-display text-lg font-extrabold text-foreground">
+        <h2 id={titleId} className="font-display text-lg font-semibold text-foreground">
           {title}
         </h2>
         {description && <p className="mt-2 text-sm leading-relaxed text-muted">{description}</p>}

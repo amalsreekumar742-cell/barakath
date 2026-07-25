@@ -13,7 +13,7 @@ export function DescriptionSection({ description }: { description: string }) {
 
   return (
     <section>
-      <h2 className="font-display text-xl font-extrabold tracking-tight text-foreground">
+      <h2 className="font-display text-xl font-semibold tracking-tight text-foreground">
         Description
       </h2>
       <div

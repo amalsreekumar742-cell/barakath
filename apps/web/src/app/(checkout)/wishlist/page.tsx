@@ -122,7 +122,7 @@ function WishlistPageContent() {
       <Breadcrumb items={[{ label: 'Home', href: '/' }, { label: 'Wishlist' }]} />
 
       <div className="mb-5 flex flex-wrap items-end justify-between gap-3">
-        <h1 className="font-display text-2xl font-extrabold tracking-tight text-foreground">
+        <h1 className="font-display text-2xl font-semibold tracking-tight text-foreground">
           Wishlist
           <span className="ml-2 align-middle text-sm font-medium text-muted">
             {wl.availableItems.length} item{wl.availableItems.length === 1 ? '' : 's'}

@@ -122,7 +122,7 @@ export default function AddressesPage() {
         labelledBy="add-address-heading"
       >
         <div className="max-h-[85vh] overflow-y-auto rounded-xl border border-border bg-surface p-6 shadow-lg">
-          <h2 id="add-address-heading" className="font-display text-lg font-extrabold text-foreground">
+          <h2 id="add-address-heading" className="font-display text-lg font-semibold text-foreground">
             Add new address
           </h2>
           <div className="mt-4">

@@ -34,7 +34,7 @@ export default function SettingsPage() {
           <PersonalInfoForm uid={uid} user={user as UserProps & { whatsapp?: string }} />
 
           <div className="rounded-xl border border-border bg-surface p-5">
-            <h2 className="font-display text-lg font-extrabold text-foreground">Legal</h2>
+            <h2 className="font-display text-lg font-semibold text-foreground">Legal</h2>
             <div className="mt-3 flex flex-col gap-2 text-sm font-medium text-primary">
               <Link href="/privacy-policy" className="hover:underline">
                 Privacy Policy

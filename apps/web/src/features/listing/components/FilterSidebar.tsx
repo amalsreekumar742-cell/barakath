@@ -177,7 +177,7 @@ export function FilterSidebar({
       <Modal isOpen={mobileOpen} onClose={() => setMobileOpen(false)} maxWidth="max-w-sm" labelledBy="filter-drawer-title">
         <div className="flex max-h-[85vh] flex-col overflow-hidden rounded-2xl bg-surface">
           <div className="flex items-center justify-between border-b border-border px-5 py-4">
-            <h2 id="filter-drawer-title" className="font-display text-base font-extrabold text-foreground">
+            <h2 id="filter-drawer-title" className="font-display text-base font-semibold text-foreground">
               Filters
             </h2>
             <button

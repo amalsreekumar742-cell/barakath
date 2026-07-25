@@ -69,7 +69,7 @@ export default async function CategoriesPage() {
       <Breadcrumb items={[{ label: 'Home', href: '/' }, { label: 'Categories' }]} />
 
       <div className="mb-6">
-        <h1 className="font-display text-2xl font-extrabold tracking-tight text-foreground">
+        <h1 className="font-display text-2xl font-semibold tracking-tight text-foreground">
           Shop by category
         </h1>
         <p className="mt-1 text-sm text-muted">

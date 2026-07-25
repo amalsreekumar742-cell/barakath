@@ -73,7 +73,7 @@ export function Footer({ settings }: FooterProps) {
 
         {/* Shop / quick links */}
         <nav aria-label="Shop">
-          <h2 className="text-[13px] font-extrabold text-white">Shop</h2>
+          <h2 className="text-[13px] font-semibold text-white">Shop</h2>
           <ul className="mt-3 space-y-2.5 text-[13px] text-white/72">
             {SHOP_LINKS.map((link) => (
               <li key={link.href}>
@@ -87,7 +87,7 @@ export function Footer({ settings }: FooterProps) {
 
         {/* Support — from settings.contactus, each row omitted when empty */}
         <div>
-          <h2 className="text-[13px] font-extrabold text-white">Support</h2>
+          <h2 className="text-[13px] font-semibold text-white">Support</h2>
           {hasAnySupport ? (
             <ul className="mt-3 space-y-2.5 text-[13px] text-white/72">
               {phone && (
@@ -133,7 +133,7 @@ export function Footer({ settings }: FooterProps) {
 
         {/* Legal / company */}
         <nav aria-label="Legal">
-          <h2 className="text-[13px] font-extrabold text-white">Company</h2>
+          <h2 className="text-[13px] font-semibold text-white">Company</h2>
           <ul className="mt-3 space-y-2.5 text-[13px] text-white/72">
             {LEGAL_LINKS.map((link) => (
               <li key={link.href}>

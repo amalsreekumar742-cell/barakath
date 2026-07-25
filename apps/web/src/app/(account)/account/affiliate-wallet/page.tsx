@@ -162,7 +162,7 @@ function WalletBody({ uid }: { uid: string }) {
 
           {/* Commission history */}
           <section>
-            <h2 className="mb-3 font-display text-base font-extrabold text-foreground">
+            <h2 className="mb-3 font-display text-base font-semibold text-foreground">
               How you earned · commission history
             </h2>
             <div className="rounded-2xl border border-border bg-surface p-4">
@@ -190,7 +190,7 @@ function WalletBody({ uid }: { uid: string }) {
 
           {/* Withdrawal history */}
           <section>
-            <h2 className="mb-3 font-display text-base font-extrabold text-foreground">Withdrawal requests</h2>
+            <h2 className="mb-3 font-display text-base font-semibold text-foreground">Withdrawal requests</h2>
             <div className="rounded-2xl border border-border bg-surface p-4">
               {withdrawals.isLoading ? (
                 <ListSkeleton count={2} />
@@ -217,7 +217,7 @@ function WalletBody({ uid }: { uid: string }) {
           {/* Bank accounts */}
           <section>
             <div className="mb-3 flex items-center justify-between">
-              <h2 className="font-display text-base font-extrabold text-foreground">Bank accounts</h2>
+              <h2 className="font-display text-base font-semibold text-foreground">Bank accounts</h2>
               {bankAccounts.hasSlot && (
                 <Button
                   variant="secondary"

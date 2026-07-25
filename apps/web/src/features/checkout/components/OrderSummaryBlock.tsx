@@ -21,7 +21,7 @@ export interface OrderSummaryBlockProps {
 export function OrderSummaryBlock({ totals, couponCode, disabled, loading, onPlaceOrder }: OrderSummaryBlockProps) {
   return (
     <div className="rounded-lg border border-border-strong bg-surface p-4">
-      <h3 className="mb-3 text-xs font-extrabold uppercase tracking-wide text-muted">Order summary</h3>
+      <h3 className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted">Order summary</h3>
       <dl className="space-y-2 text-sm">
         <Row label="Subtotal" value={formatInr(totals.subtotal)} />
         {totals.couponDiscount > 0 && (

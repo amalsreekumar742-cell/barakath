@@ -30,7 +30,7 @@ export function ConfirmOrderDialog({
   return (
     <Modal isOpen={isOpen} onClose={onCancel} maxWidth="max-w-sm" labelledBy="confirm-order-title">
       <div className="rounded-xl bg-surface p-5">
-        <h2 id="confirm-order-title" className="font-display text-base font-extrabold text-foreground">
+        <h2 id="confirm-order-title" className="font-display text-base font-semibold text-foreground">
           Confirm your order
         </h2>
         <p className="mt-2 text-sm text-muted">

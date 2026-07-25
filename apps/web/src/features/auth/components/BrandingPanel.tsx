@@ -23,7 +23,7 @@ export function BrandingPanel() {
         <span className="mb-8 block text-3xl font-semibold tracking-tight text-white">
           {Constants.APP_NAME}
         </span>
-        <h1 className="max-w-md text-[44px] font-extrabold leading-[1.1] tracking-tight text-white">
+        <h1 className="max-w-md text-[44px] font-semibold leading-[1.1] tracking-tight text-white">
           Premium finds, <span className="text-gold">handpicked for you</span>
         </h1>
         <p className="mt-5 max-w-sm text-base leading-relaxed text-white/70">

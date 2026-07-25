@@ -158,7 +158,7 @@ export function ProductExperience({
 
   return (
     <div>
-      <h1 className="font-display text-2xl font-extrabold leading-tight text-foreground md:text-3xl">
+      <h1 className="font-display text-2xl font-semibold leading-tight text-foreground md:text-3xl">
         {product.name}
       </h1>
 
