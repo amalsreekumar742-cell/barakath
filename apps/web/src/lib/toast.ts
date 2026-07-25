@@ -33,7 +33,7 @@ export function toastError(error: unknown, fallback = 'Something went wrong. Ple
  * developer, and showing it both confuses the customer and advertises the project's console URL.
  * Anything containing a link is treated as a diagnostic and suppressed in favour of the fallback.
  */
-function readableMessage(error: unknown): string | null {
+export function readableMessage(error: unknown): string | null {
   const raw =
     typeof error === 'string'
       ? error

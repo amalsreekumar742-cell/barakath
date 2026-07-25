@@ -11,6 +11,7 @@ import {
 } from 'firebase/firestore';
 import { FirestoreCollections, FirestoreDocs, WalletSource, type GeneralSettingsProps } from '@barakath/shared';
 import { db, functions } from '@/lib/firebaseConfig';
+import { readableMessage } from '@/lib/toast';
 import { CloudFunctions } from '@/config/cloudFunctions';
 import { openCheckout, type RazorpaySuccessResponse } from '@/lib/commerce/razorpay';
 
@@ -196,8 +197,15 @@ export const topUpWallet = createAsyncThunk<
 
     return { amount: verifyRes.data.amount, newBalance: verifyRes.data.newBalance };
   } catch (err) {
-    const reason = isKnownFailureReason(err) ? err.reason : 'server-error';
-    return rejectWithValue({ reason, message: TOP_UP_FAILURE_MESSAGES[reason] });
+    if (isKnownFailureReason(err)) {
+      return rejectWithValue({ reason: err.reason, message: TOP_UP_FAILURE_MESSAGES[err.reason] });
+    }
+    // A rejected createWalletTopUpOrder/verifyWalletTopUp call — its HttpsError message is already
+    // written for the customer, so surface it verbatim instead of the generic fallback.
+    return rejectWithValue({
+      reason: 'server-error',
+      message: readableMessage(err) ?? TOP_UP_FAILURE_MESSAGES['server-error'],
+    });
   }
 });
 

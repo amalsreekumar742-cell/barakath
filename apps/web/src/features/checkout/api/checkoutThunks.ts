@@ -4,6 +4,7 @@ import { doc, onSnapshot } from 'firebase/firestore';
 import { FirestoreCollections } from '@barakath/shared';
 import type { OrderProps } from '@barakath/shared';
 import { db, functions } from '@/lib/firebaseConfig';
+import { readableMessage } from '@/lib/toast';
 import { CloudFunctions } from '@/config/cloudFunctions';
 import { openCheckout, type RazorpaySuccessResponse } from '@/lib/commerce/razorpay';
 import type { TotalsBreakdown } from '@/lib/commerce/totals';
@@ -172,8 +173,17 @@ export const placeOrder = createAsyncThunk<PlaceOrderResult, PlaceOrderArgs, { r
 
       return { orderId, done: false, razorpaySuccess };
     } catch (err) {
-      const reason = isKnownFailureReason(err) ? err.reason : 'server-error';
-      return rejectWithValue({ orderId, reason, message: FAILURE_MESSAGES[reason] });
+      if (isKnownFailureReason(err)) {
+        return rejectWithValue({ orderId, reason: err.reason, message: FAILURE_MESSAGES[err.reason] });
+      }
+      // A rejected createPaymentOrder/cancelOrder call — its HttpsError message is already written for
+      // the customer ("Only 2 left of X", "You have already used this coupon"), so surface it verbatim
+      // instead of the generic fallback.
+      return rejectWithValue({
+        orderId,
+        reason: 'server-error',
+        message: readableMessage(err) ?? FAILURE_MESSAGES['server-error'],
+      });
     }
   },
 );
