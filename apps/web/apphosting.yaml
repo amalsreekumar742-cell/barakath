@@ -1,0 +1,75 @@
+# Firebase App Hosting config for the Barakath website (Next.js SSR).
+# Docs: https://firebase.google.com/docs/app-hosting/configure
+#
+# runConfig tunes the Cloud Run service App Hosting deploys to. Start small since this is the
+# first production rollout; raise maxInstances/cpu/memoryMiB later if traffic needs it.
+runConfig:
+  minInstances: 0
+  maxInstances: 2
+  cpu: 1
+  memoryMiB: 512
+  concurrency: 80
+
+# NEXT_PUBLIC_* values are safe to commit — they ship to the browser regardless (same values as
+# apps/web/.env, which is git-ignored). Everything else (Razorpay secret, MSG91 key, Firebase Admin
+# credentials) must be added as Secret Manager-backed entries via `firebase apphosting:secrets:set`
+# and referenced here with `secret:`, never with `value:` — see README "Secrets" section.
+env:
+  - variable: NEXT_PUBLIC_FIREBASE_API_KEY
+    value: "AIzaSyBYtli_Bp-oO6FQXxDyAyavbe0GzanGw7s"
+    availability:
+      - BUILD
+      - RUNTIME
+
+  - variable: NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN
+    value: "barakath-e6ad3.firebaseapp.com"
+    availability:
+      - BUILD
+      - RUNTIME
+
+  - variable: NEXT_PUBLIC_FIREBASE_PROJECT_ID
+    value: "barakath-e6ad3"
+    availability:
+      - BUILD
+      - RUNTIME
+
+  - variable: NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET
+    value: "barakath-e6ad3.firebasestorage.app"
+    availability:
+      - BUILD
+      - RUNTIME
+
+  - variable: NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID
+    value: "801968006810"
+    availability:
+      - BUILD
+      - RUNTIME
+
+  - variable: NEXT_PUBLIC_FIREBASE_APP_ID
+    value: "1:801968006810:web:9325eb28ce28f3e0276123"
+    availability:
+      - BUILD
+      - RUNTIME
+
+  # TODO before going live: set the site's real public origin (no trailing slash). Without it,
+  # sitemap.xml/robots.txt/Open Graph images degrade silently — see apps/web/.env.example.
+  - variable: NEXT_PUBLIC_SITE_URL
+    value: ""
+    availability:
+      - BUILD
+      - RUNTIME
+
+  # TODO: Razorpay publishable key id for the checkout widget (or leave unset to fall back to
+  # general/config.payment.razorpayKeyId in Firestore).
+  - variable: NEXT_PUBLIC_RAZORPAY_KEY_ID
+    value: ""
+    availability:
+      - BUILD
+      - RUNTIME
+
+  # TODO: Google Maps JS API key for the address picker, restricted by HTTP referrer.
+  - variable: NEXT_PUBLIC_GOOGLE_MAPS_API_KEY
+    value: ""
+    availability:
+      - BUILD
+      - RUNTIME
