@@ -78,7 +78,8 @@ export function ProductCard({ product }: ProductCardProps) {
       {subtitle && <p className="mt-0.5 truncate text-xs text-muted">{subtitle}</p>}
 
       <div className="mt-2 flex items-end justify-between gap-2">
-        <PriceBlock minPrice={product.minPrice} maxPrice={product.maxPrice} />
+        {/* Card shows a single starting price, not the min-max range across variants. */}
+        <PriceBlock minPrice={product.minPrice} maxPrice={product.minPrice} />
         {showRating && (
           <span className="inline-flex shrink-0 items-center gap-1 text-xs font-semibold text-muted">
             <Star size={13} strokeWidth={2} className="text-gold" aria-hidden />
