@@ -51,25 +51,12 @@ env:
       - BUILD
       - RUNTIME
 
-  # TODO before going live: set the site's real public origin (no trailing slash). Without it,
-  # sitemap.xml/robots.txt/Open Graph images degrade silently — see apps/web/.env.example.
-  - variable: NEXT_PUBLIC_SITE_URL
-    value: ""
-    availability:
-      - BUILD
-      - RUNTIME
-
-  # TODO: Razorpay publishable key id for the checkout widget (or leave unset to fall back to
-  # general/config.payment.razorpayKeyId in Firestore).
-  - variable: NEXT_PUBLIC_RAZORPAY_KEY_ID
-    value: ""
-    availability:
-      - BUILD
-      - RUNTIME
-
-  # TODO: Google Maps JS API key for the address picker, restricted by HTTP referrer.
-  - variable: NEXT_PUBLIC_GOOGLE_MAPS_API_KEY
-    value: ""
-    availability:
-      - BUILD
-      - RUNTIME
+  # NOT SET YET — add these before going live, either here (value: "...") or via the console's
+  # App Hosting > Environment variables UI. Left out entirely rather than as empty strings, since
+  # an empty `value: ""` is what failed apphosting.yaml schema validation on the first rollout.
+  # - NEXT_PUBLIC_SITE_URL: the site's public origin, no trailing slash. Without it, sitemap.xml/
+  #   robots.txt/Open Graph images degrade silently — see apps/web/.env.example.
+  # - NEXT_PUBLIC_RAZORPAY_KEY_ID: Razorpay publishable key id for checkout (or leave unset to
+  #   fall back to general/config.payment.razorpayKeyId in Firestore).
+  # - NEXT_PUBLIC_GOOGLE_MAPS_API_KEY: Google Maps JS API key for the address picker, restricted
+  #   by HTTP referrer.
