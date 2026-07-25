@@ -97,9 +97,26 @@ export function ProductExperience({
     return Boolean(match && match.stock > 0);
   }
 
+  /** Picking one axis can land on a (color, name) pair no variant actually has — the previous version
+   *  left the other axis untouched and let `currentVariant`'s fallback silently resolve to a DIFFERENT
+   *  variant, so the highlighted color/size and the shown price/stock disagreed. Snapping the other
+   *  axis to a value that actually combines with the new pick keeps the two in sync. */
   function onSelectVariantAxis(axis: 'color' | 'name', value: string) {
-    if (axis === 'color') setSelectedColor(value);
-    else setSelectedName(value);
+    if (axis === 'color') {
+      setSelectedColor(value);
+      const stillValid = variants.some((v) => v.color === value && v.name === selectedName);
+      if (!stillValid) {
+        const fallback = variants.find((v) => v.color === value);
+        if (fallback) setSelectedName(fallback.name);
+      }
+    } else {
+      setSelectedName(value);
+      const stillValid = variants.some((v) => v.color === selectedColor && v.name === value);
+      if (!stillValid) {
+        const fallback = variants.find((v) => v.name === value);
+        if (fallback) setSelectedColor(fallback.color);
+      }
+    }
     setQuantity(1); // a new variant has its own stock cap — start from 1 rather than carry over.
   }
 
