@@ -109,9 +109,9 @@ export function WithdrawForm({
   return (
     <div className="space-y-6">
       <div>
-        <p className="mb-2 text-xs font-extrabold uppercase tracking-wide text-muted">Amount to withdraw</p>
+        <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted">Amount to withdraw</p>
         <div className="flex items-center rounded-md border border-border-strong bg-surface px-3">
-          <span className="text-lg font-extrabold text-foreground">₹</span>
+          <span className="text-lg font-semibold text-foreground">₹</span>
           <input
             inputMode="numeric"
             value={amountText}
@@ -120,10 +120,10 @@ export function WithdrawForm({
               setAmountError(null);
             }}
             placeholder="0"
-            className="h-12 w-full border-0 bg-transparent px-2 text-lg font-extrabold text-foreground outline-none"
+            className="h-12 w-full border-0 bg-transparent px-2 text-lg font-semibold text-foreground outline-none"
           />
         </div>
-        {amountError && <p className="mt-1 text-xs font-bold text-error">{amountError}</p>}
+        {amountError && <p className="mt-1 text-xs font-medium text-error">{amountError}</p>}
 
         <div className="mt-2.5 flex flex-wrap gap-2">
           {QUICK_AMOUNTS.map((value) => (
@@ -131,7 +131,7 @@ export function WithdrawForm({
               key={value}
               type="button"
               onClick={() => applyQuickAmount(value)}
-              className={`rounded-full px-3.5 py-1.5 text-xs font-bold ${
+              className={`rounded-full px-3.5 py-1.5 text-xs font-medium ${
                 amount === value ? 'bg-primary text-white' : 'bg-primary-subtle text-primary'
               }`}
             >
@@ -141,7 +141,7 @@ export function WithdrawForm({
           <button
             type="button"
             onClick={() => applyQuickAmount(Math.floor(balance))}
-            className={`rounded-full px-3.5 py-1.5 text-xs font-bold ${
+            className={`rounded-full px-3.5 py-1.5 text-xs font-medium ${
               amount > 0 && amount === Math.floor(balance) ? 'bg-primary text-white' : 'bg-primary-subtle text-primary'
             }`}
           >
@@ -152,12 +152,12 @@ export function WithdrawForm({
 
       <div>
         <div className="mb-2.5 flex items-center justify-between">
-          <p className="text-xs font-extrabold uppercase tracking-wide text-muted">To bank account</p>
+          <p className="text-xs font-semibold uppercase tracking-wide text-muted">To bank account</p>
           {bankAccounts.hasSlot && (
             <button
               type="button"
               onClick={() => setShowAddBank(true)}
-              className="inline-flex items-center gap-1 text-xs font-bold text-primary hover:underline"
+              className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline"
             >
               <Plus size={13} aria-hidden />
               Add bank account
@@ -188,7 +188,7 @@ export function WithdrawForm({
             ))}
           </div>
         )}
-        {accountError && <p className="mt-1.5 text-xs font-bold text-error">{accountError}</p>}
+        {accountError && <p className="mt-1.5 text-xs font-medium text-error">{accountError}</p>}
       </div>
 
       <div className="rounded-2xl border border-border bg-surface p-4">
@@ -243,8 +243,8 @@ export function WithdrawForm({
 function SummaryRow({ label, value, emphasis = false }: { label: string; value: string; emphasis?: boolean }) {
   return (
     <div className="flex items-center justify-between py-1.5">
-      <span className={`text-sm ${emphasis ? 'font-extrabold text-foreground' : 'text-muted'}`}>{label}</span>
-      <span className={`text-sm ${emphasis ? 'font-extrabold text-foreground' : 'font-bold text-foreground'}`}>
+      <span className={`text-sm ${emphasis ? 'font-semibold text-foreground' : 'text-muted'}`}>{label}</span>
+      <span className={`text-sm ${emphasis ? 'font-semibold text-foreground' : 'font-medium text-foreground'}`}>
         {value}
       </span>
     </div>

@@ -53,7 +53,7 @@ export function PaymentMethodBlock({
           <span className="flex items-start gap-2">
             <Wallet size={18} className="mt-0.5 shrink-0 text-primary" />
             <span>
-              <span className="block text-sm font-extrabold text-foreground">Pay with wallet</span>
+              <span className="block text-sm font-semibold text-foreground">Pay with wallet</span>
               <span className="block text-xs text-muted">
                 Balance: {formatInr(walletBalance)}
                 {walletApplied && walletAmountUsed > 0 ? ` · Using ${formatInr(walletAmountUsed)}` : ''}
@@ -82,7 +82,7 @@ export function PaymentMethodBlock({
         >
           <CreditCard size={18} className="shrink-0 text-primary" />
           <div>
-            <p className="text-sm font-extrabold text-foreground">
+            <p className="text-sm font-semibold text-foreground">
               {fullyCoveredByWallet ? 'Card / UPI / Netbanking — not needed' : 'Card / UPI / Netbanking'}
             </p>
             <p className="text-xs text-muted">

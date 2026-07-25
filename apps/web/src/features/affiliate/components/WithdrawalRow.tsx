@@ -22,7 +22,7 @@ export function WithdrawalRow({ withdrawal }: { withdrawal: AffiliateWithdrawalP
           <Landmark size={16} aria-hidden />
         </span>
         <div className="min-w-0 flex-1">
-          <p className="truncate text-sm font-bold text-foreground">{title}</p>
+          <p className="truncate text-sm font-medium text-foreground">{title}</p>
           <p className="mt-0.5 truncate text-xs text-faint">
             Requested {format(withdrawal.createdAt.toDate(), 'd MMM yyyy')}
           </p>
@@ -30,7 +30,7 @@ export function WithdrawalRow({ withdrawal }: { withdrawal: AffiliateWithdrawalP
             <StatusBadge status={withdrawal.status} />
           </div>
         </div>
-        <span className="shrink-0 text-sm font-extrabold text-foreground">{formatInr(withdrawal.amount)}</span>
+        <span className="shrink-0 text-sm font-semibold text-foreground">{formatInr(withdrawal.amount)}</span>
       </div>
       {isRejected && withdrawal.rejectionReason.trim() && (
         <p className="mt-2 rounded-lg bg-error-subtle p-2.5 text-xs leading-relaxed text-error">

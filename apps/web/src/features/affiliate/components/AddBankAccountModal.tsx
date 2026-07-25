@@ -176,7 +176,7 @@ export function AddBankAccountModal({
                 <div className="mt-1.5 flex items-start gap-2 rounded-lg bg-subtle p-2.5">
                   <Check size={16} className="mt-0.5 shrink-0 text-success" aria-hidden />
                   <div className="min-w-0">
-                    <p className="truncate text-xs font-bold text-foreground">{ifscState.details.bank}</p>
+                    <p className="truncate text-xs font-medium text-foreground">{ifscState.details.bank}</p>
                     <p className="truncate text-[11px] text-muted">
                       {ifscState.details.branch ? `${ifscState.details.branch} · verified from IFSC` : 'Verified from IFSC'}
                     </p>

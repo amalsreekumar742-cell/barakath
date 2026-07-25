@@ -34,8 +34,8 @@ export function ConfirmOrderDialog({
           Confirm your order
         </h2>
         <p className="mt-2 text-sm text-muted">
-          Deliver to <span className="font-bold text-foreground">{addressLabel ?? 'the selected address'}</span> for{' '}
-          <span className="font-bold text-foreground">{formatInr(grandTotal)}</span>.
+          Deliver to <span className="font-medium text-foreground">{addressLabel ?? 'the selected address'}</span> for{' '}
+          <span className="font-medium text-foreground">{formatInr(grandTotal)}</span>.
         </p>
         <div className="mt-5 flex gap-3">
           <Button variant="secondary" size="md" fullWidth onClick={onCancel} disabled={loading}>

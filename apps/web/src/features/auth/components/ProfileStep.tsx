@@ -54,7 +54,7 @@ export function ProfileStep({
       </div>
 
       <div className="flex justify-center">
-        <div className="flex size-[88px] items-center justify-center rounded-full bg-gradient-to-br from-primary to-primary-dark text-3xl font-extrabold text-white">
+        <div className="flex size-[88px] items-center justify-center rounded-full bg-gradient-to-br from-primary to-primary-dark text-3xl font-semibold text-white">
           {initial}
         </div>
       </div>
@@ -101,7 +101,7 @@ export function ProfileStep({
           type="button"
           onClick={onSkip}
           disabled={submitting}
-          className="py-1 text-center text-sm font-bold text-primary hover:underline disabled:opacity-50"
+          className="py-1 text-center text-sm font-medium text-primary hover:underline disabled:opacity-50"
         >
           Skip for now
         </button>

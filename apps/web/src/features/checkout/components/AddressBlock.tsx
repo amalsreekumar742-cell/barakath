@@ -77,11 +77,11 @@ export function AddressBlock({
       ) : selected ? (
         <div className="flex items-start justify-between gap-3 rounded-lg border border-border-strong bg-surface p-4">
           <div className="min-w-0">
-            <span className="inline-flex items-center gap-1 text-sm font-extrabold text-foreground">
+            <span className="inline-flex items-center gap-1 text-sm font-semibold text-foreground">
               <MapPin size={14} />
               {selected.label}
             </span>
-            <p className="mt-1 text-sm font-bold text-foreground">{selected.fullName}</p>
+            <p className="mt-1 text-sm font-medium text-foreground">{selected.fullName}</p>
             <p className="mt-0.5 text-sm text-muted">
               {[selected.addressLine1, selected.addressLine2, selected.city, selected.state, selected.pincode]
                 .filter((part) => part && part.trim().length > 0)
@@ -99,7 +99,7 @@ export function AddressBlock({
         <button
           type="button"
           onClick={() => setPickerOpen(true)}
-          className="w-full rounded-lg border border-dashed border-border-strong p-4 text-left text-sm font-bold text-primary hover:bg-primary-subtle"
+          className="w-full rounded-lg border border-dashed border-border-strong p-4 text-left text-sm font-medium text-primary hover:bg-primary-subtle"
         >
           Select a delivery address
         </button>

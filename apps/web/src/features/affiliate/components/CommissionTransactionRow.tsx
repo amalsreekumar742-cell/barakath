@@ -37,7 +37,7 @@ export function CommissionTransactionRow({ transaction }: { transaction: Affilia
         <Heart size={16} aria-hidden />
       </span>
       <div className="min-w-0 flex-1">
-        <p className="truncate text-sm font-bold text-foreground">{title}</p>
+        <p className="truncate text-sm font-medium text-foreground">{title}</p>
         <p className="mt-0.5 truncate text-xs text-faint">{subtitle}</p>
         <div className="mt-1.5 flex flex-wrap items-center gap-2">
           <StatusBadge status={commissionStatusLabel(transaction.status)} />
@@ -46,7 +46,7 @@ export function CommissionTransactionRow({ transaction }: { transaction: Affilia
           )}
         </div>
       </div>
-      <span className={`shrink-0 text-sm font-extrabold ${isCredit ? 'text-success' : 'text-error'}`}>
+      <span className={`shrink-0 text-sm font-semibold ${isCredit ? 'text-success' : 'text-error'}`}>
         {isCredit ? '+' : '-'}
         {formatInr(transaction.amount)}
       </span>

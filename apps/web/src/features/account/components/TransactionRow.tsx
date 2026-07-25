@@ -31,13 +31,13 @@ export function TransactionRow({ icon, label, date, type, amount, description }:
         {icon}
       </span>
       <div className="min-w-0 flex-1">
-        <p className="truncate text-sm font-bold text-foreground">{label}</p>
+        <p className="truncate text-sm font-medium text-foreground">{label}</p>
         <p className="mt-0.5 truncate text-xs text-faint">
           {format(jsDate, 'd MMM yyyy, h:mm a')}
           {description ? ` · ${description}` : ''}
         </p>
       </div>
-      <span className={`shrink-0 text-sm font-extrabold ${isCredit ? 'text-success' : 'text-error'}`}>
+      <span className={`shrink-0 text-sm font-semibold ${isCredit ? 'text-success' : 'text-error'}`}>
         {isCredit ? '+' : '-'}
         {formatInr(amount)}
       </span>

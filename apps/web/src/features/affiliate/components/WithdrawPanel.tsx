@@ -81,7 +81,7 @@ export function WithdrawPanel({
         <button
           type="button"
           onClick={() => setShowAddBank(true)}
-          className="flex items-center justify-center gap-2 rounded-xl border border-dashed border-border-strong py-3 text-sm font-bold text-primary hover:bg-primary-subtle"
+          className="flex items-center justify-center gap-2 rounded-xl border border-dashed border-border-strong py-3 text-sm font-medium text-primary hover:bg-primary-subtle"
         >
           <Plus size={16} aria-hidden />
           Add bank account

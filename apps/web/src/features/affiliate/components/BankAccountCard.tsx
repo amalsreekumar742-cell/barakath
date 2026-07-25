@@ -40,7 +40,7 @@ export function BankAccountCard({
         </span>
       )}
       <div className="min-w-0 flex-1">
-        <p className="truncate text-sm font-bold text-foreground">
+        <p className="truncate text-sm font-medium text-foreground">
           {`${account.bankName} ${maskAccountNumber(account.accountNumber)}`.trim()}
         </p>
         <p className="truncate text-xs text-muted">{account.accountHolderName}</p>

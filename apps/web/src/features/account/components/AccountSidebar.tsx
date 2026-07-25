@@ -92,7 +92,7 @@ export function AccountSidebar() {
             <button
               type="button"
               onClick={() => setLogoutOpen(true)}
-              className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-bold text-error hover:bg-error-subtle"
+              className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-error hover:bg-error-subtle"
             >
               <LogOut size={18} aria-hidden />
               Logout
@@ -106,7 +106,7 @@ export function AccountSidebar() {
         <div className="flex items-center gap-3 rounded-xl border border-border bg-surface p-3">
           <Avatar profileImage={user?.profileImage} initial={initial} size={40} />
           <div className="min-w-0">
-            <p className="truncate text-sm font-extrabold text-foreground">{authLoading ? '—' : displayName}</p>
+            <p className="truncate text-sm font-semibold text-foreground">{authLoading ? '—' : displayName}</p>
             {user?.phone && <p className="truncate text-xs text-muted">{user.phone}</p>}
           </div>
         </div>
@@ -118,7 +118,7 @@ export function AccountSidebar() {
               <Link
                 key={item.href}
                 href={item.href}
-                className={`inline-flex shrink-0 items-center gap-2 rounded-full border px-3.5 py-2 text-xs font-bold whitespace-nowrap ${
+                className={`inline-flex shrink-0 items-center gap-2 rounded-full border px-3.5 py-2 text-xs font-medium whitespace-nowrap ${
                   active
                     ? 'border-primary bg-primary-subtle text-primary'
                     : 'border-border bg-surface text-muted hover:text-foreground'
@@ -132,7 +132,7 @@ export function AccountSidebar() {
           <button
             type="button"
             onClick={() => setLogoutOpen(true)}
-            className="inline-flex shrink-0 items-center gap-2 rounded-full border border-border px-3.5 py-2 text-xs font-bold whitespace-nowrap text-error hover:bg-error-subtle"
+            className="inline-flex shrink-0 items-center gap-2 rounded-full border border-border px-3.5 py-2 text-xs font-medium whitespace-nowrap text-error hover:bg-error-subtle"
           >
             <LogOut size={14} aria-hidden />
             Logout
@@ -150,7 +150,7 @@ function SidebarLink({ item, active }: { item: NavItem; active: boolean }) {
     <Link
       href={item.href}
       aria-current={active ? 'page' : undefined}
-      className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-bold ${
+      className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium ${
         active ? 'bg-primary-subtle text-primary' : 'text-foreground hover:bg-subtle'
       }`}
     >
@@ -189,7 +189,7 @@ function ProfileBlock({
     <div className="flex items-center gap-3 border-b border-border pb-4">
       <Avatar profileImage={profileImage} initial={initial} size={48} />
       <div className="min-w-0">
-        <p className="truncate text-sm font-extrabold text-foreground">{displayName}</p>
+        <p className="truncate text-sm font-semibold text-foreground">{displayName}</p>
         {phone && <p className="truncate text-xs text-muted">{phone}</p>}
       </div>
     </div>

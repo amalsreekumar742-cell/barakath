@@ -78,7 +78,7 @@ function Row({
   valueClassName?: string;
 }) {
   return (
-    <div className={`flex items-center justify-between ${bold ? 'font-extrabold text-foreground' : 'text-muted'}`}>
+    <div className={`flex items-center justify-between ${bold ? 'font-semibold text-foreground' : 'text-muted'}`}>
       <dt>{label}</dt>
       <dd className={valueClassName ?? (bold ? 'text-foreground' : 'text-foreground')}>{value}</dd>
     </div>
