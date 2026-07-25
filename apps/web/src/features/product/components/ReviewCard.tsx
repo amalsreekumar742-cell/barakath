@@ -21,7 +21,7 @@ export function ReviewCard({ review }: { review: ReviewProps }) {
             {review.userName || 'Barakath customer'}
           </span>
           {review.isVerifiedPurchase && (
-            <span className="rounded-full bg-primary-subtle px-2 py-0.5 text-[10px] font-extrabold uppercase tracking-wide text-primary">
+            <span className="rounded-full bg-primary-subtle px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-primary">
               Verified purchase
             </span>
           )}
@@ -36,7 +36,7 @@ export function ReviewCard({ review }: { review: ReviewProps }) {
       <RatingStars rating={review.rating} size={13} className="mt-1.5" />
 
       {review.title && (
-        <p className="mt-2 text-sm font-bold text-foreground">{review.title}</p>
+        <p className="mt-2 text-sm font-medium text-foreground">{review.title}</p>
       )}
       {review.comment && (
         <p className="mt-1 text-sm leading-6 text-muted">{review.comment}</p>
@@ -59,7 +59,7 @@ export function ReviewCard({ review }: { review: ReviewProps }) {
 
       {review.adminResponse && (
         <div className="mt-3 rounded-lg bg-subtle p-3">
-          <p className="text-xs font-extrabold uppercase tracking-wide text-muted">
+          <p className="text-xs font-semibold uppercase tracking-wide text-muted">
             Response from Barakath
           </p>
           <p className="mt-1 text-sm leading-6 text-muted">{review.adminResponse}</p>

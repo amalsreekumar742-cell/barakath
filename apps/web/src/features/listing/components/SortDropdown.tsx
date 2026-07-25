@@ -36,7 +36,7 @@ export function SortDropdown({ pathname, currentParams, value }: SortDropdownPro
   }
 
   return (
-    <label className="relative inline-flex h-[38px] items-center gap-2 rounded-full border border-border-strong bg-surface px-4 text-[13px] font-bold text-foreground">
+    <label className="relative inline-flex h-[38px] items-center gap-2 rounded-full border border-border-strong bg-surface px-4 text-[13px] font-medium text-foreground">
       <span className="text-muted">Sort:</span>
       <select
         aria-label="Sort products"

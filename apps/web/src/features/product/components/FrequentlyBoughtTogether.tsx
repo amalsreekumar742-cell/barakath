@@ -35,7 +35,7 @@ export function FrequentlyBoughtTogether({ items }: { items: BundleItem[] }) {
       </div>
 
       <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-lg bg-subtle p-4">
-        <p className="text-sm font-bold text-foreground">
+        <p className="text-sm font-medium text-foreground">
           Bundle total:{' '}
           <span className="font-display text-lg font-extrabold text-gold-strong">
             {formatInr(bundleTotal)}

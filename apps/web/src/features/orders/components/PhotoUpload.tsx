@@ -79,7 +79,7 @@ export function PhotoUpload({ photos, onChange, maxPhotos }: PhotoUploadProps) {
             className="flex aspect-square flex-col items-center justify-center gap-1 rounded-lg border-2 border-dashed border-border-strong text-muted hover:border-primary hover:text-primary"
           >
             <ImagePlus className="size-5" aria-hidden />
-            <span className="text-[11px] font-bold">Add photo</span>
+            <span className="text-[11px] font-medium">Add photo</span>
           </button>
         )}
       </div>

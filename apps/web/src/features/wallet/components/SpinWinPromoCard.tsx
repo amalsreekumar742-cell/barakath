@@ -22,7 +22,7 @@ export function SpinWinPromoCard() {
           Spin the wheel for a chance to win a coupon — free, once your cooldown resets.
         </p>
       </div>
-      <span className="shrink-0 text-xs font-bold text-gold-strong">Play now →</span>
+      <span className="shrink-0 text-xs font-medium text-gold-strong">Play now →</span>
     </Link>
   );
 }

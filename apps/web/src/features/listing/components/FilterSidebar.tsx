@@ -146,7 +146,7 @@ export function FilterSidebar({
         <button
           type="button"
           onClick={clearAll}
-          className="self-start text-[13px] font-bold text-primary hover:underline"
+          className="self-start text-[13px] font-medium text-primary hover:underline"
         >
           Clear all
         </button>

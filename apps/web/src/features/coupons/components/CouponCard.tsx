@@ -80,7 +80,7 @@ export function CouponCard({
           >
             {coupon.code}
           </span>
-          <p className="mt-1 text-sm font-bold text-foreground">{formatDiscount(coupon)}</p>
+          <p className="mt-1 text-sm font-medium text-foreground">{formatDiscount(coupon)}</p>
           {coupon.description && <p className="mt-0.5 text-xs text-muted">{coupon.description}</p>}
           {coupon.minimumOrderAmount > 0 && (
             <p className="mt-1 text-[11px] text-faint">Min order {formatInr(coupon.minimumOrderAmount)}</p>
@@ -90,7 +90,7 @@ export function CouponCard({
               orderId ? (
                 <>
                   Used on{' '}
-                  <Link href={`/account/orders/${orderId}`} className="font-bold text-primary hover:underline">
+                  <Link href={`/account/orders/${orderId}`} className="font-medium text-primary hover:underline">
                     order #{orderId.slice(-6).toUpperCase()}
                   </Link>
                 </>
@@ -109,7 +109,7 @@ export function CouponCard({
           type="button"
           onClick={handleCopy}
           disabled={muted}
-          className="inline-flex shrink-0 items-center gap-1.5 rounded-md border border-border-strong px-2.5 py-1.5 text-xs font-bold text-foreground hover:bg-subtle disabled:cursor-not-allowed disabled:opacity-40"
+          className="inline-flex shrink-0 items-center gap-1.5 rounded-md border border-border-strong px-2.5 py-1.5 text-xs font-medium text-foreground hover:bg-subtle disabled:cursor-not-allowed disabled:opacity-40"
         >
           {copied ? <Check size={14} aria-hidden /> : <Copy size={14} aria-hidden />}
           {copied ? 'Copied' : 'Copy'}

@@ -44,7 +44,7 @@ export function StatusTimeline({ order }: { order: OrderProps }) {
               {!isLast && <span className={`w-0.5 flex-1 ${isDone ? 'bg-primary' : 'bg-border-strong'}`} />}
             </div>
             <div className={isLast ? 'min-w-0 pb-0' : 'min-w-0 pb-5'}>
-              <p className={`text-sm ${isDone ? 'font-extrabold text-foreground' : 'font-bold text-muted'}`}>
+              <p className={`text-sm ${isDone ? 'font-semibold text-foreground' : 'font-medium text-muted'}`}>
                 {STEP_LABEL[step]}
               </p>
               <p className="mt-0.5 text-xs text-muted">{at ? formatDateTime(at) : isDone ? 'Done' : 'Pending'}</p>

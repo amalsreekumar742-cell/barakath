@@ -157,7 +157,7 @@ export function ProductExperience({
       {/* Price — during a flash sale the offer price is HIDDEN and only the flash price + MRP show. */}
       <div className="mt-4">
         {resolved.isFlash && (
-          <span className="mb-1.5 inline-block rounded-full bg-error px-2.5 py-1 text-[11px] font-extrabold uppercase tracking-wide text-white">
+          <span className="mb-1.5 inline-block rounded-full bg-error px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide text-white">
             Flash sale
           </span>
         )}
@@ -169,7 +169,7 @@ export function ProductExperience({
             <span className="text-base text-faint line-through">{formatInr(resolved.mrp)}</span>
           )}
           {resolved.discountPercent > 0 && (
-            <span className="text-sm font-bold text-success">{resolved.discountPercent}% off</span>
+            <span className="text-sm font-medium text-success">{resolved.discountPercent}% off</span>
           )}
         </div>
         {resolved.isFlash && activeFlashSaleEndMillis != null && (
@@ -179,7 +179,7 @@ export function ProductExperience({
 
       {isAffiliate && (
         <div className="mt-4 rounded-lg border border-gold-border bg-gold-subtle px-4 py-3 text-sm">
-          <p className="font-bold text-gold-strong">
+          <p className="font-medium text-gold-strong">
             Referral price: {formatInr(currentVariant.referralPrice)} · You earn:{' '}
             {formatInr(currentVariant.commission)} per sale
           </p>
@@ -188,7 +188,7 @@ export function ProductExperience({
 
       {colors.length > 1 && (
         <div className="mt-6">
-          <p className="text-xs font-extrabold uppercase tracking-wide text-muted">Color</p>
+          <p className="text-xs font-semibold uppercase tracking-wide text-muted">Color</p>
           <div className="mt-2 flex flex-wrap gap-2.5">
             {colors.map(([color, colorCode]) => {
               const disabled = !comboInStock('color', color);
@@ -215,7 +215,7 @@ export function ProductExperience({
 
       {names.length > 1 && (
         <div className="mt-5">
-          <p className="text-xs font-extrabold uppercase tracking-wide text-muted">Size</p>
+          <p className="text-xs font-semibold uppercase tracking-wide text-muted">Size</p>
           <div className="mt-2 flex flex-wrap gap-2">
             {names.map((name) => {
               const disabled = !comboInStock('name', name);
@@ -227,7 +227,7 @@ export function ProductExperience({
                   disabled={disabled}
                   onClick={() => onSelectVariantAxis('name', name)}
                   aria-pressed={selected}
-                  className={`h-10 rounded-md border px-4 text-sm font-bold transition disabled:cursor-not-allowed disabled:opacity-35 disabled:line-through ${
+                  className={`h-10 rounded-md border px-4 text-sm font-medium transition disabled:cursor-not-allowed disabled:opacity-35 disabled:line-through ${
                     selected
                       ? 'border-primary bg-primary-subtle text-primary'
                       : 'border-border-strong text-foreground hover:bg-subtle'
@@ -241,7 +241,7 @@ export function ProductExperience({
         </div>
       )}
 
-      <p className={`mt-5 text-sm font-bold ${inStock ? 'text-success' : 'text-error'}`}>
+      <p className={`mt-5 text-sm font-medium ${inStock ? 'text-success' : 'text-error'}`}>
         {inStock
           ? currentVariant.stock <= product.lowStockThreshold
             ? `Only ${currentVariant.stock} left`
@@ -257,17 +257,17 @@ export function ProductExperience({
               onClick={() => setQuantity((q) => Math.max(1, q - 1))}
               disabled={quantity <= 1}
               aria-label="Decrease quantity"
-              className="flex h-full w-10 items-center justify-center text-lg font-bold text-foreground disabled:opacity-30"
+              className="flex h-full w-10 items-center justify-center text-lg font-medium text-foreground disabled:opacity-30"
             >
               −
             </button>
-            <span className="w-8 text-center text-sm font-bold text-foreground">{quantity}</span>
+            <span className="w-8 text-center text-sm font-medium text-foreground">{quantity}</span>
             <button
               type="button"
               onClick={() => setQuantity((q) => Math.min(maxQty, q + 1))}
               disabled={quantity >= maxQty}
               aria-label="Increase quantity"
-              className="flex h-full w-10 items-center justify-center text-lg font-bold text-foreground disabled:opacity-30"
+              className="flex h-full w-10 items-center justify-center text-lg font-medium text-foreground disabled:opacity-30"
             >
               +
             </button>

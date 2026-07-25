@@ -154,7 +154,7 @@ export function SpinWinExperience({ onWin }: SpinWinExperienceProps) {
   return (
     <div className="flex flex-col items-center">
       <h1 className="font-display text-2xl font-extrabold tracking-tight text-foreground">Feeling lucky?</h1>
-      <span className="mt-2 inline-flex rounded-full bg-subtle px-3 py-1 text-xs font-bold text-foreground">
+      <span className="mt-2 inline-flex rounded-full bg-subtle px-3 py-1 text-xs font-medium text-foreground">
         {outOfSpins ? 'No spins left' : `${spinsRemaining} spin${spinsRemaining === 1 ? '' : 's'} left`}
       </span>
 

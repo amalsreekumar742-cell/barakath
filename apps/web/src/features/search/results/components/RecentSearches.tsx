@@ -40,7 +40,7 @@ export function RecentSearches({ variant, recordTerm }: RecentSearchesProps) {
     if (recent.length === 0) return null;
     return (
       <div className="mb-4 flex flex-wrap items-center gap-2" aria-label="Recent searches">
-        <span className="flex items-center gap-1 text-xs font-bold text-faint">
+        <span className="flex items-center gap-1 text-xs font-medium text-faint">
           <Clock className="size-3.5" aria-hidden /> Recent:
         </span>
         {recent.map((term) => (
@@ -49,7 +49,7 @@ export function RecentSearches({ variant, recordTerm }: RecentSearchesProps) {
         <button
           type="button"
           onClick={clear}
-          className="text-xs font-bold text-primary hover:underline"
+          className="text-xs font-medium text-primary hover:underline"
         >
           Clear all
         </button>
@@ -76,7 +76,7 @@ export function RecentSearches({ variant, recordTerm }: RecentSearchesProps) {
         <button
           type="button"
           onClick={clear}
-          className="text-xs font-bold text-primary hover:underline"
+          className="text-xs font-medium text-primary hover:underline"
         >
           Clear all
         </button>

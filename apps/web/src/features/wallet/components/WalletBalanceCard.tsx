@@ -26,7 +26,7 @@ export function WalletBalanceCard({ balance, loading }: WalletBalanceCardProps) 
         className="pointer-events-none absolute -top-20 -right-16 size-40 rounded-full bg-white/10"
       />
       <div className="relative">
-        <p className="text-xs font-extrabold tracking-[0.08em] text-white/85">NORMAL WALLET BALANCE</p>
+        <p className="text-xs font-semibold tracking-[0.08em] text-white/85">NORMAL WALLET BALANCE</p>
         {loading ? (
           <div className="mt-2 h-9 w-40 animate-pulse rounded-md bg-white/20" aria-hidden />
         ) : (
