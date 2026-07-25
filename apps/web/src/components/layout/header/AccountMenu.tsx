@@ -62,7 +62,7 @@ export function AccountMenu() {
     return (
       <Link
         href="/login"
-        className="inline-flex h-10 items-center gap-2 rounded-lg px-3 text-sm font-bold text-foreground hover:bg-subtle"
+        className="inline-flex h-10 items-center gap-2 rounded-lg px-3 text-sm font-medium text-foreground hover:bg-subtle"
       >
         <UserIcon className="size-[22px] sm:size-[18px]" aria-hidden />
         <span className="hidden sm:inline">Login</span>
@@ -91,7 +91,7 @@ export function AccountMenu() {
         onClick={() => setOpen((o) => !o)}
         aria-haspopup="menu"
         aria-expanded={open}
-        className="inline-flex h-10 items-center gap-1.5 rounded-lg px-2 text-sm font-bold text-foreground hover:bg-subtle"
+        className="inline-flex h-10 items-center gap-1.5 rounded-lg px-2 text-sm font-medium text-foreground hover:bg-subtle"
       >
         <UserIcon className="size-[22px] sm:size-[18px]" aria-hidden />
         <span className="hidden max-w-[10ch] truncate sm:inline">{firstName}</span>
@@ -104,7 +104,7 @@ export function AccountMenu() {
           className="absolute right-0 top-[calc(100%+8px)] z-50 w-56 overflow-hidden rounded-2xl border border-border bg-surface py-1 shadow-lg"
         >
           <div className="border-b border-border px-4 py-3">
-            <p className="truncate text-sm font-extrabold text-foreground">{displayName}</p>
+            <p className="truncate text-sm font-semibold text-foreground">{displayName}</p>
             {user?.phone ? <p className="truncate text-xs text-muted">{user.phone}</p> : null}
           </div>
           <MenuLink href="/account/orders" icon={<Package className="size-4" />} onClick={() => setOpen(false)}>

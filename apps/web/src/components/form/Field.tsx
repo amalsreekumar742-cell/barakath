@@ -44,7 +44,7 @@ function FieldShell({
   return (
     <div className="w-full">
       {label && (
-        <label htmlFor={id} className="mb-1.5 block text-[13px] font-bold text-foreground">
+        <label htmlFor={id} className="mb-1.5 block text-[13px] font-medium text-foreground">
           {label}
           {required && <span className="ml-0.5 text-error">*</span>}
         </label>
@@ -187,7 +187,7 @@ export function RadioGroup({ name, label, value, options, onChange }: RadioGroup
   return (
     <fieldset>
       {label && (
-        <legend className="mb-1.5 text-[13px] font-bold text-foreground">{label}</legend>
+        <legend className="mb-1.5 text-[13px] font-medium text-foreground">{label}</legend>
       )}
       <div className="space-y-2">
         {options.map((o) => (

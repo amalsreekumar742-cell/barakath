@@ -11,7 +11,7 @@
 export function ComingSoon({ title, note }: { title: string; note?: string }) {
   return (
     <main className="mx-auto flex min-h-[60vh] w-full max-w-3xl flex-col items-center justify-center px-5 text-center">
-      <p className="text-xs font-extrabold tracking-[0.18em] text-gold-strong uppercase">
+      <p className="text-xs font-semibold tracking-[0.18em] text-gold-strong uppercase">
         Barakath
       </p>
       <h1 className="mt-3 font-display text-2xl font-extrabold text-foreground">{title}</h1>

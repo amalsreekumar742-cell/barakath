@@ -16,7 +16,7 @@ export function CountBadge({ count }: { count: number }) {
   return (
     <span
       aria-hidden
-      className="absolute -right-1 -top-1 min-w-[18px] rounded-full bg-gold-strong px-1 text-center text-[10px] font-extrabold leading-[18px] text-white"
+      className="absolute -right-1 -top-1 min-w-[18px] rounded-full bg-gold-strong px-1 text-center text-[10px] font-semibold leading-[18px] text-white"
     >
       {count > 99 ? '99+' : count}
     </span>

@@ -75,7 +75,7 @@ export function PriceBlock({ minPrice, maxPrice, mrp, className = '' }: PriceBlo
         )}
       </div>
       {off > 0 && (
-        <div className="mt-0.5 text-[11px] font-bold text-success">{off}% off</div>
+        <div className="mt-0.5 text-[11px] font-medium text-success">{off}% off</div>
       )}
     </div>
   );

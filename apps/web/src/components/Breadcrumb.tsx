@@ -45,7 +45,7 @@ export function Breadcrumb({ items }: { items: Crumb[] }) {
             <li key={`${item.label}-${index}`} className="flex items-center gap-1">
               {index > 0 && <ChevronRight className="size-3.5 text-faint" aria-hidden />}
               {isLast || !item.href ? (
-                <span className="font-bold text-foreground" aria-current="page">
+                <span className="font-medium text-foreground" aria-current="page">
                   {item.label}
                 </span>
               ) : (

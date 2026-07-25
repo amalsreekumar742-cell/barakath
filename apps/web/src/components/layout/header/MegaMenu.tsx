@@ -98,7 +98,7 @@ export function MegaMenu({ categories }: MegaMenuProps) {
         onClick={() => setOpen((o) => !o)}
         aria-haspopup="menu"
         aria-expanded={open}
-        className="inline-flex h-10 items-center gap-2 rounded-lg px-3 text-sm font-bold text-foreground hover:bg-subtle"
+        className="inline-flex h-10 items-center gap-2 rounded-lg px-3 text-sm font-medium text-foreground hover:bg-subtle"
       >
         <LayoutGrid className="size-[18px]" aria-hidden />
         Categories

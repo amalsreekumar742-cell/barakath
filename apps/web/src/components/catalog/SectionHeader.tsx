@@ -41,7 +41,7 @@ export function SectionHeader({
       {actionHref && (
         <Link
           href={actionHref}
-          className="inline-flex shrink-0 items-center gap-1 text-sm font-bold text-primary transition hover:text-primary-dark focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+          className="inline-flex shrink-0 items-center gap-1 text-sm font-medium text-primary transition hover:text-primary-dark focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
         >
           {actionLabel}
           <ArrowRight size={16} strokeWidth={2.25} aria-hidden />

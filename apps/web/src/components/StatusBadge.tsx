@@ -59,7 +59,7 @@ export function toneForStatus(status: string): Tone {
 export function StatusBadge({ status, className = '' }: { status: string; className?: string }) {
   return (
     <span
-      className={`inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-extrabold ${
+      className={`inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-semibold ${
         TONE_CLASS[toneForStatus(status)]
       } ${className}`}
     >

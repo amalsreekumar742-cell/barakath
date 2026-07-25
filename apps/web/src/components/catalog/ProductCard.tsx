@@ -57,7 +57,7 @@ export function ProductCard({ product }: ProductCardProps) {
         )}
 
         {pill && (
-          <span className="absolute left-2 top-2 max-w-[60%] truncate rounded-full bg-surface/90 px-2 py-1 text-[10px] font-extrabold uppercase tracking-wide text-gold-strong backdrop-blur">
+          <span className="absolute left-2 top-2 max-w-[60%] truncate rounded-full bg-surface/90 px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-gold-strong backdrop-blur">
             {pill}
           </span>
         )}
@@ -65,7 +65,7 @@ export function ProductCard({ product }: ProductCardProps) {
         <WishlistHeart productId={product.id} className="absolute right-2 top-2" />
 
         {outOfStock && (
-          <span className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-md bg-ink/75 px-2.5 py-1 text-[10px] font-extrabold uppercase tracking-wide text-white">
+          <span className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-md bg-ink/75 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-white">
             Out of stock
           </span>
         )}

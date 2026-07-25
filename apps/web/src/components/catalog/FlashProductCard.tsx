@@ -59,7 +59,7 @@ export function FlashProductCard({ product, variant }: FlashProductCardProps) {
         {/* The design's flash card leads with the discount, not the category, in this corner —
             deliberately different from the regular ProductCard's category pill in the same spot. */}
         {discountPercent > 0 && (
-          <span className="absolute left-2 top-2 rounded-full bg-error px-2 py-1 text-[10px] font-extrabold text-white">
+          <span className="absolute left-2 top-2 rounded-full bg-error px-2 py-1 text-[10px] font-semibold text-white">
             -{discountPercent}%
           </span>
         )}
@@ -67,7 +67,7 @@ export function FlashProductCard({ product, variant }: FlashProductCardProps) {
         <WishlistHeart productId={product.id} className="absolute right-2 top-2" />
 
         {outOfStock && (
-          <span className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-md bg-ink/75 px-2.5 py-1 text-[10px] font-extrabold uppercase tracking-wide text-white">
+          <span className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-md bg-ink/75 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-white">
             Out of stock
           </span>
         )}

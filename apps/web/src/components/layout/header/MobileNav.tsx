@@ -100,7 +100,7 @@ export function MobileNav({ categories }: MobileNavProps) {
                 <Link
                   href="/login"
                   onClick={close}
-                  className="mx-3 mb-2 flex items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-bold text-white"
+                  className="mx-3 mb-2 flex items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-medium text-white"
                 >
                   <UserIcon className="size-4" aria-hidden />
                   Login
@@ -108,7 +108,7 @@ export function MobileNav({ categories }: MobileNavProps) {
               )}
               {isAuthenticated && (
                 <div className="mb-1 px-4 py-2">
-                  <p className="truncate text-sm font-extrabold text-foreground">
+                  <p className="truncate text-sm font-semibold text-foreground">
                     {user?.fullName?.trim() || user?.phone || 'Account'}
                   </p>
                   {user?.phone ? <p className="truncate text-xs text-muted">{user.phone}</p> : null}
@@ -129,7 +129,7 @@ export function MobileNav({ categories }: MobileNavProps) {
               </DrawerLink>
 
               {/* Categories */}
-              <p className="px-4 pt-4 pb-1 text-[11px] font-extrabold uppercase tracking-wider text-faint">
+              <p className="px-4 pt-4 pb-1 text-[11px] font-semibold uppercase tracking-wider text-faint">
                 Shop by category
               </p>
               <ul>
@@ -155,7 +155,7 @@ export function MobileNav({ categories }: MobileNavProps) {
                     close();
                     await logout();
                   }}
-                  className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-bold text-error hover:bg-error-subtle"
+                  className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-error hover:bg-error-subtle"
                 >
                   <LogOut className="size-[18px]" aria-hidden />
                   Logout

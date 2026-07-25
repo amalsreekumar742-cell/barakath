@@ -61,7 +61,7 @@ export function Pagination({
   const canNext = (currentPage < furthestPage || hasMore) && !disabled;
 
   const base =
-    'inline-flex h-9 min-w-9 items-center justify-center rounded-md border px-3 text-[13px] font-bold transition disabled:cursor-not-allowed disabled:opacity-40';
+    'inline-flex h-9 min-w-9 items-center justify-center rounded-md border px-3 text-[13px] font-medium transition disabled:cursor-not-allowed disabled:opacity-40';
   const neutral = `${base} border-border-strong bg-surface text-foreground hover:bg-subtle`;
 
   /**
