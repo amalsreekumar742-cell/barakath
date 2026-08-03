@@ -30,6 +30,20 @@ import { toPaisa } from './service/computeTotals';
  *
  * Request:  { orderId, cancelReason }   Response: { success: true }
  */
+/**
+ * Razorpay SDK errors arrive as `{ statusCode, error: { code, description } }`, not as Error objects,
+ * so a plain `String(err)` yields "[object Object]". Pull out the description a human can act on.
+ */
+function describeRazorpayError(err: unknown): string {
+  const e = err as { error?: { description?: unknown; code?: unknown }; message?: unknown };
+  const description = e?.error?.description;
+  if (typeof description === 'string' && description) return description;
+  const code = e?.error?.code;
+  if (typeof code === 'string' && code) return code;
+  if (typeof e?.message === 'string' && e.message) return e.message;
+  return 'gateway error';
+}
+
 export const cancelOrder = onCall(async (request) => {
   const callerUid = validateAuth(request);
   const isAdmin = request.auth?.token.admin === true;
@@ -99,13 +113,34 @@ export const cancelOrder = onCall(async (request) => {
     const razorpayAmountPaid = Number(payment.razorpayAmountPaid) || 0;
 
     // Razorpay refund BEFORE the transaction (external call can't be transactional).
+    //
+    // A GATEWAY FAILURE MUST NOT ABORT THE CANCELLATION. This used to throw straight out of the
+    // function, so any Razorpay error — a declined refund, a timeout, an insufficient balance on the
+    // account — meant the customer simply could not cancel at all: the order stayed live, its stock
+    // stayed reserved, and they got "Could not cancel the order." with nothing they could do about it.
+    // The cancellation itself is entirely ours to perform; only the money movement depends on
+    // Razorpay. So we cancel regardless and record the refund as OUTSTANDING, leaving `paymentStatus`
+    // as 'Paid' (never 'Refunded' — that would be a lie) so an admin can retry it via processRefund.
     let refundId = '';
+    let gatewayRefundFailed = false;
+    let gatewayRefundError = '';
     if (wasPaid && razorpayPaymentId && razorpayAmountPaid > 0) {
-      const instance = await getRazorpayInstance();
-      const refund = await instance.payments.refund(razorpayPaymentId, {
-        amount: toPaisa(razorpayAmountPaid),
-      });
-      refundId = String(refund.id ?? '');
+      try {
+        const instance = await getRazorpayInstance();
+        const refund = await instance.payments.refund(razorpayPaymentId, {
+          amount: toPaisa(razorpayAmountPaid),
+        });
+        refundId = String(refund.id ?? '');
+      } catch (refundErr) {
+        gatewayRefundFailed = true;
+        gatewayRefundError = describeRazorpayError(refundErr);
+        logger.error('cancelOrder: gateway refund failed — cancelling anyway, refund outstanding', {
+          orderId,
+          razorpayPaymentId,
+          amount: razorpayAmountPaid,
+          error: gatewayRefundError,
+        });
+      }
     }
 
     // Locate the coupon (by code) once, outside the transaction.
@@ -134,21 +169,30 @@ export const cancelOrder = onCall(async (request) => {
       tx.update(orderRef, {
         status: 'Cancelled',
         cancelReason,
-        paymentStatus: wasPaid ? 'Refunded' : order.paymentStatus,
+        // Only claim 'Refunded' when the money actually went back. If the gateway refused, the order
+        // is cancelled but still Paid — which is exactly what an admin needs to see to act on it.
+        paymentStatus: wasPaid && !gatewayRefundFailed ? 'Refunded' : order.paymentStatus,
+        ...(gatewayRefundFailed ? { gatewayRefundPending: true } : {}),
         statusTimeline: FieldValue.arrayUnion({
           status: 'Cancelled',
           timestamp: now,
-          note: cancelReason,
+          note: gatewayRefundFailed
+            ? `${cancelReason} — REFUND OUTSTANDING: the ₹${razorpayAmountPaid} gateway refund failed (${gatewayRefundError}). Retry it from Payments.`
+            : cancelReason,
         }),
         updatedAt: FieldValue.serverTimestamp(),
       });
 
       if (payDoc && (wasPaid || (needsReversal && walletAmountUsed > 0))) {
+        // The wallet portion (if any) genuinely was credited back inside this transaction; the
+        // gateway portion may not have been. Record only what moved.
+        const refundedNow = (gatewayRefundFailed ? 0 : razorpayAmountPaid) + walletAmountUsed;
         tx.update(payDoc.ref, {
-          status: 'Refunded',
+          status: gatewayRefundFailed ? 'Paid' : 'Refunded',
           refundId,
-          refundAmount: razorpayAmountPaid + walletAmountUsed,
-          refundedAt: FieldValue.serverTimestamp(),
+          refundAmount: refundedNow,
+          refundedAt: gatewayRefundFailed ? null : FieldValue.serverTimestamp(),
+          ...(gatewayRefundFailed ? { gatewayRefundPending: true } : {}),
           updatedAt: FieldValue.serverTimestamp(),
         });
       }

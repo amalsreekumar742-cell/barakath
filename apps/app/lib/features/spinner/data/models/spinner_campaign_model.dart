@@ -48,6 +48,7 @@ class SpinnerCampaignModel extends SpinnerCampaign {
     required super.maxSpinsPerUser,
     required super.spinCooldownHours,
     required super.couponValidityDays,
+    super.couponValidityHours,
     required super.isActive,
     required super.totalSpins,
     required super.totalWins,
@@ -72,6 +73,10 @@ class SpinnerCampaignModel extends SpinnerCampaign {
       maxSpinsPerUser: ModelParse.toInt(data['maxSpinsPerUser']),
       spinCooldownHours: ModelParse.toInt(data['spinCooldownHours']),
       couponValidityDays: ModelParse.toInt(data['couponValidityDays']),
+      // Absent on campaigns saved before the hours field shipped; parses to 0,
+      // which makes `validityHours` fall back to the day value. See
+      // SpinnerCampaign.validityHours.
+      couponValidityHours: ModelParse.toInt(data['couponValidityHours']),
       isActive: ModelParse.toBool(data['isActive']),
       totalSpins: ModelParse.toInt(data['totalSpins']),
       totalWins: ModelParse.toInt(data['totalWins']),

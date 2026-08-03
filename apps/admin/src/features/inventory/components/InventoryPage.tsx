@@ -10,14 +10,34 @@ import Skeleton from 'react-loading-skeleton';
 import { formatDistanceToNow } from 'date-fns';
 import { useAppDispatch, useAppSelector } from '@/stores/store';
 import Icon from '@/components/icons/Icon';
-import { fetchInventory } from '../api/fetchInventory';
+import SearchSelect, { type SelectOption } from '@/components/SearchSelect';
+import { fetchCategoriesForFilter } from '@/features/products/api/fetchCategoriesForFilter';
+import { fetchInventory, isStockSort } from '../api/fetchInventory';
 import { fetchInventoryCounts } from '../api/fetchInventoryCounts';
 import { exportInventoryCSV } from '../api/exportInventoryCSV';
-import { setInventorySearch } from '../stores/inventorySlice';
+import {
+  setInventorySearch,
+  setInventoryCategory,
+  setInventorySort,
+  clearInventoryFilters,
+  showMoreRankedRows,
+} from '../stores/inventorySlice';
 import StockStatusBadge from './StockStatusBadge';
-import type { InventoryRow } from '../types';
+import type { InventoryRow, InventorySort } from '../types';
 
 const columnHelper = createColumnHelper<InventoryRow>();
+
+/**
+ * The sort options, in the order they appear. `''` is not used — 'newest' IS the default, so there is
+ * no empty state for this control and it always shows a concrete label.
+ */
+const SORT_OPTIONS: { value: InventorySort; label: string }[] = [
+  { value: 'newest', label: 'Newest first' },
+  { value: 'stockAsc', label: 'Stock: Low to High' },
+  { value: 'stockDesc', label: 'Stock: High to Low' },
+];
+
+const ALL_CATEGORIES = '';
 
 const relTime = (ts: InventoryRow['updatedAt']) =>
   ts ? formatDistanceToNow(ts.toDate(), { addSuffix: true }) : '—';
@@ -30,13 +50,33 @@ const relTime = (ts: InventoryRow['updatedAt']) =>
 const InventoryPage: FC = () => {
   const dispatch = useAppDispatch();
   const navigate = useNavigate();
-  const { rows, hasMore, loading, loadingMore, error, lastVisible, filters, counts, exportLoading } =
-    useAppSelector((s) => s.inventory);
+  const {
+    rows,
+    hasMore,
+    loading,
+    loadingMore,
+    error,
+    lastVisible,
+    filters,
+    counts,
+    exportLoading,
+    truncated,
+  } = useAppSelector((s) => s.inventory);
+
+  // The category list is loaded and cached by the products feature — reuse it rather than keeping a
+  // second copy of the same bounded read in this slice.
+  const categories = useAppSelector((s) => s.products.filterCategories);
+  const categoriesLoading = useAppSelector((s) => s.products.filterCategoriesLoading);
 
   const [searchInput, setSearchInput] = useState('');
 
   useEffect(() => {
     void dispatch(fetchInventoryCounts());
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dispatch]);
+
+  useEffect(() => {
+    if (categories.length === 0) void dispatch(fetchCategoriesForFilter());
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dispatch]);
 
@@ -53,6 +93,15 @@ const InventoryPage: FC = () => {
   }, [searchInput, dispatch]);
 
   const totalProducts = counts.inStock + counts.lowStock + counts.outOfStock;
+  const filtersActive = Boolean(filters.categoryId) || (filters.sort ?? 'newest') !== 'newest';
+
+  const categoryOptions = useMemo<SelectOption[]>(
+    () => [
+      { value: ALL_CATEGORIES, label: 'All categories' },
+      ...categories.map((c) => ({ value: c.id, label: c.name })),
+    ],
+    [categories],
+  );
 
   const cards = [
     { label: 'In stock', value: counts.inStock, tone: 'text-success' },
@@ -163,9 +212,9 @@ const InventoryPage: FC = () => {
         ))}
       </div>
 
-      {/* Search */}
-      <div className="mb-4">
-        <div className="relative max-w-sm">
+      {/* Search + filters */}
+      <div className="mb-4 flex flex-wrap items-center gap-3">
+        <div className="relative min-w-[240px] flex-1 sm:max-w-sm">
           <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-faint">
             <Icon name="SearchLine" size={16} />
           </span>
@@ -176,6 +225,36 @@ const InventoryPage: FC = () => {
             className="w-full rounded-md border border-border-strong bg-surface py-2.5 pl-9 pr-3 text-[14px] outline-none placeholder:text-faint focus:border-primary focus:ring-2 focus:ring-primary/20"
           />
         </div>
+
+        <div className="w-52">
+          <SearchSelect
+            options={categoryOptions}
+            value={filters.categoryId ?? ALL_CATEGORIES}
+            loading={categoriesLoading && categories.length === 0}
+            onChange={(v) => dispatch(setInventoryCategory(v))}
+            placeholder="All categories"
+            emptyText="No categories"
+          />
+        </div>
+
+        <div className="w-52">
+          <SearchSelect
+            options={SORT_OPTIONS}
+            value={filters.sort ?? 'newest'}
+            searchable={false}
+            onChange={(v) => dispatch(setInventorySort(v as InventorySort))}
+          />
+        </div>
+
+        {filtersActive && (
+          <button
+            type="button"
+            onClick={() => dispatch(clearInventoryFilters())}
+            className="text-[13px] font-semibold text-primary hover:underline"
+          >
+            Clear filters
+          </button>
+        )}
       </div>
 
       {/* Body */}
@@ -205,6 +284,15 @@ const InventoryPage: FC = () => {
         </div>
       ) : (
         <div className="overflow-hidden rounded-xl border border-border bg-surface shadow-sm">
+          {/* The stock scan is bounded so it can never become an unbounded read. If it ever hits that
+              ceiling the ranking is incomplete — say so rather than let a partial one pass as final. */}
+          {truncated && (
+            <p className="flex items-center gap-2 border-b border-border bg-subtle/50 px-5 py-2.5 text-[12px] text-muted">
+              <Icon name="AlertLine" size={14} className="shrink-0 text-gold-strong" />
+              This catalogue is larger than one ranking pass — narrow it with a category or search, or
+              use Export for the complete ordering.
+            </p>
+          )}
           <table className="w-full">
             <thead className="border-b border-border bg-subtle/50">
               {table.getHeaderGroups().map((hg) => (
@@ -242,7 +330,13 @@ const InventoryPage: FC = () => {
             <div className="flex justify-center border-t border-border p-3">
               <button
                 type="button"
-                onClick={() => dispatch(fetchInventory({ filters, cursor: lastVisible }))}
+                // Under a stock sort the whole ranking is already loaded, so the next page comes from
+                // the slice with no read; the plain list keeps its Firestore cursor fetch.
+                onClick={() =>
+                  isStockSort(filters)
+                    ? dispatch(showMoreRankedRows())
+                    : dispatch(fetchInventory({ filters, cursor: lastVisible }))
+                }
                 className="rounded-md border border-border-strong px-4 py-2 text-[14px] font-semibold text-foreground hover:bg-subtle"
               >
                 View More

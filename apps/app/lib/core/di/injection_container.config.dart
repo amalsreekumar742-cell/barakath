@@ -163,6 +163,8 @@ import '../../features/orders/domain/usecases/get_item_replacement.dart'
     as _i940;
 import '../../features/orders/domain/usecases/get_order_by_id.dart' as _i43;
 import '../../features/orders/domain/usecases/get_orders.dart' as _i941;
+import '../../features/orders/domain/usecases/get_return_statuses.dart'
+    as _i965;
 import '../../features/orders/presentation/providers/order_detail_provider.dart'
     as _i462;
 import '../../features/orders/presentation/providers/orders_provider.dart'
@@ -638,6 +640,8 @@ extension GetItInjectableX on _i174.GetIt {
         () => _i741.VerifyPayment(gh<_i498.CheckoutRepository>()));
     gh.factory<_i741.GetOrderPayment>(
         () => _i741.GetOrderPayment(gh<_i498.CheckoutRepository>()));
+    gh.factory<_i741.ReleaseAbandonedOrder>(
+        () => _i741.ReleaseAbandonedOrder(gh<_i498.CheckoutRepository>()));
     gh.factory<_i286.AffiliateProvider>(() => _i286.AffiliateProvider(
           gh<_i643.GetCommissions>(),
           gh<_i643.GetWithdrawals>(),
@@ -646,11 +650,6 @@ extension GetItInjectableX on _i174.GetIt {
           gh<_i643.DeleteBankAccount>(),
           gh<_i643.CreateWithdrawal>(),
           gh<_i643.VerifyIfsc>(),
-        ));
-    gh.factory<_i238.CheckoutProvider>(() => _i238.CheckoutProvider(
-          gh<_i741.PlaceOrder>(),
-          gh<_i741.VerifyPayment>(),
-          gh<_i741.GetOrderPayment>(),
         ));
     gh.factory<_i868.AddToCart>(
         () => _i868.AddToCart(gh<_i322.CartRepository>()));
@@ -688,6 +687,12 @@ extension GetItInjectableX on _i174.GetIt {
           gh<_i517.CreateWalletTopUpOrder>(),
           gh<_i655.VerifyWalletTopUp>(),
         ));
+    gh.factory<_i238.CheckoutProvider>(() => _i238.CheckoutProvider(
+          gh<_i741.PlaceOrder>(),
+          gh<_i741.VerifyPayment>(),
+          gh<_i741.GetOrderPayment>(),
+          gh<_i741.ReleaseAbandonedOrder>(),
+        ));
     gh.lazySingleton<_i894.ProfileRepository>(
         () => _i334.ProfileRepositoryImpl(gh<_i327.ProfileRemoteDataSource>()));
     gh.factory<_i216.FetchCartDetails>(
@@ -704,6 +709,8 @@ extension GetItInjectableX on _i174.GetIt {
         () => _i43.GetOrderById(gh<_i543.OrderRepository>()));
     gh.factory<_i941.GetOrders>(
         () => _i941.GetOrders(gh<_i543.OrderRepository>()));
+    gh.factory<_i965.GetReturnStatuses>(
+        () => _i965.GetReturnStatuses(gh<_i543.OrderRepository>()));
     gh.factory<_i412.GetBroadcastNotifications>(() =>
         _i412.GetBroadcastNotifications(gh<_i367.NotificationRepository>()));
     gh.factory<_i501.GetPersonalNotifications>(() =>
@@ -722,11 +729,6 @@ extension GetItInjectableX on _i174.GetIt {
         () => _i301.GetProductVariants(gh<_i550.ProductDetailRepository>()));
     gh.factory<_i17.GetRecentProductReviews>(() =>
         _i17.GetRecentProductReviews(gh<_i550.ProductDetailRepository>()));
-    gh.factory<_i388.OrdersProvider>(() => _i388.OrdersProvider(
-          gh<_i941.GetOrders>(),
-          gh<_i892.GetProductDetail>(),
-          gh<_i301.GetProductVariants>(),
-        ));
     gh.factory<_i52.CouponProvider>(() => _i52.CouponProvider(
           gh<_i538.GetActiveCoupons>(),
           gh<_i807.FindCouponByCode>(),
@@ -744,6 +746,12 @@ extension GetItInjectableX on _i174.GetIt {
           gh<_i160.WatchWishlistProductIds>(),
           gh<_i1071.AddToWishlist>(),
           gh<_i28.RemoveFromWishlist>(),
+        ));
+    gh.factory<_i388.OrdersProvider>(() => _i388.OrdersProvider(
+          gh<_i941.GetOrders>(),
+          gh<_i892.GetProductDetail>(),
+          gh<_i301.GetProductVariants>(),
+          gh<_i965.GetReturnStatuses>(),
         ));
     gh.factory<_i506.NotificationsProvider>(() => _i506.NotificationsProvider(
           gh<_i412.GetBroadcastNotifications>(),

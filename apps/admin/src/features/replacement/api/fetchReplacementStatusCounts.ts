@@ -35,6 +35,6 @@ export const fetchReplacementStatusCounts = createAsyncThunk<
       rejected: rejected.data().count,
     };
   } catch (err) {
-    return rejectWithValue(err instanceof Error ? err.message : 'Could not load replacement counts');
+    return rejectWithValue(err instanceof Error ? err.message : 'Could not load return request counts');
   }
 });

@@ -2,6 +2,7 @@ import type { FC } from 'react';
 import toast from 'react-hot-toast';
 import { format } from 'date-fns';
 import type { OrderProps, PaymentProps } from '@barakath/shared/types';
+import { gstBreakdown } from '@barakath/shared/utils/gstBreakdown';
 import { useAppSelector } from '@/stores/store';
 import Modal from '@/components/Modal';
 import Icon from '@/components/icons/Icon';
@@ -24,6 +25,8 @@ const TaxInvoiceModal: FC<{
   const settings = useAppSelector((s) => s.settings.settings);
   const gstin = settings?.delivery.gstin || '32ABCDE1234F1Z5';
   const gstPct = settings?.delivery.gstPercentage ?? 0;
+
+  const gstRows = order ? gstBreakdown(order) : [];
 
   const invoiceNo = order ? `INV-${order.id.slice(0, 8).toUpperCase()}` : 'INV-—';
   const invoiceDate = order?.createdAt ? format(order.createdAt.toDate(), 'dd MMM yyyy') : '—';
@@ -174,7 +177,20 @@ const TaxInvoiceModal: FC<{
                 <Row label="Wallet used" value={`-${formatINR(order.walletAmountUsed)}`} tone="text-success" />
               )}
               <Row label="Delivery charge" value={`+${formatINR(order.deliveryCharge)}`} />
-              <Row label={`GST${gstPct ? ` (${gstPct}%)` : ''}`} value={`+${formatINR(order.gstAmount)}`} />
+              {/* Rate-wise GST, one row per rate present on the order. Orders placed before per-line
+                  GST existed carry only the order-level total, so `gstBreakdown` returns [] for them
+                  and the single line below is shown instead — never a fabricated split. */}
+              {gstRows.length > 0 ? (
+                gstRows.map((r) => (
+                  <Row
+                    key={r.percentage}
+                    label={`GST ${r.percentage}% on ${formatINR(r.taxableValue)}`}
+                    value={`+${formatINR(r.gstAmount)}`}
+                  />
+                ))
+              ) : (
+                <Row label={`GST${gstPct ? ` (${gstPct}%)` : ''}`} value={`+${formatINR(order.gstAmount)}`} />
+              )}
               <div className="my-2 border-t border-border" />
               <Row label="Grand Total" value={formatINR(order.grandTotal)} strong />
             </div>

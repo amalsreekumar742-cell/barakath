@@ -136,7 +136,17 @@ export default async function ProductPage({ params }: PageProps) {
         <DescriptionSection description={product.description} />
         <SpecificationsTable specifications={product.specifications} />
         <ReviewsSection product={product} firstPage={reviewsPage.items} hasMore={reviewsPage.hasMore} />
-        <FrequentlyBoughtTogether items={bundleItems} />
+        <FrequentlyBoughtTogether
+          items={bundleItems}
+          // The first row is context only, so the DEFAULT variant's price is the right one to show —
+          // the section deliberately cannot add this product (see its doc comment).
+          currentProduct={{
+            name: product.name,
+            image: product.thumbnail || product.images[0] || '',
+            offerPrice: defaultVariant.offerPrice,
+            mrp: defaultVariant.mrp,
+          }}
+        />
         <RelatedProducts products={relatedProducts} />
       </div>
 

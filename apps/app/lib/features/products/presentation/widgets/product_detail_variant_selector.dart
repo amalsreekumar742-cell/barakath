@@ -1,42 +1,116 @@
 import 'package:flutter/material.dart';
 
 import '../../../../core/constants/app_colors.dart';
-import '../../domain/entities/variant.dart';
+import '../../../../core/constants/app_dimens.dart';
+import '../../domain/entities/variant_option.dart';
 
-/// Horizontal variant chips: a colour swatch + the variant name.
+/// Two independent selection rows — Colour, then Size — instead of one combined
+/// variant chip.
 ///
-/// Sold-out variants stay tappable on purpose — the shopper gets an explicit
-/// "out of stock" message instead of a dead chip that seems broken.
+/// WHY the rows are rendered separately but resolved together: a variant is a
+/// (colour, size) pair and the catalogue's pairs are sparse, so the provider
+/// decides which variant a tap lands on (see its "Colour / size axes" note).
+/// This widget stays dumb: it draws chips and reports which value was tapped.
+///
+/// Sold-out values stay tappable on purpose — the shopper gets an explicit
+/// "out of stock" message and a page that reflects it, instead of a dead chip
+/// that seems broken. A row with no values is omitted entirely rather than
+/// rendering a header over nothing.
 class ProductDetailVariantSelector extends StatelessWidget {
   const ProductDetailVariantSelector({
     super.key,
-    required this.variants,
-    required this.selectedVariantId,
-    required this.onSelect,
-    required this.onOutOfStockTap,
+    required this.colorOptions,
+    required this.sizeOptions,
+    required this.selectedColor,
+    required this.selectedSize,
+    required this.onSelectColor,
+    required this.onSelectSize,
   });
 
-  final List<Variant> variants;
-  final String? selectedVariantId;
-  final ValueChanged<Variant> onSelect;
-  final ValueChanged<Variant> onOutOfStockTap;
+  final List<VariantOption> colorOptions;
+  final List<VariantOption> sizeOptions;
+  final String selectedColor;
+  final String selectedSize;
+  final ValueChanged<String> onSelectColor;
+  final ValueChanged<String> onSelectSize;
 
   @override
   Widget build(BuildContext context) {
-    if (variants.isEmpty) return const SizedBox.shrink();
+    final rows = <Widget>[
+      if (colorOptions.isNotEmpty)
+        _AxisRow(
+          label: 'Colour',
+          selected: selectedColor,
+          options: colorOptions,
+          onSelect: onSelectColor,
+        ),
+      if (sizeOptions.isNotEmpty)
+        _AxisRow(
+          label: 'Size',
+          selected: selectedSize,
+          options: sizeOptions,
+          onSelect: onSelectSize,
+        ),
+    ];
+    if (rows.isEmpty) return const SizedBox.shrink();
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Padding(
-          padding: EdgeInsets.symmetric(horizontal: 16),
-          child: Text(
-            'Select variant',
-            style: TextStyle(
-              color: AppColors.textPrimary,
-              fontSize: 14,
-              fontWeight: FontWeight.w700,
-            ),
+        for (var i = 0; i < rows.length; i++) ...[
+          if (i > 0) const SizedBox(height: 18),
+          rows[i],
+        ],
+      ],
+    );
+  }
+}
+
+class _AxisRow extends StatelessWidget {
+  const _AxisRow({
+    required this.label,
+    required this.selected,
+    required this.options,
+    required this.onSelect,
+  });
+
+  final String label;
+  final String selected;
+  final List<VariantOption> options;
+  final ValueChanged<String> onSelect;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: AppDimens.screenPadding),
+          child: Row(
+            children: [
+              Text(
+                label,
+                style: const TextStyle(
+                  color: AppColors.textPrimary,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              const SizedBox(width: 6),
+              // The current value beside the heading, so the choice reads at a
+              // glance without scanning the row for the highlighted chip.
+              Expanded(
+                child: Text(
+                  selected,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: AppColors.textSecondary,
+                    fontSize: 14,
+                  ),
+                ),
+              ),
+            ],
           ),
         ),
         const SizedBox(height: 10),
@@ -44,19 +118,15 @@ class ProductDetailVariantSelector extends StatelessWidget {
           height: 46,
           child: ListView.separated(
             scrollDirection: Axis.horizontal,
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            itemCount: variants.length,
+            padding: const EdgeInsets.symmetric(horizontal: AppDimens.screenPadding),
+            itemCount: options.length,
             separatorBuilder: (_, __) => const SizedBox(width: 10),
             itemBuilder: (_, i) {
-              final variant = variants[i];
-              final selected = variant.id == selectedVariantId;
-              final soldOut = variant.stock <= 0;
-              return _VariantChip(
-                variant: variant,
-                selected: selected,
-                soldOut: soldOut,
-                onTap: () =>
-                    soldOut ? onOutOfStockTap(variant) : onSelect(variant),
+              final option = options[i];
+              return _OptionChip(
+                option: option,
+                selected: option.value == selected,
+                onTap: () => onSelect(option.value),
               );
             },
           ),
@@ -66,23 +136,21 @@ class ProductDetailVariantSelector extends StatelessWidget {
   }
 }
 
-class _VariantChip extends StatelessWidget {
-  const _VariantChip({
-    required this.variant,
+class _OptionChip extends StatelessWidget {
+  const _OptionChip({
+    required this.option,
     required this.selected,
-    required this.soldOut,
     required this.onTap,
   });
 
-  final Variant variant;
+  final VariantOption option;
   final bool selected;
-  final bool soldOut;
   final VoidCallback onTap;
 
   /// `colorCode` is authored as `#RRGGBB` in the admin; anything unparseable
   /// falls back to the neutral fill so the chip never renders a black hole.
   Color get _swatchColor {
-    final raw = variant.colorCode.replaceAll('#', '').trim();
+    final raw = option.colorCode.replaceAll('#', '').trim();
     if (raw.length != 6) return AppColors.subtle;
     final value = int.tryParse('FF$raw', radix: 16);
     return value == null ? AppColors.subtle : Color(value);
@@ -90,10 +158,10 @@ class _VariantChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final label = variant.name.isNotEmpty ? variant.name : variant.color;
+    final hasSwatch = option.colorCode.trim().isNotEmpty;
 
     return Opacity(
-      opacity: soldOut ? 0.45 : 1,
+      opacity: option.soldOut ? 0.45 : 1,
       child: InkWell(
         borderRadius: BorderRadius.circular(12),
         onTap: onTap,
@@ -110,25 +178,27 @@ class _VariantChip extends StatelessWidget {
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Container(
-                height: 16,
-                width: 16,
-                decoration: BoxDecoration(
-                  color: _swatchColor,
-                  shape: BoxShape.circle,
-                  border: Border.all(color: AppColors.border),
+              if (hasSwatch) ...[
+                Container(
+                  height: 16,
+                  width: 16,
+                  decoration: BoxDecoration(
+                    color: _swatchColor,
+                    shape: BoxShape.circle,
+                    border: Border.all(color: AppColors.border),
+                  ),
                 ),
-              ),
-              const SizedBox(width: 8),
+                const SizedBox(width: 8),
+              ],
               Text(
-                label,
+                option.value,
                 style: TextStyle(
                   color: selected ? AppColors.brandGreen : AppColors.textPrimary,
                   fontSize: 13,
                   fontWeight: FontWeight.w700,
                 ),
               ),
-              if (soldOut) ...[
+              if (option.soldOut) ...[
                 const SizedBox(width: 8),
                 const Text(
                   'Out of stock',

@@ -53,7 +53,10 @@ const CustomerDetailPage: FC = () => {
 
   const customer = customerDetail;
   const isBlocked = customer?.status === UserStatus.BLOCKED;
-  const affiliateOn = customer?.affiliateEnabled !== false;
+  // Affiliate access is opt-in: only an explicit `true` counts. This used to be `!== false`, which
+  // rendered the switch ON for every customer whose document simply lacked the field (nothing writes
+  // it at signup), so customers who had never been granted affiliate access showed as enabled.
+  const affiliateOn = customer?.affiliateEnabled === true;
 
   const doToggle = async () => {
     if (!customer) return;

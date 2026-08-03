@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../../core/constants/app_dimens.dart';
 import '../../../../core/widgets/shimmer_loading.dart';
 
 /// The home screen's first-load placeholder (skill: "Loading State Policy" —
@@ -12,7 +13,12 @@ class HomeSkeleton extends StatelessWidget {
   Widget build(BuildContext context) {
     return const ShimmerLoading(
       child: Padding(
-        padding: EdgeInsets.fromLTRB(16, 8, 16, 24),
+        padding: EdgeInsets.fromLTRB(
+          AppDimens.screenPadding,
+          8,
+          AppDimens.screenPadding,
+          24,
+        ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [

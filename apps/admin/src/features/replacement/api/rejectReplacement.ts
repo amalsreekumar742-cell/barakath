@@ -29,7 +29,7 @@ export const rejectReplacement = createAsyncThunk<
 
     const replRef = doc(db, FirestoreCollections.replacements, input.replacementId);
     const replSnap = await getDoc(replRef);
-    if (!replSnap.exists()) return rejectWithValue('Replacement request not found');
+    if (!replSnap.exists()) return rejectWithValue('Return request not found');
     const replacement = { ...replSnap.data(), id: replSnap.id } as ReplacementProps;
 
     if (replacement.status !== ReplacementStatus.PENDING)
@@ -48,6 +48,6 @@ export const rejectReplacement = createAsyncThunk<
     const updated = await getDoc(replRef);
     return { ...updated.data(), id: updated.id } as ReplacementProps;
   } catch (err) {
-    return rejectWithValue(err instanceof Error ? err.message : 'Could not reject the replacement');
+    return rejectWithValue(err instanceof Error ? err.message : 'Could not reject the return request');
   }
 });

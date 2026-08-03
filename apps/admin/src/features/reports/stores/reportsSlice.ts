@@ -2,6 +2,7 @@ import { createSlice } from '@reduxjs/toolkit';
 import type { PayloadAction } from '@reduxjs/toolkit';
 import { endOfDay, startOfYear } from 'date-fns';
 import { fetchSalesReport } from '../api/fetchSalesReport';
+import { fetchProfitReport } from '../api/fetchProfitReport';
 import { fetchCategoryReport } from '../api/fetchCategoryReport';
 import { fetchProductReport } from '../api/fetchProductReport';
 import { fetchCustomerReport } from '../api/fetchCustomerReport';
@@ -15,6 +16,7 @@ import type {
   DateRange,
   ReportSection,
   SalesReportData,
+  ProfitReportData,
   CategoryReportData,
   ProductReportData,
   CustomerReportData,
@@ -39,6 +41,11 @@ interface ReportsState {
   activeReport: ReportKey;
   exportLoading: boolean;
   sales: ReportSection<SalesReportData | null>;
+  /**
+   * Loaded independently of `sales`: profit needs a bounded order scan plus a cost join, revenue needs
+   * only aggregation queries. Sharing a section would make the fast card wait for the slow one.
+   */
+  profit: ReportSection<ProfitReportData | null>;
   category: ReportSection<CategoryReportData | null>;
   product: ReportSection<ProductReportData | null>;
   customer: ReportSection<CustomerReportData | null>;
@@ -60,6 +67,7 @@ const initialState: ReportsState = {
   activeReport: 'sales',
   exportLoading: false,
   sales: section(null),
+  profit: section(null),
   category: section(null),
   product: section(null),
   customer: section(null),
@@ -96,6 +104,19 @@ const reportsSlice = createSlice({
       .addCase(fetchSalesReport.rejected, (s, a) => {
         s.sales.loading = false;
         s.sales.error = a.payload ?? 'Failed to load sales report';
+      })
+      // --- profit ---
+      .addCase(fetchProfitReport.pending, (s) => {
+        s.profit.loading = true;
+        s.profit.error = null;
+      })
+      .addCase(fetchProfitReport.fulfilled, (s, a) => {
+        s.profit.loading = false;
+        s.profit.data = a.payload;
+      })
+      .addCase(fetchProfitReport.rejected, (s, a) => {
+        s.profit.loading = false;
+        s.profit.error = a.payload ?? 'Failed to load profit report';
       })
       // --- category ---
       .addCase(fetchCategoryReport.pending, (s) => {

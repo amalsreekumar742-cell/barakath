@@ -15,7 +15,15 @@ import { round2 } from './computeTotals';
  * keeping them on the write side of the "all reads before all writes" rule.
  */
 
-/** Append a walletTransactions ledger entry. */
+/**
+ * Append a walletTransactions ledger entry.
+ *
+ * `ledgerRef` lets a caller supply a DETERMINISTIC document reference instead of the default auto-id,
+ * which is what makes a credit idempotent: the caller reads that ref inside its transaction and
+ * aborts if it already exists, so a retried or replayed operation cannot credit twice
+ * (same construction as `processReferralCommission`'s `${orderId}_referral`). Callers that don't
+ * need idempotency simply omit it and get an auto-id as before.
+ */
 function writeLedgerEntry(
   tx: Transaction,
   userId: string,
@@ -25,9 +33,10 @@ function writeLedgerEntry(
   description: string,
   orderId: string,
   balanceAfter: number,
+  ledgerRef?: DocumentReference,
 ): void {
   const db = getFirestore();
-  tx.set(db.collection(Collections.walletTransactions).doc(), {
+  tx.set(ledgerRef ?? db.collection(Collections.walletTransactions).doc(), {
     userId,
     type,
     amount: round2(amount),
@@ -60,6 +69,8 @@ export function debitWallet(
 /**
  * Credit the wallet back on refund / failed payment / cancellation: raise the balance and log a
  * Credit/Refund entry. Returns the new balance.
+ *
+ * Pass `ledgerRef` to make the credit idempotent — see `writeLedgerEntry`.
  */
 export function creditWallet(
   tx: Transaction,
@@ -69,9 +80,20 @@ export function creditWallet(
   amount: number,
   orderId: string,
   description: string,
+  ledgerRef?: DocumentReference,
 ): number {
   const newBalance = round2(currentBalance + amount);
   tx.update(userRef, { walletBalance: newBalance, updatedAt: FieldValue.serverTimestamp() });
-  writeLedgerEntry(tx, userId, 'Credit', amount, 'Refund', description, orderId, newBalance);
+  writeLedgerEntry(
+    tx,
+    userId,
+    'Credit',
+    amount,
+    'Refund',
+    description,
+    orderId,
+    newBalance,
+    ledgerRef,
+  );
   return newBalance;
 }

@@ -7,8 +7,9 @@ import type { ProductProps, SpecificationProps } from '@barakath/shared/types';
 import { db } from '@/lib/firebaseConfig';
 import { uploadImage } from '@/utils/imageUpload';
 import { isSkuTaken } from './checkSku';
+import { queueVariantCost } from './variantCosts';
 import { sumStock, deriveStockStatus, deriveListFields } from '../utils/stock';
-import type { VariantDraft, ImageDraft } from '../types';
+import type { VariantToSave, ImageDraft } from '../types';
 
 export interface CreateProductInput {
   name: string;
@@ -27,7 +28,7 @@ export interface CreateProductInput {
   lowStockThreshold: number;
   frequentlyBoughtTogether: string[];
   status: ProductStatus;
-  variants: VariantDraft[];
+  variants: VariantToSave[];
 }
 
 /**
@@ -116,9 +117,12 @@ export const createProduct = createAsyncThunk<
         offerPrice: v.offerPrice,
         referralPrice: v.referralPrice,
         commission: v.commission,
+        gstPercentage: v.gstPercentage,
         stock: v.stock,
         createdAt: serverTimestamp(),
       });
+      // Cost rides the SAME batch, so a variant can never be saved without its purchase price.
+      queueVariantCost(batch, variantRef.id, productRef.id, v.purchasePrice);
     }
     await batch.commit();
 

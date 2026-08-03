@@ -117,7 +117,7 @@ const replacementSlice = createSlice({
       .addCase(fetchReplacements.rejected, (s, a) => {
         s.loading = false;
         s.loadingMore = false;
-        s.error = a.payload ?? 'Failed to load replacement requests';
+        s.error = a.payload ?? 'Failed to load return requests';
       })
 
       // --- status counts ---
@@ -143,7 +143,7 @@ const replacementSlice = createSlice({
       })
       .addCase(fetchReplacementDetail.rejected, (s, a) => {
         s.detailLoading = false;
-        s.detailError = a.payload ?? 'Failed to load the replacement request';
+        s.detailError = a.payload ?? 'Failed to load the return request';
       })
 
       // --- approve ---

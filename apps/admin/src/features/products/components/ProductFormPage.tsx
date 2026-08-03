@@ -24,9 +24,18 @@ import { resetProductDetail } from '../stores/productsSlice';
 import { fetchGeneralSettings } from '@/features/settings/api/fetchGeneralSettings';
 import ProductPicker from './ProductPicker';
 import { VariantColorPicker, VariantUnitPicker } from './VariantVariablePickers';
+import { fetchVariantCosts } from '../api/variantCosts';
 import type { VariantDraft, ImageDraft, FBTItem } from '../types';
 
-const EMPTY_NV = { color: '', colorCode: '#0f7a5a', name: '', mrp: '', offerPrice: '', referralPrice: '', commission: '', stock: '' };
+const EMPTY_NV = { color: '', colorCode: '#0f7a5a', name: '', purchasePrice: '', mrp: '', offerPrice: '', referralPrice: '', commission: '', gstPercentage: '', stock: '' };
+
+/**
+ * Fields the add-row keeps after a variant is added, so a product whose variants differ only by
+ * colour/size is entered once rather than retyped per row. Colour and variant are deliberately NOT
+ * carried over — they are the only fields that MUST differ between two variants of one product, so
+ * pre-filling them would invite a duplicate.
+ */
+const CARRY_OVER = ['purchasePrice', 'mrp', 'offerPrice', 'referralPrice', 'commission', 'gstPercentage', 'stock'] as const;
 
 const MAX_SPECS = 10;
 const MAX_FBT = 10;
@@ -92,6 +101,8 @@ const ProductFormPage: FC = () => {
   const [replacementAvailable, setReplacementAvailable] = useState(true);
   const [images, setImages] = useState<ImageDraft[]>([]);
   const [variants, setVariants] = useState<VariantDraft[]>([]);
+  /** Settings › Delivery & Tax rate — the fallback for any variant with no rate of its own. */
+  const globalGstPct = useAppSelector((s) => s.settings.settings?.delivery.gstPercentage ?? 0);
   const [specifications, setSpecifications] = useState<SpecificationProps[]>([]);
   const [fbt, setFbt] = useState<FBTItem[]>([]);
 
@@ -141,13 +152,23 @@ const ProductFormPage: FC = () => {
         name: v.name,
         color: v.color,
         colorCode: v.colorCode,
+        // Filled in by the variantCosts read below — it is a separate, admin-only document.
+        purchasePrice: 0,
         mrp: v.mrp,
         offerPrice: v.offerPrice,
         referralPrice: v.referralPrice,
         commission: v.commission,
+        // null (not 0) when the variant predates per-variant rates — see VariantDraft.
+        gstPercentage: typeof v.gstPercentage === 'number' ? v.gstPercentage : null,
         stock: v.stock,
       })),
     );
+    // Purchase prices are NOT on the variant documents (they would be world-readable there), so they
+    // need their own read. Patched in rather than awaited so the form is usable immediately.
+    void fetchVariantCosts(detail.variants.map((v) => v.id)).then((costs) => {
+      if (costs.size === 0) return;
+      setVariants((prev) => prev.map((v) => ({ ...v, purchasePrice: costs.get(v.id) ?? v.purchasePrice })));
+    });
     if (p.categoryId) void loadSubCategories(p.categoryId).then((subs) => setSubOptions(subs.map((s) => ({ value: s.id, label: s.name }))));
     if (p.isCombo && p.frequentlyBoughtTogether?.length) void loadProductsByIds(p.frequentlyBoughtTogether).then(setFbt);
   }, [detail, id, isEdit, reset]);
@@ -207,16 +228,22 @@ const ProductFormPage: FC = () => {
   const addInlineVariant = () => {
     const mrp = Number(nv.mrp), offer = Number(nv.offerPrice);
     const referral = Number(nv.referralPrice || 0), commission = Number(nv.commission || 0), stock = Number(nv.stock || 0);
+    const purchasePrice = Number(nv.purchasePrice || 0), gstPercentage = Number(nv.gstPercentage || 0);
     if (!nv.color.trim() || !nv.name.trim()) return toast.error('Color and variant are required');
-    if (!(mrp > 0) || !(offer > 0)) return toast.error('Enter MRP and offer price');
-    if (offer > mrp) return toast.error('Offer must be ≤ MRP');
-    if (referral > offer) return toast.error('Referral must be ≤ Offer');
-    if (commission > referral) return toast.error('Commission must be ≤ Referral');
+    if (!(mrp > 0) || !(offer > 0)) return toast.error('Enter actual and selling price');
+    if (offer > mrp) return toast.error('Selling price must be ≤ Actual');
+    if (referral > offer) return toast.error('Ref buying price must be ≤ Selling price');
+    if (commission > referral) return toast.error('Commission must be ≤ Ref buying price');
+    if (purchasePrice < 0) return toast.error('Purchase payment cannot be negative');
+    if (gstPercentage < 0 || gstPercentage > 100) return toast.error('GST must be between 0 and 100');
     setVariants((prev) => [
       ...prev,
-      { id: uuid(), isNew: true, name: nv.name.trim(), color: nv.color.trim(), colorCode: nv.colorCode, mrp, offerPrice: offer, referralPrice: referral, commission, stock },
+      { id: uuid(), isNew: true, name: nv.name.trim(), color: nv.color.trim(), colorCode: nv.colorCode, purchasePrice, mrp, offerPrice: offer, referralPrice: referral, commission, gstPercentage, stock },
     ]);
-    setNv(EMPTY_NV);
+    // Keep the pricing fields for the next row (see CARRY_OVER) — the common case is several sizes
+    // of one product sharing everything but colour and size. Clearing all of it forced a full retype
+    // for every variant after the first.
+    setNv((s) => ({ ...EMPTY_NV, ...Object.fromEntries(CARRY_OVER.map((k) => [k, s[k]])) }));
   };
   const removeVariant = (vid: string) => {
     if (variants.length <= 1) return toast.error('Minimum one variant required');
@@ -257,7 +284,9 @@ const ProductFormPage: FC = () => {
       lowStockThreshold: values.lowStockThreshold,
       frequentlyBoughtTogether: fbt.map((f) => f.id),
       status,
-      variants,
+      // Resolve "inherit the shop default" into a concrete rate here, at the one place that knows
+      // both the draft and the current global rate — see VariantDraft.gstPercentage.
+      variants: variants.map((v) => ({ ...v, gstPercentage: v.gstPercentage ?? globalGstPct })),
     };
 
     const res = isEdit ? await dispatch(updateProduct({ id: id!, ...common })) : await dispatch(createProduct(common));
@@ -387,7 +416,7 @@ const ProductFormPage: FC = () => {
           <Card title="Product settings">
             <div className="grid gap-4 sm:grid-cols-2">
               <ToggleRow label="Status" on={status === ProductStatus.ACTIVE} onToggle={() => setStatus((s) => (s === ProductStatus.ACTIVE ? ProductStatus.ARCHIVED : ProductStatus.ACTIVE))} onText="Active" offText="Archived" />
-              <ToggleRow label="Replacement available" on={replacementAvailable} onToggle={() => setReplacementAvailable((v) => !v)} />
+              <ToggleRow label="Returns available" on={replacementAvailable} onToggle={() => setReplacementAvailable((v) => !v)} />
               <ToggleRow label="Combo product" on={isCombo} onToggle={() => setIsCombo((v) => !v)} />
               {isCombo && (
                 <Field label="Combo delivery charge (₹)" error={errors.comboDeliveryCharge?.message}>
@@ -432,27 +461,39 @@ const ProductFormPage: FC = () => {
                 )}
               </div>
               <p className="text-[12px] text-faint">
-                Price varies per variant — set price, offer, referral &amp; commission for each (MRP ≥ Offer ≥
-                Referral ≥ Commission).
+                Price varies per variant — set purchase payment, actual, selling, ref buying, commission
+                &amp; GST for each (Actual ≥ Selling ≥ Ref buying ≥ Commission). Purchase payment is
+                internal: it drives the profit report and is never shown to customers.
               </p>
             </div>
             <div className="overflow-x-auto rounded-lg border border-border">
-              <table className="w-full min-w-[760px] text-[13px]">
+              {/* Sized so the ten columns fit without scrolling on a normal desktop; narrower than
+                  that the pinned action column keeps Add/Delete reachable. */}
+              <table className="w-full min-w-[960px] text-[13px]">
                 <thead className="bg-subtle/50 text-left text-[11px] uppercase tracking-wide text-faint">
                   <tr>
+                    {/* Labels only — the Firestore field names behind them (mrp / offerPrice /
+                        referralPrice / commission) are unchanged, so no document is rewritten. */}
                     <th className="px-3 py-2 font-semibold">Color</th>
                     <th className="px-3 py-2 font-semibold">Variant</th>
-                    <th className="px-3 py-2 font-semibold">Price</th>
-                    <th className="px-3 py-2 font-semibold">Offer</th>
-                    <th className="px-3 py-2 font-semibold">Referral</th>
+                    <th className="px-3 py-2 font-semibold">Purchase payment (₹)</th>
+                    <th className="px-3 py-2 font-semibold">Actual (₹)</th>
+                    <th className="px-3 py-2 font-semibold">Selling price (₹)</th>
+                    <th className="px-3 py-2 font-semibold">Ref buying price (₹)</th>
                     <th className="px-3 py-2 font-semibold">Comm.</th>
+                    <th className="px-3 py-2 font-semibold">GST (%)</th>
                     <th className="px-3 py-2 font-semibold">Stock</th>
-                    <th className="px-3 py-2" />
+                    {/* Pinned right. With ten columns the table scrolls horizontally, and the Add
+                        button lived past the right edge — invisible until you scrolled, on the one
+                        row whose whole purpose is that button. Sticky keeps it (and every row's
+                        delete) reachable at any width. The cell needs an OPAQUE background or the
+                        scrolling columns show through it. */}
+                    <th className="sticky right-0 z-10 border-l border-border bg-subtle px-3 py-2" />
                   </tr>
                 </thead>
                 <tbody>
                   {variants.map((v) => (
-                    <tr key={v.id} className="border-t border-border">
+                    <tr key={v.id} className="group border-t border-border">
                       <td className="px-3 py-2">
                         <span className="inline-flex items-center gap-1.5 text-foreground">
                           <span className="h-3 w-3 rounded-full border border-border" style={{ backgroundColor: v.colorCode }} />
@@ -460,12 +501,19 @@ const ProductFormPage: FC = () => {
                         </span>
                       </td>
                       <td className="px-3 py-2 text-muted">{v.name}</td>
+                      <td className="px-3 py-2 text-muted">{formatINR(v.purchasePrice)}</td>
                       <td className="px-3 py-2 text-muted">{formatINR(v.mrp)}</td>
                       <td className="px-3 py-2 font-semibold text-primary">{formatINR(v.offerPrice)}</td>
                       <td className="px-3 py-2 font-semibold text-gold-strong">{formatINR(v.referralPrice)}</td>
                       <td className="px-3 py-2 text-muted">{formatINR(v.commission)}</td>
+                      <td className="px-3 py-2 text-muted">
+                        {v.gstPercentage ?? globalGstPct}%
+                        {v.gstPercentage === null && (
+                          <span className="ml-1 text-[11px] text-faint">(shop default)</span>
+                        )}
+                      </td>
                       <td className="px-3 py-2 text-muted">{v.stock}</td>
-                      <td className="px-3 py-2 text-right">
+                      <td className="sticky right-0 z-10 border-l border-border bg-surface px-3 py-2 text-right group-hover:bg-subtle">
                         <button type="button" onClick={() => removeVariant(v.id)} className="rounded-md p-1.5 text-muted hover:bg-error-subtle hover:text-error" aria-label="Delete variant">
                           <Icon name="CloseLine" size={16} />
                         </button>
@@ -485,12 +533,14 @@ const ProductFormPage: FC = () => {
                     <td className="px-2 py-2">
                       <VariantUnitPicker value={nv.name} onSelect={(name) => setNv((s) => ({ ...s, name }))} />
                     </td>
-                    <td className="px-2 py-2"><input type="number" value={nv.mrp} onChange={(e) => setNv((s) => ({ ...s, mrp: e.target.value }))} placeholder="MRP" className={cellCls} /></td>
-                    <td className="px-2 py-2"><input type="number" value={nv.offerPrice} onChange={(e) => setNv((s) => ({ ...s, offerPrice: e.target.value }))} placeholder="Offer" className={cellCls} /></td>
-                    <td className="px-2 py-2"><input type="number" value={nv.referralPrice} onChange={(e) => setNv((s) => ({ ...s, referralPrice: e.target.value }))} placeholder="Referral" className={cellCls} /></td>
+                    <td className="px-2 py-2"><input type="number" value={nv.purchasePrice} onChange={(e) => setNv((s) => ({ ...s, purchasePrice: e.target.value }))} placeholder="₹ Purchase" className={cellCls} /></td>
+                    <td className="px-2 py-2"><input type="number" value={nv.mrp} onChange={(e) => setNv((s) => ({ ...s, mrp: e.target.value }))} placeholder="₹ Actual" className={cellCls} /></td>
+                    <td className="px-2 py-2"><input type="number" value={nv.offerPrice} onChange={(e) => setNv((s) => ({ ...s, offerPrice: e.target.value }))} placeholder="₹ Selling" className={cellCls} /></td>
+                    <td className="px-2 py-2"><input type="number" value={nv.referralPrice} onChange={(e) => setNv((s) => ({ ...s, referralPrice: e.target.value }))} placeholder="₹ Ref buying" className={cellCls} /></td>
                     <td className="px-2 py-2"><input type="number" value={nv.commission} onChange={(e) => setNv((s) => ({ ...s, commission: e.target.value }))} placeholder="Comm." className={cellCls} /></td>
+                    <td className="px-2 py-2"><input type="number" value={nv.gstPercentage} onChange={(e) => setNv((s) => ({ ...s, gstPercentage: e.target.value }))} placeholder="GST %" className={cellCls} /></td>
                     <td className="px-2 py-2"><input type="number" value={nv.stock} onChange={(e) => setNv((s) => ({ ...s, stock: e.target.value }))} placeholder="Stock" className={cellCls} /></td>
-                    <td className="px-2 py-2 text-right">
+                    <td className="sticky right-0 z-10 border-l border-border bg-subtle px-2 py-2 text-right">
                       <button type="button" onClick={addInlineVariant} className="rounded-md bg-primary px-3 py-1.5 text-[13px] font-semibold text-white hover:bg-primary-dark">
                         Add
                       </button>
@@ -584,7 +634,7 @@ const ProductFormPage: FC = () => {
 const inputCls =
   'w-full rounded-md border border-border-strong bg-surface px-3 py-2.5 text-[14px] outline-none placeholder:text-faint focus:border-primary focus:ring-2 focus:ring-primary/20';
 const cellCls =
-  'w-full min-w-[64px] rounded-md border border-border-strong bg-surface px-2 py-1.5 text-[13px] outline-none placeholder:text-faint focus:border-primary';
+  'w-full min-w-[56px] rounded-md border border-border-strong bg-surface px-2 py-1.5 text-[13px] outline-none placeholder:text-faint focus:border-primary';
 
 const Card: FC<{ title: string; action?: ReactNode; children: ReactNode }> = ({ title, action, children }) => (
   <div className="rounded-xl border border-border bg-surface p-5 shadow-sm">

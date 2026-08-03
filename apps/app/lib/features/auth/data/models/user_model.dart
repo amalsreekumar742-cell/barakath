@@ -54,8 +54,8 @@ class UserModel extends User {
       pendingCommission: ModelParse.toDouble(data['pendingCommission']),
       confirmedCommission: ModelParse.toDouble(data['confirmedCommission']),
       totalReferrals: ModelParse.toInt(data['totalReferrals']),
-      // Absent means "not restricted" — see the entity's note.
-      affiliateEnabled: ModelParse.toBool(data['affiliateEnabled'], true),
+      // Opt-in: absent means "never granted" — see the entity's note.
+      affiliateEnabled: ModelParse.toBool(data['affiliateEnabled'], false),
     );
   }
 

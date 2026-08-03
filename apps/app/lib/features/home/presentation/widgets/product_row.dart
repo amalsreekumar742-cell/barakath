@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../../core/constants/app_dimens.dart';
 import '../../../../core/widgets/product_card.dart';
 import '../../../products/domain/entities/product.dart';
 import '../../../products/domain/entities/variant.dart';
@@ -14,7 +15,7 @@ class ProductRow extends StatelessWidget {
     required this.products,
     required this.variants,
     this.showFlashBadge = true,
-    this.padding = const EdgeInsets.symmetric(horizontal: 16),
+    this.padding = const EdgeInsets.symmetric(horizontal: AppDimens.screenPadding),
   });
 
   final List<Product> products;

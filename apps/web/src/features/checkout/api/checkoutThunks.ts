@@ -1,6 +1,6 @@
 import { createAsyncThunk } from '@reduxjs/toolkit';
 import { httpsCallable } from 'firebase/functions';
-import { doc, onSnapshot } from 'firebase/firestore';
+import { doc, getDoc, onSnapshot } from 'firebase/firestore';
 import { FirestoreCollections } from '@barakath/shared';
 import type { OrderProps } from '@barakath/shared';
 import { db, functions } from '@/lib/firebaseConfig';
@@ -138,12 +138,7 @@ export const placeOrder = createAsyncThunk<PlaceOrderResult, PlaceOrderArgs, { r
       if (materiallyDifferent && args.onReconcileRequired) {
         const proceed = await args.onReconcileRequired({ amount, displayed: args.displayedTotals.razorpayAmount });
         if (!proceed) {
-          try {
-            await httpsCallable(functions, CloudFunctions.cancelOrder)({ orderId });
-          } catch {
-            // Best-effort: the customer's decline still succeeds from their point of view even if the
-            // release call fails — they simply won't get this specific order's stock/coupon back instantly.
-          }
+          await releaseOrder(orderId);
           return rejectWithValue({ orderId, reason: 'reconcile-declined', message: FAILURE_MESSAGES['reconcile-declined'] });
         }
       }
@@ -174,6 +169,17 @@ export const placeOrder = createAsyncThunk<PlaceOrderResult, PlaceOrderArgs, { r
       return { orderId, done: false, razorpaySuccess };
     } catch (err) {
       if (isKnownFailureReason(err)) {
+        // The customer walked away without ever attempting payment — release the order NOW rather
+        // than leaving it to expireUnpaidOrders' 10-minute sweep, which would hold their items (and
+        // everyone else's chance to buy them) for no reason.
+        //
+        // Only for the two reasons where NO payment was attempted: 'dismissed' (sheet closed) and
+        // 'gateway-unavailable' (the sheet never opened). Deliberately NOT for 'payment-failed' — an
+        // actual declined attempt means Razorpay WILL send a payment.failed webhook, which performs
+        // the very same reversal; cancelling here too would restore the stock twice.
+        if (orderId && (err.reason === 'dismissed' || err.reason === 'gateway-unavailable')) {
+          await releaseOrder(orderId);
+        }
         return rejectWithValue({ orderId, reason: err.reason, message: FAILURE_MESSAGES[err.reason] });
       }
       // A rejected createPaymentOrder/cancelOrder call — its HttpsError message is already written for
@@ -187,6 +193,27 @@ export const placeOrder = createAsyncThunk<PlaceOrderResult, PlaceOrderArgs, { r
     }
   },
 );
+
+/**
+ * Cancel an order the customer abandoned, giving back its reserved stock, coupon slot and wallet
+ * debit immediately instead of waiting for `expireUnpaidOrders`.
+ *
+ * Best-effort by design: from the customer's point of view walking away has already succeeded, and a
+ * failed release is not something they can act on. `cancelOrder` refuses anything that is not still
+ * Pending, so this can never cancel an order that turned out to be paid; and if the call is lost the
+ * 10-minute sweep is still the backstop.
+ */
+async function releaseOrder(orderId: string): Promise<void> {
+  try {
+    // `discardOrderDraft`, not `cancelOrder`: an unpaid checkout is an `orderDrafts` document that
+    // has never been an order. The function re-checks ownership and that the draft is still Pending
+    // inside its own transaction — so a payment that landed a beat before the sheet closed is left
+    // for the webhook to settle rather than having its reservation pulled out from under it.
+    await httpsCallable(functions, CloudFunctions.discardOrderDraft)({ orderId });
+  } catch {
+    // Swallowed on purpose — see above.
+  }
+}
 
 function isKnownFailureReason(err: unknown): err is { reason: PlaceOrderFailureReason } {
   return (
@@ -258,7 +285,16 @@ export const confirmPayment = createAsyncThunk<
   }
 });
 
-/** Subscribe to `orders/{orderId}` until `paymentStatus` leaves `'Pending'`, or 60s elapses. */
+/**
+ * Wait for the checkout to settle, or 60s.
+ *
+ * TWO listeners, because success and failure now live in different collections. Until payment
+ * succeeds the checkout is an `orderDrafts` document; `orders/{orderId}` does not exist at all. So:
+ *   - success = the ORDER appearing (promoteDraftToOrder creates it already `Paid`);
+ *   - failure = the DRAFT going `Failed`/`Cancelled`, which is where a declined or released checkout
+ *     ends up and where no order will ever be created.
+ * Watching only `orders` would leave a genuine failure spinning until the soft timeout.
+ */
 function awaitOrderSettled(orderId: string): Promise<ConfirmPaymentResult> {
   return new Promise((resolve) => {
     let settled = false;
@@ -266,21 +302,34 @@ function awaitOrderSettled(orderId: string): Promise<ConfirmPaymentResult> {
       if (settled) return;
       settled = true;
       clearTimeout(timeoutHandle);
-      unsubscribe();
+      unsubscribeOrder();
+      unsubscribeDraft();
       resolve({ orderId, status });
     };
 
     const timeoutHandle = setTimeout(() => finish('confirming'), CONFIRM_TIMEOUT_MS);
-    const unsubscribe = onSnapshot(
+
+    const unsubscribeOrder = onSnapshot(
       doc(db, FirestoreCollections.orders, orderId),
       (snap) => {
         const data = snap.data() as OrderProps | undefined;
-        if (!data) return;
+        if (!data) return; // not promoted yet — the draft listener may still resolve this
         if (data.paymentStatus === 'Paid') finish('paid');
         else if (data.paymentStatus === 'Failed') finish('failed');
-        // else still 'Pending' (or 'Refunded', which shouldn't happen this soon) — keep waiting.
       },
       () => finish('confirming'), // a listener error is not a payment failure — surface as "still confirming"
+    );
+
+    const unsubscribeDraft = onSnapshot(
+      doc(db, FirestoreCollections.orderDrafts, orderId),
+      (snap) => {
+        const data = snap.data() as OrderProps | undefined;
+        if (!data) return; // gone means promoted — the order listener handles it
+        if (data.paymentStatus === 'Failed' || data.status === 'Cancelled') finish('failed');
+      },
+      () => {
+        /* ignore — the order listener is the one that decides success */
+      },
     );
   });
 }

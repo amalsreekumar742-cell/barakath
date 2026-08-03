@@ -1,9 +1,9 @@
 'use client';
 
 import Link from 'next/link';
-import { Loader2 } from 'lucide-react';
+import { Loader2, Undo2 } from 'lucide-react';
 import { OrderStatus, type OrderProps } from '@barakath/shared';
-import { StatusBadge } from '@/components/StatusBadge';
+import { StatusBadge, toneForStatus } from '@/components/StatusBadge';
 import { formatInr } from '@/components/catalog/PriceBlock';
 import { orderReference, totalItems } from '../utils/orderFormat';
 
@@ -13,6 +13,45 @@ export interface OrderCardProps {
   order: OrderProps;
   reordering: boolean;
   onReorder: (order: OrderProps) => void;
+  /**
+   * Status of the return raised against this order ('Pending' | 'Approved' | 'Rejected'), or
+   * undefined when none was. Supplied by the page from one `fetchReturnStatusesByOrder` read for the
+   * whole list — never fetched per card.
+   */
+  returnStatus?: string;
+}
+
+/**
+ * The Return tag.
+ *
+ * WHY not a plain `StatusBadge`: it would read "Pending" sitting next to the order's own status
+ * badge, which parses as THE ORDER being pending. The word "Return" has to be in the label, so this
+ * borrows `toneForStatus` for colour but not the pill itself. An unrecognised status — including one
+ * a newer admin build introduces — reads as still open, which is the safe thing to tell a customer.
+ */
+function ReturnTag({ status }: { status: string }) {
+  const label =
+    {
+      approved: 'Return approved',
+      rejected: 'Return rejected',
+    }[status.trim().toLowerCase()] ?? 'Return requested';
+
+  const tone = toneForStatus(status);
+  const colour =
+    tone === 'positive'
+      ? 'bg-success-subtle text-success'
+      : tone === 'negative'
+        ? 'bg-error-subtle text-error'
+        : 'bg-gold-subtle text-gold-strong';
+
+  return (
+    <span
+      className={`inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[11px] font-semibold ${colour}`}
+    >
+      <Undo2 className="size-3" aria-hidden />
+      {label}
+    </span>
+  );
 }
 
 /**
@@ -27,7 +66,7 @@ export interface OrderCardProps {
  * order cards each doing N extra reads. The card is a coarse shortcut; Order Detail (spec 3.11 §2) does
  * the real per-item gating and is where a customer actually lands to raise the request.
  */
-export function OrderCard({ order, reordering, onReorder }: OrderCardProps) {
+export function OrderCard({ order, reordering, onReorder, returnStatus }: OrderCardProps) {
   const detailHref = `/account/orders/${order.id}`;
   const isDelivered = order.status === OrderStatus.DELIVERED;
   const isCancelled = order.status === OrderStatus.CANCELLED;
@@ -46,6 +85,14 @@ export function OrderCard({ order, reordering, onReorder }: OrderCardProps) {
         </Link>
         <StatusBadge status={order.status} />
       </div>
+
+      {/* Own line rather than beside the status badge: the reference truncates to make room, so a
+          second pill up there would eat it on a narrow card. */}
+      {returnStatus && (
+        <div className="mt-2">
+          <ReturnTag status={returnStatus} />
+        </div>
+      )}
 
       <Link href={detailHref} className="mt-3 flex gap-2">
         {shown.map((src, i) => (

@@ -19,7 +19,9 @@ export const MODULE_LABELS: Record<AdminModule, string> = {
   [AdminModule.ORDERS]: 'Orders',
   [AdminModule.CUSTOMERS]: 'Customers',
   [AdminModule.PAYMENTS]: 'Payments',
-  [AdminModule.REPLACEMENT]: 'Replacement',
+  // Display only — the KEY stays AdminModule.REPLACEMENT ('replacement'), which is the persisted
+  // permission key on every existing subAdmins doc.
+  [AdminModule.REPLACEMENT]: 'Returns',
   [AdminModule.REVIEWS]: 'Reviews',
   [AdminModule.SPINNER_CAMPAIGNS]: 'Spinner Campaigns',
   [AdminModule.COUPONS]: 'Coupons',
@@ -124,5 +126,5 @@ export function roleBadgeClasses(role: SubAdminRole): string {
 export const ROLE_DESCRIPTIONS: Record<SubAdminRole, string> = {
   [SubAdminRole.SUPER_ADMIN]: 'Full access to every module, including Settings and Sub Admin.',
   [SubAdminRole.MANAGER]: 'Access to everything except Settings and Sub Admin.',
-  [SubAdminRole.SUPPORT]: 'Handles Orders, Customers, Replacement and Reviews only.',
+  [SubAdminRole.SUPPORT]: 'Handles Orders, Customers, Returns and Reviews only.',
 };

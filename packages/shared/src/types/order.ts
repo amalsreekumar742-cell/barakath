@@ -19,6 +19,15 @@ export interface OrderItemProps {
   offerPrice: number;
   quantity: number;
   subtotal: number;
+  /**
+   * The GST rate applied to this line at checkout (18 = 18%), snapshotted from the variant so a later
+   * rate change never rewrites a issued invoice. ABSENT on orders placed before per-line GST existed —
+   * those carry only the order-level `gstAmount`, which is the whole-order figure at the then-global
+   * rate. Treat absent as "no per-line breakdown available", not as 0%.
+   */
+  gstPercentage?: number;
+  /** This line's share of `gstAmount`, in rupees. Absent alongside `gstPercentage`. */
+  gstAmount?: number;
 }
 
 export interface OrderShippingAddress {
@@ -62,6 +71,12 @@ export interface OrderProps {
   courierName: string;
   statusTimeline: OrderStatusTimelineEntry[];
   cancelReason: string;
+  /**
+   * Running total already refunded to the wallet by approved return requests against this order.
+   * Server-written only (`approveReplacement`), and used as the cap so repeated partial returns can
+   * never jointly refund more than `grandTotal`. Absent on orders with no approved return.
+   */
+  replacementRefundedTotal?: number;
   isComboOrder: boolean;
   keywords: string[];
   createdAt: Timestamp;

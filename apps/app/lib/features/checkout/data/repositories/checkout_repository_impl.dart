@@ -65,4 +65,16 @@ class CheckoutRepositoryImpl implements CheckoutRepository {
       return const Left(ServerFailure());
     }
   }
+
+  @override
+  Future<Either<Failure, Unit>> releaseAbandonedOrder(String orderId) async {
+    try {
+      await _remote.releaseAbandonedOrder(orderId);
+      return const Right(unit);
+    } on ServerException catch (e) {
+      return Left(ServerFailure(e.message));
+    } catch (_) {
+      return const Left(ServerFailure());
+    }
+  }
 }

@@ -6,11 +6,13 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_details.dart';
+import '../../../../core/constants/app_dimens.dart';
 import '../../../../core/widgets/app_toast.dart';
 import '../../../auth/presentation/providers/auth_provider.dart';
 import '../../../settings/presentation/providers/general_settings_provider.dart';
 import '../../domain/entities/place_order_result.dart';
 import '../providers/checkout_provider.dart';
+import '../widgets/order_expiry_countdown.dart';
 
 /// PaymentFailedPage (spec §2.16).
 ///
@@ -31,12 +33,33 @@ class _PaymentFailedPageState extends State<PaymentFailedPage> {
   bool _retrying = false;
   PlaceOrderResult? _pending;
 
+  /// When the order was placed, once loaded — drives the expiry countdown.
+  /// Null while loading, or if the order is already Cancelled/unreadable.
+  DateTime? _orderCreatedAt;
+  bool _expired = false;
+
   @override
   void initState() {
     super.initState();
     _razorpay = Razorpay()
       ..on(Razorpay.EVENT_PAYMENT_SUCCESS, _onPaymentSuccess)
       ..on(Razorpay.EVENT_PAYMENT_ERROR, _onPaymentError);
+    // Read the order up front purely for its age. Retry re-opens Razorpay against
+    // THIS order, so the customer needs to see how long it has left before
+    // `expireUnpaidOrders` cancels it and releases the stock — otherwise Retry
+    // can silently become impossible while they sit on this screen.
+    WidgetsBinding.instance.addPostFrameCallback((_) => _loadOrderAge());
+  }
+
+  Future<void> _loadOrderAge() async {
+    final order =
+        await context.read<CheckoutProvider>().loadOrderForRetry(widget.orderId);
+    if (!mounted || order == null) return;
+    setState(() {
+      _orderCreatedAt = order.createdAt;
+      // Already swept — the countdown widget renders its own "released" copy.
+      _expired = order.status == 'Cancelled';
+    });
   }
 
   @override
@@ -110,7 +133,12 @@ class _PaymentFailedPageState extends State<PaymentFailedPage> {
   }
 
   Future<void> _contactSupport() async {
-    final phone = context.read<GeneralSettingsProvider>().helpPhone;
+    // Support numbers are entered free-form in admin (country code + spacing), but
+    // the dialler only accepts a leading '+' and digits.
+    final phone = context
+        .read<GeneralSettingsProvider>()
+        .helpPhone
+        .replaceAll(RegExp(r'[^\d+]'), '');
     if (phone.isEmpty) return;
     final uri = Uri.parse('tel:$phone');
     if (await canLaunchUrl(uri)) await launchUrl(uri);
@@ -122,7 +150,7 @@ class _PaymentFailedPageState extends State<PaymentFailedPage> {
       backgroundColor: AppColors.background,
       body: SafeArea(
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 28),
+          padding: const EdgeInsets.symmetric(horizontal: AppDimens.screenPadding),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
@@ -155,11 +183,23 @@ class _PaymentFailedPageState extends State<PaymentFailedPage> {
                 textAlign: TextAlign.center,
                 style: TextStyle(fontSize: 13, color: AppColors.muted),
               ),
+              if (_orderCreatedAt != null) ...[
+                const SizedBox(height: AppDimens.space16),
+                OrderExpiryCountdown(
+                  createdAt: _orderCreatedAt!,
+                  onExpired: () {
+                    if (mounted) setState(() => _expired = true);
+                  },
+                ),
+              ],
               const SizedBox(height: 32),
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton(
-                  onPressed: _retrying ? null : _retry,
+                  // Once the window closes the order is Cancelled server-side and
+                  // its razorpayOrderId can no longer be charged — offering Retry
+                  // would only produce a confusing failure.
+                  onPressed: (_retrying || _expired) ? null : _retry,
                   child: _retrying
                       ? const SizedBox(
                           width: 20,

@@ -23,6 +23,8 @@ export { verifyPayment } from './orders/verifyPayment'; // onCall
 export { cancelOrder } from './orders/cancelOrder'; // onCall (admin)
 export { processRefund } from './orders/processRefund'; // onCall (admin)
 export { razorpayWebhook } from './payments/razorpayWebhook'; // onRequest (Razorpay webhook)
+export { expireUnpaidOrders } from './orders/expireUnpaidOrders'; // onSchedule (every 5 min)
+export { discardOrderDraft } from './orders/discardOrderDraft'; // onCall (customer abandons checkout)
 
 // --- Firestore triggers (order-status push, review aggregation, product cleanup) ---
 export { onOrderStatusUpdate } from './triggers/onOrderStatusUpdate'; // onDocumentUpdated orders/{orderId}

@@ -8,7 +8,9 @@ import 'package:provider/provider.dart';
 
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_details.dart';
+import '../../../../core/constants/app_dimens.dart';
 import '../../../../core/widgets/app_toast.dart';
+import '../../../../core/widgets/circle_back_button.dart';
 import '../providers/auth_provider.dart';
 
 /// OtpPage — 6-digit verification (spec §2.3), matching the Figma design: a
@@ -129,15 +131,17 @@ class _OtpPageState extends State<OtpPage> {
       backgroundColor: AppColors.background,
       body: SafeArea(
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(28, 20, 28, 24),
+          padding: const EdgeInsets.fromLTRB(
+            AppDimens.screenPadding,
+            20,
+            AppDimens.screenPadding,
+            24,
+          ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               // Circular back button.
-              _CircleIconButton(
-                icon: Icons.arrow_back_rounded,
-                onTap: () => context.pop(),
-              ),
+              const CircleBackButton(fallbackRoute: '/login'),
               const SizedBox(height: 28),
               // Green mail tile.
               Container(
@@ -344,29 +348,6 @@ class _OtpBoxesState extends State<_OtpBoxes> {
 }
 
 /// A circular white icon button with a hairline border (design back button).
-class _CircleIconButton extends StatelessWidget {
-  const _CircleIconButton({required this.icon, required this.onTap});
-  final IconData icon;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        height: 40,
-        width: 40,
-        decoration: BoxDecoration(
-          color: AppColors.surface,
-          shape: BoxShape.circle,
-          border: Border.all(color: AppColors.hairline),
-        ),
-        child: Icon(icon, size: 20, color: AppColors.textPrimary),
-      ),
-    );
-  }
-}
-
 class _ResendSection extends StatelessWidget {
   const _ResendSection({
     required this.secondsLeft,

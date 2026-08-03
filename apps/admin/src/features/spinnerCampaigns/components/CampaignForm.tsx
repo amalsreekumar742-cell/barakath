@@ -7,6 +7,11 @@ import toast from 'react-hot-toast';
 import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
 import type { SpinnerCampaignProps } from '@barakath/shared/types';
+import {
+  DEFAULT_SPIN_VALIDITY_HOURS,
+  formatValidityWindow,
+  resolveValidityHours,
+} from '@barakath/shared/utils/spinValidity';
 import { useAppDispatch, useAppSelector } from '@/stores/store';
 import Icon from '@/components/icons/Icon';
 import { createCampaign } from '../api/createCampaign';
@@ -28,6 +33,14 @@ const schema = z
     startDate: z.date({ required_error: 'Start date is required', invalid_type_error: 'Start date is required' }),
     endDate: z.date({ required_error: 'End date is required', invalid_type_error: 'End date is required' }),
     maxSpinsPerUser: z.coerce.number().int('Whole number').min(1, 'Minimum 1'),
+    // Reward validity, in hours from the spin. 1 is a legitimate setting — that is the whole point of
+    // the field — and the upper bound is a year, which is far beyond any sensible promo but stops a
+    // typo ("100000") from minting a coupon that never expires.
+    couponValidityHours: z.coerce
+      .number()
+      .int('Whole hours')
+      .min(1, 'Minimum 1 hour')
+      .max(8760, 'At most 8760 hours (1 year)'),
     isActive: z.boolean(),
   })
   .superRefine((d, ctx) => {
@@ -100,6 +113,7 @@ const CampaignForm: FC<CampaignFormProps> = ({ mode, campaign }) => {
       startDate: new Date(),
       endDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
       maxSpinsPerUser: 1,
+      couponValidityHours: DEFAULT_SPIN_VALIDITY_HOURS,
       isActive: true,
     },
   });
@@ -115,6 +129,9 @@ const CampaignForm: FC<CampaignFormProps> = ({ mode, campaign }) => {
       startDate: campaign.startDate.toDate(),
       endDate: campaign.endDate.toDate(),
       maxSpinsPerUser: campaign.maxSpinsPerUser,
+      // A campaign saved before the hours field existed hydrates from its day value, so opening and
+      // re-saving it preserves the window instead of silently resetting it to the default.
+      couponValidityHours: resolveValidityHours(campaign),
       isActive: campaign.isActive,
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -123,6 +140,9 @@ const CampaignForm: FC<CampaignFormProps> = ({ mode, campaign }) => {
   const startDate = watch('startDate');
   const endDate = watch('endDate');
   const isActive = watch('isActive');
+  // Coerced because a number input hands back a string until zod's `coerce` runs at submit time —
+  // without this the helper line below would try to format "24" and read "NaN days".
+  const validityHours = Number(watch('couponValidityHours')) || 0;
 
   const cancel = () => {
     if (isDirty && !window.confirm('Discard unsaved changes?')) return;
@@ -139,7 +159,13 @@ const CampaignForm: FC<CampaignFormProps> = ({ mode, campaign }) => {
       slots: isEdit && campaign ? campaign.slots.map((s) => ({ ...s })) : defaultSlots(),
       maxSpinsPerUser: values.maxSpinsPerUser,
       spinCooldownHours: isEdit && campaign ? campaign.spinCooldownHours : 24,
-      couponValidityDays: isEdit && campaign ? campaign.couponValidityDays : 3,
+      // `couponValidityHours` is what the wheel actually reads. `couponValidityDays` is kept in sync as
+      // a whole-day approximation purely so an older client that still reads the day field shows
+      // something sane; it is never the source of truth once hours is set. Ceil, so the approximation
+      // is never SHORTER than the real window — a stale reader may promise a bit too much, but it must
+      // not tell a customer their coupon is already gone while it is still valid.
+      couponValidityDays: Math.max(1, Math.ceil(values.couponValidityHours / 24)),
+      couponValidityHours: values.couponValidityHours,
       isActive: values.isActive,
       startDate: values.startDate,
       endDate: values.endDate,
@@ -248,6 +274,23 @@ const CampaignForm: FC<CampaignFormProps> = ({ mode, campaign }) => {
                 </select>
               </Field>
             </div>
+
+            {/* Reward validity. Sits on its own row because the helper line under it changes as you
+                type, and a two-up grid would make the neighbouring field jump. */}
+            <Field label="Reward validity (hours)" error={errors.couponValidityHours?.message}>
+              <input
+                type="number"
+                min={1}
+                max={8760}
+                {...register('couponValidityHours')}
+                className={inputCls}
+              />
+              <p className="mt-1.5 text-[12px] text-muted">
+                {validityHours > 0
+                  ? `A coupon won on this wheel expires ${formatValidityWindow(validityHours)} after the spin.`
+                  : 'How long a coupon won on this wheel stays usable, counted from the moment of the spin.'}
+              </p>
+            </Field>
 
             {/* Activate immediately */}
             <div className="flex items-center justify-between">

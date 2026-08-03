@@ -62,6 +62,6 @@ export const fetchReplacements = createAsyncThunk<
       hasMore: items.length === Constants.PAGE_SIZE,
     };
   } catch (err) {
-    return rejectWithValue(err instanceof Error ? err.message : 'Could not load replacement requests');
+    return rejectWithValue(err instanceof Error ? err.message : 'Could not load return requests');
   }
 });

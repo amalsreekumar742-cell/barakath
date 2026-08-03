@@ -6,6 +6,7 @@ import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_dimens.dart';
 import '../../../../core/constants/domain_enums.dart';
 import '../../../../core/widgets/app_toast.dart';
+import '../../../../core/widgets/circle_back_button.dart';
 import '../../../../core/widgets/paginated_list_view.dart';
 import '../../../../core/widgets/shimmer_loading.dart';
 import '../../../cart/presentation/providers/cart_provider.dart';
@@ -94,25 +95,8 @@ class _MyOrdersPageState extends State<MyOrdersPage> {
       backgroundColor: AppColors.background,
       appBar: AppBar(
         titleSpacing: 12,
-        leadingWidth: 74,
-        leading: Center(
-          child: GestureDetector(
-            onTap: () => context.canPop() ? context.pop() : context.go('/'),
-            behavior: HitTestBehavior.opaque,
-            child: Container(
-              width: 42,
-              height: 42,
-              margin: const EdgeInsets.only(left: AppDimens.screenPadding),
-              decoration: BoxDecoration(
-                color: AppColors.surface,
-                shape: BoxShape.circle,
-                border: Border.all(color: AppColors.hairline),
-              ),
-              child: const Icon(Icons.arrow_back_rounded,
-                  size: 20, color: AppColors.textPrimary),
-            ),
-          ),
-        ),
+        leadingWidth: CircleBackButton.leadingWidth,
+        leading: CircleBackButton.appBarLeading(fallbackRoute: '/home'),
         title: const Text(
           'My Orders',
           style: TextStyle(
@@ -155,6 +139,7 @@ class _MyOrdersPageState extends State<MyOrdersPage> {
               skeleton: const ShimmerCard(height: 150),
               itemBuilder: (context, order, _) => OrderCard(
                 order: order,
+                returnStatus: provider.returnStatusFor(order.id),
                 isReordering: _reorderingId == order.id,
                 onTap: () => context.push('/orders/${order.id}'),
                 onTrack: () => context.push('/orders/${order.id}/track'),

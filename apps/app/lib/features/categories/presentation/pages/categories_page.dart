@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
 import '../../../../core/constants/app_colors.dart';
+import '../../../../core/constants/app_dimens.dart';
 import '../../../../core/widgets/cached_image.dart';
 import '../../../../core/widgets/empty_state.dart';
 import '../../../../core/widgets/error_state.dart';
@@ -51,7 +52,12 @@ class _CategoriesPageState extends State<CategoriesPage> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Padding(
-              padding: const EdgeInsets.fromLTRB(20, 8, 20, 12),
+              padding: const EdgeInsets.fromLTRB(
+                AppDimens.screenPadding,
+                8,
+                AppDimens.screenPadding,
+                12,
+              ),
               child: Row(
                 children: [
                   const Expanded(
@@ -94,10 +100,17 @@ class _CategoriesPageState extends State<CategoriesPage> {
     if (provider.isLoading && provider.categories.isEmpty) {
       return ShimmerLoading(
         child: GridView.builder(
-          padding: const EdgeInsets.fromLTRB(20, 6, 20, 20),
+          padding: const EdgeInsets.fromLTRB(
+            AppDimens.screenPadding,
+            6,
+            AppDimens.screenPadding,
+            20,
+          ),
           gridDelegate: _grid,
           itemCount: 4,
-          itemBuilder: (_, __) => const ShimmerCard(height: 182),
+          // 112, not 182: ShimmerCard's `height` is its image block, and the
+          // card adds 70px of chrome around it. The grid slot is 182.
+          itemBuilder: (_, __) => const ShimmerCard(height: 112),
         ),
       );
     }
@@ -121,7 +134,12 @@ class _CategoriesPageState extends State<CategoriesPage> {
       onRefresh: () => context.read<CategoriesProvider>().fetchCategories(),
       color: AppColors.brandGreen,
       child: GridView.builder(
-        padding: const EdgeInsets.fromLTRB(20, 6, 20, 20),
+        padding: const EdgeInsets.fromLTRB(
+          AppDimens.screenPadding,
+          6,
+          AppDimens.screenPadding,
+          20,
+        ),
         physics: const AlwaysScrollableScrollPhysics(),
         gridDelegate: _grid,
         itemCount: provider.categories.length,
@@ -184,21 +202,23 @@ class _CategoryTile extends StatelessWidget {
             // The admin uploads a category image, so the design's icon slot
             // shows that rather than a generic glyph.
             Container(
-              width: 44,
-              height: 44,
+              width: 88,
+              height: 88,
+              // This padding IS the white frame around the image — 4, so the
+              // 80px image fills the 88px slot exactly (88 - 4 - 4).
               padding: const EdgeInsets.all(4),
               decoration: BoxDecoration(
                 color: Colors.white.withValues(alpha: 0.7),
-                borderRadius: BorderRadius.circular(8),
+                borderRadius: BorderRadius.circular(16),
               ),
               child: category.image.trim().isEmpty
                   ? const Icon(Icons.category_outlined,
-                      size: 22, color: AppColors.goldStrong)
+                      size: 44, color: AppColors.goldStrong)
                   : CachedImage(
                       url: category.image,
-                      width: 36,
-                      height: 36,
-                      borderRadius: 6,
+                      width: 80,
+                      height: 80,
+                      borderRadius: 12,
                     ),
             ),
             Column(

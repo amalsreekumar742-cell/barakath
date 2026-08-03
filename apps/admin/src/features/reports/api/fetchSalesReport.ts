@@ -32,12 +32,21 @@ import type { ReportArgs, SalesReportData, SalesPeriod } from '../types';
  * WHY cancelled orders are excluded via `where status != Cancelled` (matching the dashboard revenue
  * definition): revenue must not count cancelled orders. This pairs a createdAt range with a status `!=`,
  * which needs a composite index (orders: status + createdAt) — see the wiring report.
+ *
+ * REVENUE IS NET OF GST. GST collected on a sale is tax held on the government's behalf, never the
+ * business's income, so counting it as revenue overstates the business by the whole tax take. Both the
+ * card and the chart use the net figure so they can never disagree; `totalGst` is reported alongside so
+ * the deduction is visible rather than silent. The subtraction rides the SAME aggregation query as the
+ * revenue sum — an extra `sum()` costs nothing next to a second round trip.
  */
 
 const ordersRef = () => collection(db, FirestoreCollections.orders);
 
-/** Revenue + order count in [start, end) excluding cancelled orders. */
-async function bucketAgg(start: Date, end: Date): Promise<{ revenue: number; orders: number }> {
+/** Gross revenue, GST collected and order count in [start, end) excluding cancelled orders. */
+async function bucketAgg(
+  start: Date,
+  end: Date,
+): Promise<{ gross: number; gst: number; orders: number }> {
   const snap = await getAggregateFromServer(
     query(
       ordersRef(),
@@ -45,12 +54,16 @@ async function bucketAgg(start: Date, end: Date): Promise<{ revenue: number; ord
       where('createdAt', '<', Timestamp.fromDate(end)),
       where('status', '!=', OrderStatus.CANCELLED),
     ),
-    { revenue: sum('grandTotal'), orders: count() },
+    { gross: sum('grandTotal'), gst: sum('gstAmount'), orders: count() },
   );
-  return { revenue: snap.data().revenue ?? 0, orders: snap.data().orders ?? 0 };
+  const d = snap.data();
+  return { gross: d.gross ?? 0, gst: d.gst ?? 0, orders: d.orders ?? 0 };
 }
 
-/** Total revenue over an arbitrary window (used for the previous-period trend comparison). */
+/**
+ * Net revenue over an arbitrary window (used for the previous-period trend comparison). Net, not
+ * gross — comparing a net current period against a gross previous one would invent a trend.
+ */
 async function windowRevenue(start: Date, end: Date): Promise<number> {
   const snap = await getAggregateFromServer(
     query(
@@ -59,9 +72,10 @@ async function windowRevenue(start: Date, end: Date): Promise<number> {
       where('createdAt', '<', Timestamp.fromDate(end)),
       where('status', '!=', OrderStatus.CANCELLED),
     ),
-    { revenue: sum('grandTotal') },
+    { gross: sum('grandTotal'), gst: sum('gstAmount') },
   );
-  return snap.data().revenue ?? 0;
+  const d = snap.data();
+  return (d.gross ?? 0) - (d.gst ?? 0);
 }
 
 /** Signed % change; if previous is 0, 100% up when current > 0 else 0 (mirrors the dashboard trend). */
@@ -116,21 +130,26 @@ export const fetchSalesReport = createAsyncThunk<SalesReportData, ReportArgs, { 
       ]);
 
       const periods: SalesPeriod[] = buckets.map((b, i) => {
-        const a = aggs[i] ?? { revenue: 0, orders: 0 };
+        const a = aggs[i] ?? { gross: 0, gst: 0, orders: 0 };
+        const revenue = a.gross - a.gst;
         return {
           label: b.label,
-          revenue: a.revenue,
+          revenue,
+          gstCollected: a.gst,
           orderCount: a.orders,
-          avgOrderValue: a.orders > 0 ? a.revenue / a.orders : 0,
+          // Net-of-GST too, so AOV and revenue are the same currency of measure.
+          avgOrderValue: a.orders > 0 ? revenue / a.orders : 0,
         };
       });
 
       const totalRevenue = periods.reduce((s, p) => s + p.revenue, 0);
+      const totalGst = periods.reduce((s, p) => s + p.gstCollected, 0);
       const totalOrders = periods.reduce((s, p) => s + p.orderCount, 0);
 
       return {
         periods,
         totalRevenue,
+        totalGst,
         totalOrders,
         avgOrderValue: totalOrders > 0 ? totalRevenue / totalOrders : 0,
         revenueTrend: trend(totalRevenue, prevRevenue),

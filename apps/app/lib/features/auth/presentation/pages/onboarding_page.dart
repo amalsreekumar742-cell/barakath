@@ -4,6 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../../core/constants/app_colors.dart';
+import '../../../../core/constants/app_dimens.dart';
 import '../../../../core/utils/constants.dart';
 
 /// One onboarding slide's copy (spec §2.2 — exact Figma text).
@@ -111,7 +112,12 @@ class _OnboardingPageState extends State<OnboardingPage> {
               ),
             ),
             Padding(
-              padding: const EdgeInsets.fromLTRB(28, 24, 28, 28),
+              padding: const EdgeInsets.fromLTRB(
+                AppDimens.screenPadding,
+                24,
+                AppDimens.screenPadding,
+                28,
+              ),
               child: SizedBox(
                 width: double.infinity,
                 child: ElevatedButton(
@@ -155,7 +161,12 @@ class _OnboardSlide extends StatelessWidget {
           ),
         ),
         Padding(
-          padding: const EdgeInsets.fromLTRB(28, 28, 28, 0),
+          padding: const EdgeInsets.fromLTRB(
+            AppDimens.screenPadding,
+            28,
+            AppDimens.screenPadding,
+            0,
+          ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [

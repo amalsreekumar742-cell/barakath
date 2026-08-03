@@ -22,6 +22,9 @@ const CSV_HEADERS = [
   'Quantity',
   'Reason',
   'Status',
+  'Refund Amount',
+  // Legacy — always blank on returns approved after refunds moved to the wallet. Kept as a column so
+  // an existing downstream sheet keyed on this header doesn't shift.
   'Replacement Order ID',
   'Date',
 ];
@@ -64,6 +67,7 @@ export const exportReplacementsCSV = createAsyncThunk<number, ReplacementFilters
               escape(r.quantity),
               escape(r.reason),
               escape(r.status),
+              escape(r.refundAmount ?? 0),
               escape(r.replacementOrderId || ''),
               escape(r.createdAt ? format(r.createdAt.toDate(), 'dd MMM yyyy') : ''),
             ].join(','),
@@ -78,12 +82,12 @@ export const exportReplacementsCSV = createAsyncThunk<number, ReplacementFilters
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `replacements-${Date.now()}.csv`;
+      a.download = `returns-${Date.now()}.csv`;
       a.click();
       URL.revokeObjectURL(url);
       return total;
     } catch (err) {
-      return rejectWithValue(err instanceof Error ? err.message : 'Could not export replacements');
+      return rejectWithValue(err instanceof Error ? err.message : 'Could not export return requests');
     }
   },
 );

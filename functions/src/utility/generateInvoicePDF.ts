@@ -7,6 +7,7 @@ import PDFDocument from 'pdfkit';
 import { Collections } from '../config/collections';
 import { getGeneralConfig } from '../config/razorpay';
 import { validateAuth } from '../utils/validateAuth';
+import { gstBreakdown } from './service/gstBreakdown';
 
 /** Minimal shapes read off the order doc (kept local — functions do not import packages/shared). */
 interface InvoiceItem {
@@ -129,9 +130,24 @@ function buildPdf(
     }
     totalLine('Delivery', rupee(order.deliveryCharge));
     totalLine('Taxable value', rupee(taxable));
-    // GST split into CGST + SGST halves (intra-state default).
-    totalLine(`CGST (${(gstRate / 2).toFixed(1)}%)`, rupee(gstAmount / 2));
-    totalLine(`SGST (${(gstRate / 2).toFixed(1)}%)`, rupee(gstAmount / 2));
+    // Rate-wise GST, each rate split into CGST + SGST halves (intra-state default — the order carries
+    // no place-of-supply field, so an inter-state single-IGST order can't be told apart).
+    //
+    // The halves now come from the rate ACTUALLY CHARGED on each line rather than from the shop-wide
+    // rate: with per-variant GST those differ, and a mixed-rate order would otherwise be documented
+    // at a rate it never paid. Orders placed before per-line GST return no rows, and fall back to the
+    // single pair below rather than having a split invented for them.
+    const gstRows = gstBreakdown(order);
+    if (gstRows.length > 0) {
+      for (const row of gstRows) {
+        const half = (row.percentage / 2).toFixed(1);
+        totalLine(`CGST (${half}%) on ${rupee(row.taxableValue)}`, rupee(row.gstAmount / 2));
+        totalLine(`SGST (${half}%) on ${rupee(row.taxableValue)}`, rupee(row.gstAmount / 2));
+      }
+    } else {
+      totalLine(`CGST (${(gstRate / 2).toFixed(1)}%)`, rupee(gstAmount / 2));
+      totalLine(`SGST (${(gstRate / 2).toFixed(1)}%)`, rupee(gstAmount / 2));
+    }
     doc.moveTo(360, y).lineTo(545, y).stroke();
     y += 6;
     doc.fontSize(11).text('Grand Total', 360, y).text(rupee(grandTotal), 470, y, {

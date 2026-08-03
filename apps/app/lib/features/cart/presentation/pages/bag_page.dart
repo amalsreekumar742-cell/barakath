@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
 import '../../../../core/constants/app_colors.dart';
+import '../../../../core/constants/app_dimens.dart';
 import '../../../../core/widgets/app_toast.dart';
 import '../../../../core/widgets/empty_state.dart';
 import '../../../../core/widgets/error_state.dart';
@@ -169,7 +170,12 @@ class _BagPageState extends State<BagPage> {
     return RefreshIndicator(
       onRefresh: _refresh,
       child: ListView(
-        padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+        padding: const EdgeInsets.fromLTRB(
+          AppDimens.screenPadding,
+          12,
+          AppDimens.screenPadding,
+          24,
+        ),
         children: [
           for (final item in cart.items) ...[
             Dismissible(
@@ -337,7 +343,12 @@ class _CheckoutBar extends StatelessWidget {
     // already stated on the summary card just above it.
     return SafeArea(
       child: Container(
-        padding: const EdgeInsets.fromLTRB(20, 12, 20, 12),
+        padding: const EdgeInsets.fromLTRB(
+          AppDimens.screenPadding,
+          12,
+          AppDimens.screenPadding,
+          12,
+        ),
         decoration: const BoxDecoration(
           color: AppColors.surface,
           border: Border(top: BorderSide(color: AppColors.hairline)),
@@ -361,7 +372,12 @@ class _BagShimmer extends StatelessWidget {
   Widget build(BuildContext context) {
     return ShimmerLoading(
       child: ListView.separated(
-        padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+        padding: const EdgeInsets.fromLTRB(
+          AppDimens.screenPadding,
+          12,
+          AppDimens.screenPadding,
+          24,
+        ),
         itemCount: 3,
         separatorBuilder: (_, __) => const SizedBox(height: 12),
         itemBuilder: (_, __) => const ShimmerCard(height: 104),

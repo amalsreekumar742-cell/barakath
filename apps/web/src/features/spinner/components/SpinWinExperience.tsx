@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { Ticket } from 'lucide-react';
+import { formatValidityWindow, resolveValidityHours } from '@barakath/shared/utils/spinValidity';
 import { Button } from '@/components/Button';
 import { EmptyState } from '@/components/EmptyState';
 import { SkeletonText } from '@/components/Skeleton';
@@ -174,7 +175,7 @@ export function SpinWinExperience({ onWin }: SpinWinExperienceProps) {
       </div>
 
       <p className="mt-3 text-center text-xs text-faint">
-        Rewards become coupons · valid {campaign.couponValidityDays > 0 ? campaign.couponValidityDays : 3} days
+        Rewards become coupons · valid {formatValidityWindow(resolveValidityHours(campaign))}
       </p>
 
       {lastResult && !animating && (

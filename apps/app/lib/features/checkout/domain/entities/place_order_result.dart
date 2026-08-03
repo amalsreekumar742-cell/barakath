@@ -15,6 +15,8 @@ class PlaceOrderResult extends Equatable {
     this.razorpayOrderId,
     this.amount = 0,
     this.keyId = '',
+    this.createdAt,
+    this.status = '',
   });
 
   final String orderId;
@@ -24,11 +26,22 @@ class PlaceOrderResult extends Equatable {
   /// Razorpay publishable key id, from the server so the client never hardcodes it.
   final String keyId;
 
+  /// When the order row was written. Populated only when this was READ BACK from
+  /// Firestore (the retry path); `createPaymentOrder` does not return it. Drives
+  /// the payment-expiry countdown, which must run from the order's real age —
+  /// reopening the page must not restart the clock.
+  final DateTime? createdAt;
+
+  /// The order's own status, again only on the read-back path. 'Cancelled' means
+  /// the payment window already elapsed and the items went back to stock.
+  final String status;
+
   bool get isWalletOnly =>
       razorpayOrderId == null || razorpayOrderId!.isEmpty || amount <= 0;
 
   @override
-  List<Object?> get props => [orderId, razorpayOrderId, amount, keyId];
+  List<Object?> get props =>
+      [orderId, razorpayOrderId, amount, keyId, createdAt, status];
 }
 
 /// Result of `verifyPayment` — the server re-checks the Razorpay signature, so

@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { format } from 'date-fns';
 import { Check, Copy } from 'lucide-react';
 import type { CouponProps } from '@barakath/shared';
+import { formatTimeRemaining } from '@barakath/shared/utils/spinValidity';
 import { formatInr } from '@/components/catalog/PriceBlock';
 import { toastSuccess } from '@/lib/toast';
 import { findOrderIdForCoupon, type CouponTab } from '../api/coupons';
@@ -18,6 +19,17 @@ function formatDiscount(coupon: CouponProps): string {
       : `${coupon.discountValue}% off`;
   }
   return `${formatInr(coupon.discountValue)} off`;
+}
+
+/**
+ * The expiry line for an ACTIVE coupon: a countdown inside the last 24 hours, an explicit date beyond
+ * that. See the call site for why sub-day precision matters here.
+ */
+function expiresLabel(validUntilMs: number): string {
+  const msLeft = validUntilMs - Date.now();
+  if (msLeft <= 0) return 'Expired';
+  if (msLeft < 24 * 3_600_000) return formatTimeRemaining(validUntilMs, Date.now());
+  return `Expires ${format(new Date(validUntilMs), 'd MMM yyyy')}`;
 }
 
 /**
@@ -100,7 +112,11 @@ export function CouponCard({
             ) : tab === 'expired' ? (
               `Expired ${format(coupon.validUntil.toDate(), 'd MMM yyyy')}`
             ) : (
-              `Expires ${format(coupon.validUntil.toDate(), 'd MMM yyyy')}`
+              /* Spin rewards can be valid for as little as an hour, and this wallet is where the
+                 customer comes to find them — a date-only "Expires 3 Aug 2026" would read as "any
+                 time today" on a coupon with 40 minutes left. Inside 24h we state the countdown; a
+                 longer window keeps the date, which is the more useful form to note down. */
+              expiresLabel(coupon.validUntil.toMillis())
             )}
           </p>
         </div>

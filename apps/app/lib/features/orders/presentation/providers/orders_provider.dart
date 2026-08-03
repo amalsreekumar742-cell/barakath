@@ -1,14 +1,18 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:injectable/injectable.dart' hide Order;
 
 import '../../../../core/constants/app_dimens.dart';
 import '../../../../core/constants/domain_enums.dart';
+import '../../../../core/usecase/usecase.dart';
 import '../../../cart/domain/entities/cart_item.dart';
 import '../../../products/domain/entities/variant.dart';
 import '../../../products/domain/usecases/get_product_detail.dart';
 import '../../../products/domain/usecases/get_product_variants.dart';
 import '../../domain/entities/order.dart';
 import '../../domain/usecases/get_orders.dart';
+import '../../domain/usecases/get_return_statuses.dart';
 
 /// Explicit, named list states — never inferred from null-checks (skill rule).
 enum OrdersState { initial, loading, loadingMore, loaded, error }
@@ -33,11 +37,13 @@ class OrdersProvider extends ChangeNotifier {
     this._getOrders,
     this._getProductDetail,
     this._getProductVariants,
+    this._getReturnStatuses,
   );
 
   final GetOrders _getOrders;
   final GetProductDetail _getProductDetail;
   final GetProductVariants _getProductVariants;
+  final GetReturnStatuses _getReturnStatuses;
 
   OrdersState _state = OrdersState.initial;
   List<Order> _orders = const [];
@@ -55,6 +61,12 @@ class OrdersProvider extends ChangeNotifier {
   bool get isLoadingMore => _state == OrdersState.loadingMore;
   bool get isReordering => _isReordering;
   String? get error => _error;
+
+  /// `orderId` → return status, for the "Return" tag on each card.
+  Map<String, String> _returnStatuses = const {};
+
+  /// The return status to tag [orderId] with, or null when it has none.
+  String? returnStatusFor(String orderId) => _returnStatuses[orderId];
 
   /// Switch the filter tab. A no-op when the tab is already active, so tapping
   /// the current chip never costs a page read.
@@ -77,6 +89,10 @@ class OrdersProvider extends ChangeNotifier {
     _error = null;
     notifyListeners();
 
+    // Fired alongside the page rather than awaited before it: the Return tag is
+    // decoration, so this read must never delay — or fail — the orders list.
+    unawaited(_loadReturnStatuses());
+
     final result = await _getOrders(
       GetOrdersParams(filter: _filter, limit: AppDimens.pageSize),
     );
@@ -93,6 +109,20 @@ class OrdersProvider extends ChangeNotifier {
       },
     );
     notifyListeners();
+  }
+
+  /// Every return the customer has raised, keyed by order.
+  ///
+  /// One read for the whole screen — not per card — and its failure is
+  /// swallowed: the orders are on screen and correct, they simply render
+  /// without the tag. Surfacing an error state here would blank a working list
+  /// over a decoration.
+  Future<void> _loadReturnStatuses() async {
+    final result = await _getReturnStatuses(const NoParams());
+    result.fold((_) {}, (statuses) {
+      _returnStatuses = statuses;
+      notifyListeners();
+    });
   }
 
   /// Next cursor page, appended to the current list.

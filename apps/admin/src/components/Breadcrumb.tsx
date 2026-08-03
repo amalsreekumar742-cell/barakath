@@ -1,6 +1,6 @@
 import type { FC } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { segmentLabels } from '@/config/navigation';
+import { segmentToLabel } from '@/config/navigation';
 import { useAppSelector } from '@/stores/store';
 
 /**
@@ -12,16 +12,9 @@ import { useAppSelector } from '@/stores/store';
  * segments (e.g. a dynamic id) fall back to a title-cased raw value.
  * WHY every segment but the last is a link: the last crumb is the current page (not navigable);
  * earlier crumbs navigate back to their cumulative path.
+ * WHY `segmentToLabel` lives in config/navigation: the browser tab title derives from the same route,
+ * and one shared mapper keeps the two from drifting when a nav label is renamed.
  */
-function toLabel(segment: string): string {
-  const known = segmentLabels[segment];
-  if (known) return known;
-  // Fallback: turn "flash-sale" / a raw id into "Flash Sale" style text.
-  return segment
-    .replace(/[-_]/g, ' ')
-    .replace(/\b\w/g, (c) => c.toUpperCase());
-}
-
 const Breadcrumb: FC = () => {
   const { pathname } = useLocation();
   const segments = pathname.split('/').filter(Boolean);
@@ -37,7 +30,7 @@ const Breadcrumb: FC = () => {
           if (segments[0] === 'customers' && i === 1 && customerDetail?.id === seg) {
             return { label: customerDetail.fullName, to };
           }
-          return { label: toLabel(seg), to };
+          return { label: segmentToLabel(seg), to };
         });
 
   return (

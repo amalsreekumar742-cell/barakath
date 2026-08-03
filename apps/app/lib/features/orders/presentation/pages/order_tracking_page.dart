@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_dimens.dart';
 import '../../../../core/constants/domain_enums.dart';
 import '../../../../core/widgets/app_toast.dart';
+import '../../../../core/widgets/circle_back_button.dart';
 import '../../../../core/widgets/error_state.dart';
 import '../../../../core/widgets/section_card.dart';
 import '../../../../core/widgets/shimmer_loading.dart';
@@ -48,26 +48,9 @@ class _OrderTrackingPageState extends State<OrderTrackingPage> {
       backgroundColor: AppColors.background,
       appBar: AppBar(
         titleSpacing: 12,
-        leadingWidth: 74,
-        leading: Center(
-          child: GestureDetector(
-            onTap: () => context.canPop()
-                ? context.pop()
-                : context.go('/orders/${widget.orderId}'),
-            behavior: HitTestBehavior.opaque,
-            child: Container(
-              width: 42,
-              height: 42,
-              margin: const EdgeInsets.only(left: AppDimens.screenPadding),
-              decoration: BoxDecoration(
-                color: AppColors.surface,
-                shape: BoxShape.circle,
-                border: Border.all(color: AppColors.hairline),
-              ),
-              child: const Icon(Icons.arrow_back_rounded,
-                  size: 20, color: AppColors.textPrimary),
-            ),
-          ),
+        leadingWidth: CircleBackButton.leadingWidth,
+        leading: CircleBackButton.appBarLeading(
+          fallbackRoute: '/orders/${widget.orderId}',
         ),
         title: const Text(
           'Track order',

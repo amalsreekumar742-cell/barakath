@@ -8,6 +8,7 @@ import '../../../../core/constants/app_dimens.dart';
 import '../../../../core/di/injection_container.dart';
 import '../../../../core/widgets/app_toast.dart';
 import '../../../../core/widgets/cached_image.dart';
+import '../../../../core/widgets/circle_back_button.dart';
 import '../../../../core/widgets/paginated_list_view.dart';
 import '../../../../core/widgets/shimmer_loading.dart';
 import '../../../cart/domain/entities/cart_item.dart';
@@ -215,30 +216,10 @@ class _WishlistPageState extends State<WishlistPage> {
       backgroundColor: AppColors.background,
       appBar: AppBar(
         titleSpacing: AppDimens.space12,
-        leadingWidth: 74,
+        leadingWidth: CircleBackButton.leadingWidth,
         backgroundColor: AppColors.background,
         elevation: 0,
-        leading: Center(
-          child: GestureDetector(
-            onTap: () => context.canPop() ? context.pop() : context.go('/home'),
-            behavior: HitTestBehavior.opaque,
-            child: Container(
-              width: 42,
-              height: 42,
-              margin: const EdgeInsets.only(left: AppDimens.screenPadding),
-              decoration: BoxDecoration(
-                color: AppColors.surface,
-                shape: BoxShape.circle,
-                border: Border.all(color: AppColors.hairline),
-              ),
-              child: const Icon(
-                Icons.arrow_back_rounded,
-                size: 20,
-                color: AppColors.textPrimary,
-              ),
-            ),
-          ),
-        ),
+        leading: CircleBackButton.appBarLeading(fallbackRoute: '/home'),
         title: const Text(
           'Wishlist',
           style: TextStyle(

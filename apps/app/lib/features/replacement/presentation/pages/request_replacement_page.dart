@@ -7,6 +7,7 @@ import '../../../../core/constants/app_dimens.dart';
 import '../../../../core/constants/domain_enums.dart';
 import '../../../../core/widgets/app_toast.dart';
 import '../../../../core/widgets/cached_image.dart';
+import '../../../../core/widgets/circle_back_button.dart';
 import '../../../../core/widgets/custom_button.dart';
 import '../../../../core/widgets/custom_text_field.dart';
 import '../../../../core/widgets/error_state.dart';
@@ -141,29 +142,12 @@ class _RequestReplacementPageState extends State<RequestReplacementPage> {
       backgroundColor: AppColors.background,
       appBar: AppBar(
         titleSpacing: 12,
-        leadingWidth: 74,
-        leading: Center(
-          child: GestureDetector(
-            onTap: () => context.canPop()
-                ? context.pop()
-                : context.go('/orders/${widget.orderId}'),
-            behavior: HitTestBehavior.opaque,
-            child: Container(
-              width: 42,
-              height: 42,
-              margin: const EdgeInsets.only(left: AppDimens.screenPadding),
-              decoration: BoxDecoration(
-                color: AppColors.surface,
-                shape: BoxShape.circle,
-                border: Border.all(color: AppColors.hairline),
-              ),
-              child: const Icon(Icons.arrow_back_rounded,
-                  size: 20, color: AppColors.textPrimary),
-            ),
-          ),
+        leadingWidth: CircleBackButton.leadingWidth,
+        leading: CircleBackButton.appBarLeading(
+          fallbackRoute: '/orders/${widget.orderId}',
         ),
         title: const Text(
-          'Request replacement',
+          'Request a return',
           style: TextStyle(
             fontSize: 20,
             fontWeight: FontWeight.w800,
@@ -429,7 +413,7 @@ class _RequestReplacementPageState extends State<RequestReplacementPage> {
           SizedBox(width: AppDimens.space10),
           Expanded(
             child: Text(
-              'Approved requests get a free replacement shipped within 24 hours',
+              'Approved returns are refunded to your Barakath wallet within 24 hours',
               style: TextStyle(
                 fontSize: 13,
                 height: 1.4,

@@ -40,19 +40,52 @@ export interface ReportArgs {
 
 /** One bucket of the sales series (spec §1.19 revenue-by-period). */
 export interface SalesPeriod {
-  label: string;
+  /** NET of GST — tax collected for the government is not the business's revenue. */
   revenue: number;
+  label: string;
+  /** GST collected in this bucket, i.e. exactly what was deducted from gross to get `revenue`. */
+  gstCollected: number;
   orderCount: number;
+  /** `revenue / orderCount`, so it is net of GST like the revenue beside it. */
   avgOrderValue: number;
 }
 
 export interface SalesReportData {
   periods: SalesPeriod[];
+  /** Σ period revenue — net of GST. */
   totalRevenue: number;
+  /** Σ GST collected, shown beside the revenue card so the deduction is visible, not silent. */
+  totalGst: number;
   totalOrders: number;
   avgOrderValue: number;
   /** Signed % change of this window's revenue vs the immediately preceding equal-length window. */
   revenueTrend: number;
+}
+
+// --- Profit -----------------------------------------------------------------------
+
+/**
+ * Gross profit over the range: what customers paid for the goods, less what the goods cost.
+ *
+ * Only orders whose every line has a recorded purchase price can be measured, so the report also
+ * reports its own COVERAGE. An order with no cost on file is excluded, never counted at zero cost —
+ * that would report the entire sale as profit and quietly inflate the figure.
+ */
+export interface ProfitReportData {
+  /** `revenue − cost` across measurable orders. */
+  profit: number;
+  /** Selling value of the measured lines (excludes delivery, GST and coupon adjustments). */
+  revenue: number;
+  /** Purchase payment for the same lines. */
+  cost: number;
+  /** `profit / revenue × 100`, or 0 when there is no measured revenue. */
+  marginPercent: number;
+  /** Orders that had a full cost record. */
+  measuredOrders: number;
+  /** Non-cancelled orders in range, measurable or not. */
+  totalOrders: number;
+  /** True when the underlying order scan hit its cap, so these are bounded figures. */
+  capped: boolean;
 }
 
 // --- Category ---------------------------------------------------------------------

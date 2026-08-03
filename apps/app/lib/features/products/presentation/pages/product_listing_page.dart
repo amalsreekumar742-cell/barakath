@@ -3,7 +3,9 @@ import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
 import '../../../../core/constants/app_colors.dart';
+import '../../../../core/constants/app_dimens.dart';
 import '../../../../core/utils/constants.dart';
+import '../../../../core/widgets/circle_back_button.dart';
 import '../../../../core/widgets/empty_state.dart';
 import '../../../../core/widgets/error_state.dart';
 import '../../../../core/widgets/product_card.dart';
@@ -148,24 +150,15 @@ class _ProductListingPageState extends State<ProductListingPage> {
           children: [
             // Figma node 50:8514 — circular back, title, wishlist shortcut.
             Padding(
-              padding: const EdgeInsets.fromLTRB(20, 8, 20, 10),
+              padding: const EdgeInsets.fromLTRB(
+                AppDimens.screenPadding,
+                8,
+                AppDimens.screenPadding,
+                10,
+              ),
               child: Row(
                 children: [
-                  GestureDetector(
-                    onTap: () => context.pop(),
-                    behavior: HitTestBehavior.opaque,
-                    child: Container(
-                      width: 42,
-                      height: 42,
-                      decoration: BoxDecoration(
-                        color: AppColors.surface,
-                        shape: BoxShape.circle,
-                        border: Border.all(color: AppColors.hairline),
-                      ),
-                      child: const Icon(Icons.arrow_back_rounded,
-                          size: 20, color: AppColors.textPrimary),
-                    ),
-                  ),
+                  const CircleBackButton(),
                   const SizedBox(width: 12),
                   Expanded(
                     child: Text(
@@ -253,7 +246,12 @@ class _ProductListingPageState extends State<ProductListingPage> {
       onRefresh: () => context.read<ProductListingProvider>().resetAndFetch(),
       child: GridView.builder(
         controller: _scrollController,
-        padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
+        padding: const EdgeInsets.fromLTRB(
+          AppDimens.screenPadding,
+          16,
+          AppDimens.screenPadding,
+          24,
+        ),
         gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
           crossAxisCount: 2,
           crossAxisSpacing: 14,
@@ -314,7 +312,12 @@ class _SubCategoryChips extends StatelessWidget {
       height: 42,
       child: ListView.separated(
         scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.fromLTRB(20, 2, 20, 12),
+        padding: const EdgeInsets.fromLTRB(
+          AppDimens.screenPadding,
+          2,
+          AppDimens.screenPadding,
+          12,
+        ),
         itemCount: subs.length + 1,
         separatorBuilder: (_, __) => const SizedBox(width: 8),
         itemBuilder: (_, index) {
@@ -390,7 +393,12 @@ class _FilterSortBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.fromLTRB(20, 0, 20, 13),
+      padding: const EdgeInsets.fromLTRB(
+        AppDimens.screenPadding,
+        0,
+        AppDimens.screenPadding,
+        13,
+      ),
       decoration: const BoxDecoration(
         border: Border(bottom: BorderSide(color: AppColors.hairline)),
       ),

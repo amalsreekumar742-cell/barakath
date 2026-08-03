@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
 import '../../../../core/constants/app_colors.dart';
+import '../../../../core/constants/app_dimens.dart';
 import '../../../../core/widgets/app_toast.dart';
 import '../../../../core/widgets/custom_button.dart';
 import '../../../wishlist/presentation/providers/wishlist_provider.dart';
@@ -52,7 +53,12 @@ class ProductDetailBottomBar extends StatelessWidget {
       child: SafeArea(
         top: false,
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(20, 12, 20, 12),
+          padding: const EdgeInsets.fromLTRB(
+            AppDimens.screenPadding,
+            12,
+            AppDimens.screenPadding,
+            12,
+          ),
           child: Row(
             children: [
               _WishlistSquare(productId: productId),

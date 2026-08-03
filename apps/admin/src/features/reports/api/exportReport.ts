@@ -26,8 +26,16 @@ function buildExport(
       if (!d || d.periods.length === 0) return null;
       return {
         stem: 'sales-report',
-        headers: ['Period', 'Revenue', 'Orders', 'Avg Order Value'],
-        rows: d.periods.map((p) => [p.label, p.revenue, p.orderCount, Math.round(p.avgOrderValue)]),
+        // The revenue column is net of GST (see fetchSalesReport) — the header says so, and the tax
+        // it excludes gets its own column so the sheet reconciles to the gross figure.
+        headers: ['Period', 'Revenue (excl. GST)', 'GST collected', 'Orders', 'Avg Order Value'],
+        rows: d.periods.map((p) => [
+          p.label,
+          p.revenue,
+          p.gstCollected,
+          p.orderCount,
+          Math.round(p.avgOrderValue),
+        ]),
       };
     }
     case 'category': {

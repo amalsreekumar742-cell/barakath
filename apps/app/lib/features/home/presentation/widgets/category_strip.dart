@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../core/constants/app_colors.dart';
+import '../../../../core/constants/app_dimens.dart';
 import '../../../../core/widgets/cached_image.dart';
 import '../../../categories/domain/entities/category.dart';
 
@@ -14,7 +15,7 @@ class CategoryStrip extends StatelessWidget {
   const CategoryStrip({
     super.key,
     required this.categories,
-    this.padding = const EdgeInsets.symmetric(horizontal: 16),
+    this.padding = const EdgeInsets.symmetric(horizontal: AppDimens.screenPadding),
   });
 
   final List<Category> categories;

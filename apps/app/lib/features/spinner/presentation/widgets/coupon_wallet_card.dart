@@ -110,8 +110,13 @@ class CouponWalletCard extends StatelessWidget {
     );
   }
 
-  /// "Expires in 3 days" while it's close, an explicit date otherwise, and
-  /// "Expired · 30 Mar" once it's gone.
+  /// "Expires in 45 minutes" / "Expires in 3 days" while it's close, an explicit
+  /// date otherwise, and "Expired · 30 Mar" once it's gone.
+  ///
+  /// The sub-day units are not decoration: a spin campaign can grant a reward
+  /// valid for a single hour, and this card is where the customer goes to find
+  /// it. Rounding that to "Expires in 1 day" would hand them a deadline the
+  /// server will not honour.
   String _expiryLine() {
     final until = coupon.validUntil;
     if (until == null) return _isActive ? 'No expiry' : status.label;
@@ -120,12 +125,13 @@ class CouponWalletCard extends StatelessWidget {
     if (status == SpinRewardStatus.expired) return 'Expired · $date';
     if (status == SpinRewardStatus.used) return 'Used · valid till $date';
 
-    final days = until.difference(DateTime.now()).inHours / 24;
-    if (days <= 0) return 'Expires today';
-    final whole = days.ceil();
-    if (whole <= 7) {
-      return whole == 1 ? 'Expires in 1 day' : 'Expires in $whole days';
-    }
+    String plural(int n, String unit) => '$n $unit${n == 1 ? '' : 's'}';
+    final left = until.difference(DateTime.now());
+    if (left.isNegative || left == Duration.zero) return 'Expires today';
+    if (left.inMinutes < 60) return 'Expires in ${plural(left.inMinutes, 'minute')}';
+    if (left.inHours < 24) return 'Expires in ${plural(left.inHours, 'hour')}';
+    final days = left.inHours ~/ 24;
+    if (days <= 7) return 'Expires in ${plural(days, 'day')}';
     return 'Valid till $date';
   }
 

@@ -1,11 +1,12 @@
 import { onRequest } from 'firebase-functions/v2/https';
 import { logger } from 'firebase-functions/v2';
-import { getFirestore, FieldValue } from 'firebase-admin/firestore';
+import { getFirestore, FieldValue, Timestamp } from 'firebase-admin/firestore';
 import { createHmac, timingSafeEqual } from 'crypto';
 import { Collections } from '../config/collections';
 import { getGeneralConfig, getSecretsDoc } from '../config/razorpay';
 import { getRazorpaySecrets } from '../orders/service/configReader';
 import { readProductStock, writeStockDelta, type StockLine } from '../orders/service/stock';
+import { promoteDraftToOrder } from '../orders/service/promoteDraft';
 import { findCouponByCode, decrementCouponUsage } from '../orders/service/coupon';
 import { creditWallet } from '../orders/service/wallet';
 
@@ -75,47 +76,45 @@ export const razorpayWebhook = onRequest({ cors: true }, async (req, res) => {
     }
 
     const db = getFirestore();
-    const orderQuery = await db
-      .collection(Collections.orders)
+
+    // A Razorpay leg lives in `orderDrafts` until it is paid — nothing unpaid is ever an order — so
+    // look there first. `orders` is still checked as a fallback: the draft is deleted the moment it
+    // is promoted, so a duplicate/retried webhook for an already-settled payment finds it there.
+    const draftQuery = await db
+      .collection(Collections.orderDrafts)
       .where('razorpayOrderId', '==', razorpayOrderId)
       .limit(1)
       .get();
-    const orderDoc = orderQuery.docs[0];
-    if (!orderDoc) {
-      // Unknown order — acknowledge (nothing to do); avoids endless retries.
+    let docRef = draftQuery.docs[0]?.ref;
+    let docData = draftQuery.docs[0]?.data();
+    if (!docRef) {
+      const orderQuery = await db
+        .collection(Collections.orders)
+        .where('razorpayOrderId', '==', razorpayOrderId)
+        .limit(1)
+        .get();
+      docRef = orderQuery.docs[0]?.ref;
+      docData = orderQuery.docs[0]?.data();
+    }
+    if (!docRef || !docData) {
+      // Unknown checkout — acknowledge (nothing to do); avoids endless retries.
       res.status(200).json({ received: true, note: 'order not found' });
       return;
     }
-    const orderRef = orderDoc.ref;
+    const orderRef = docRef;
 
     if (event === 'payment.captured') {
-      await db.runTransaction(async (tx) => {
-        const snap = await tx.get(orderRef);
-        const o = snap.data() ?? {};
-        if (o.paymentStatus === 'Paid') return; // already settled — idempotent no-op
-        const payQuery = await tx.get(
-          db.collection(Collections.payments).where('orderId', '==', orderRef.id).limit(1),
-        );
-        tx.update(orderRef, {
-          paymentStatus: 'Paid',
-          razorpayPaymentId,
-          updatedAt: FieldValue.serverTimestamp(),
-        });
-        const payDoc = payQuery.docs[0];
-        if (payDoc) {
-          tx.update(payDoc.ref, {
-            status: 'Paid',
-            razorpayPaymentId,
-            updatedAt: FieldValue.serverTimestamp(),
-          });
-        }
-      });
-      res.status(200).json({ received: true });
+      // Promotion is the whole settlement: it creates the real order + payment documents, is
+      // idempotent against a duplicate webhook or a verifyPayment that already ran, and handles the
+      // case where the checkout was released before the money landed (the order is then created
+      // already Cancelled, with the refund owed spelled out in its timeline).
+      const outcome = await promoteDraftToOrder(orderRef.id, razorpayPaymentId);
+      res.status(200).json({ received: true, outcome });
       return;
     }
 
-    // event === 'payment.failed' → reverse everything the order reserved.
-    const order = orderDoc.data() ?? {};
+    // event === 'payment.failed' → reverse everything the checkout reserved.
+    const order = docData;
     const userId = String(order.userId ?? '');
     const couponCode = String(order.couponCode ?? '');
     const walletAmountUsed = Number(order.walletAmountUsed) || 0;
@@ -162,11 +161,19 @@ export const razorpayWebhook = onRequest({ cors: true }, async (req, res) => {
         );
       }
 
+      // status goes Cancelled too, not just paymentStatus: everything this checkout reserved has
+      // just been handed back, so the document must not look like something that can still be paid.
+      // It also makes a late `payment.captured` land in promoteDraftToOrder's released branch, which
+      // creates a Cancelled order flagged for refund rather than an order with no stock behind it.
       tx.update(orderRef, {
         paymentStatus: 'Failed',
+        status: 'Cancelled',
+        cancelReason: 'Payment failed',
         razorpayPaymentId,
         updatedAt: FieldValue.serverTimestamp(),
       });
+      // Only ever present on the fallback path (an already-promoted order); a draft has no payment
+      // document, since the payments ledger records money that actually moved.
       const payDoc = payQuery.docs[0];
       if (payDoc) {
         tx.update(payDoc.ref, {

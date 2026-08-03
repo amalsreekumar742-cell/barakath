@@ -7,6 +7,7 @@ import 'package:provider/provider.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_dimens.dart';
 import '../../../../core/widgets/app_toast.dart';
+import '../../../../core/widgets/circle_back_button.dart';
 import '../../../../core/widgets/custom_button.dart';
 import '../../../../core/widgets/shimmer_loading.dart';
 import '../../domain/entities/spin_result.dart';
@@ -294,9 +295,7 @@ class _SpinPageState extends State<SpinPage> with SingleTickerProviderStateMixin
 
           const SizedBox(height: AppDimens.space12),
           _Note(
-            'Rewards become coupons · valid '
-            '${campaign.couponValidityDays > 0 ? campaign.couponValidityDays : 3} '
-            'days · one per order',
+            'Rewards become coupons · valid ${campaign.validityLabel} · one per order',
           ),
         ],
       ),
@@ -320,23 +319,7 @@ class _Header extends StatelessWidget {
       ),
       child: Row(
         children: [
-          InkResponse(
-            onTap: onBack,
-            radius: 24,
-            child: Container(
-              width: 40,
-              height: 40,
-              decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.12),
-                shape: BoxShape.circle,
-              ),
-              child: const Icon(
-                Icons.arrow_back_rounded,
-                size: 20,
-                color: Colors.white,
-              ),
-            ),
-          ),
+          CircleBackButton(onTap: onBack, style: CircleBackStyle.onDark),
           const SizedBox(width: AppDimens.space14),
           const Text(
             'Spin & Win',

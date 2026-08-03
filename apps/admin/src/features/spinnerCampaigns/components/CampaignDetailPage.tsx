@@ -211,6 +211,7 @@ const ConfigureForm: FC<{ campaign: SpinnerCampaignProps }> = ({ campaign }) => 
       maxSpinsPerUser: campaign.maxSpinsPerUser,
       spinCooldownHours: campaign.spinCooldownHours,
       couponValidityDays: campaign.couponValidityDays,
+      couponValidityHours: campaign.couponValidityHours,
       isActive: campaign.isActive,
       startDate: campaign.startDate.toDate(),
       endDate: campaign.endDate.toDate(),

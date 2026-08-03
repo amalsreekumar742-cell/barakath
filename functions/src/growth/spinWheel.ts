@@ -69,6 +69,7 @@ export const spinWheel = onCall(async (request): Promise<SpinResult> => {
     maxSpinsPerUser?: number;
     spinCooldownHours?: number;
     couponValidityDays?: number;
+    couponValidityHours?: number;
     isActive?: boolean;
     startDate?: Timestamp;
     endDate?: Timestamp;
@@ -150,10 +151,23 @@ export const spinWheel = onCall(async (request): Promise<SpinResult> => {
     const couponRef = db.collection(Collections.coupons).doc();
     couponId = couponRef.id;
     couponCode = `SPIN-${randomCode(6)}`;
-    const validityDays = campaign.couponValidityDays ?? 0;
-    const days = validityDays > 0 ? validityDays : 3; // spec default: spin coupons valid 3 days
+    // Validity window, in hours from THIS moment. `couponValidityHours` is the precise field and wins
+    // whenever set; `couponValidityDays` is the older, day-granular one and remains the fallback so
+    // campaigns configured before hours existed keep the window they were given. Mirrors
+    // `resolveValidityHours` in packages/shared/src/utils/spinValidity.ts — change both together
+    // (functions/ intentionally does not depend on the workspace package at runtime).
+    //
+    // The expiry is stamped as an exact Timestamp rather than a day count, so a 1-hour reward genuinely
+    // lapses in one hour: `validateCoupon` compares millis (orders/service/coupon.ts), and so do the
+    // app and website, meaning sub-day windows are enforced everywhere without further change.
+    const validityHours =
+      (campaign.couponValidityHours ?? 0) > 0
+        ? campaign.couponValidityHours!
+        : (campaign.couponValidityDays ?? 0) > 0
+          ? campaign.couponValidityDays! * 24
+          : 72; // spec default: spin coupons valid 3 days
     const validFrom = Timestamp.fromMillis(nowMs);
-    const validUntil = Timestamp.fromMillis(nowMs + days * 86_400_000);
+    const validUntil = Timestamp.fromMillis(nowMs + validityHours * 3_600_000);
 
     batch.set(couponRef, {
       code: couponCode,

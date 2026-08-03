@@ -7,6 +7,7 @@ import 'package:provider/provider.dart';
 
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_details.dart';
+import '../../../../core/constants/app_dimens.dart';
 import '../../../../core/constants/indian_states.dart';
 import '../../../../core/widgets/app_toast.dart';
 import '../../../../core/widgets/custom_text_field.dart';
@@ -249,7 +250,12 @@ class _AddAddressPageState extends State<AddAddressPage> {
       body: Form(
         key: _formKey,
         child: ListView(
-          padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+          padding: const EdgeInsets.fromLTRB(
+            AppDimens.screenPadding,
+            12,
+            AppDimens.screenPadding,
+            24,
+          ),
           children: [
             OutlinedButton.icon(
               onPressed: _locating ? null : _useMyLocation,

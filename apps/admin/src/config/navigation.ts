@@ -46,7 +46,12 @@ export const navGroups: NavGroup[] = [
       { label: 'Orders', path: '/orders', icon: 'ShoppingBag1Line', module: AdminModule.ORDERS },
       { label: 'Customers', path: '/customers', icon: 'User1Line', module: AdminModule.CUSTOMERS },
       { label: 'Payments', path: '/payments', icon: 'WalletLine', module: AdminModule.PAYMENTS },
-      { label: 'Replacement', path: '/replacement', icon: 'ArrowLeftLine', module: AdminModule.REPLACEMENT },
+      // Label is 'Returns', overriding spec §1.10's `Sidebar label: "Replacement" (not "Refunds")` —
+      // the customer surfaces already say "Return", and approval now refunds to the wallet rather than
+      // shipping a free replacement (user decision, 2026-08-03). The `path` and `module` deliberately
+      // stay 'replacement': `module` is a persisted sub-admin permission key, and `path` is matched by
+      // prefix in RouteGuard, where a mismatch would silently un-gate the whole section.
+      { label: 'Returns', path: '/replacement', icon: 'ArrowLeftLine', module: AdminModule.REPLACEMENT },
       { label: 'Reviews', path: '/reviews', icon: 'StarLine', module: AdminModule.REVIEWS },
     ],
   },
@@ -92,3 +97,16 @@ export const segmentLabels: Record<string, string> = {
   new: 'New',
   create: 'Create',
 };
+
+/**
+ * segmentToLabel — one URL segment as display text. Shared by the breadcrumb and the browser tab
+ * title so the two can never disagree about what a section is called; renaming a nav `label` (e.g.
+ * Replacement → Returns) updates both. Unknown segments (a dynamic id, an unlisted route) fall back
+ * to a title-cased version of the raw segment.
+ */
+export function segmentToLabel(segment: string): string {
+  return (
+    segmentLabels[segment] ??
+    segment.replace(/[-_]/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())
+  );
+}

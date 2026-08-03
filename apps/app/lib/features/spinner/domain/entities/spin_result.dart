@@ -24,16 +24,31 @@ class SpinRewardCoupon extends Equatable {
   final double minimumOrderAmount;
   final double maximumDiscount;
 
-  /// Server-decided expiry (campaign `couponValidityDays`, default +3 days).
+  /// Server-decided expiry — the campaign's validity window applied at the
+  /// moment of the spin (see `SpinnerCampaign.validityHours`, default 3 days).
   final DateTime? validUntil;
 
-  /// Whole days from [now] until the coupon lapses, floored at 0. Drives the
-  /// "Expires in 3 days" line — computed from the RETURNED date, never assumed.
-  int daysRemaining([DateTime? now]) {
+  /// Time left until the coupon lapses, as copy: 'expires in 45 minutes',
+  /// 'expires in 1 hour', 'expires in 3 days'. Null once there is nothing left
+  /// to say (no expiry on file, or already lapsed).
+  ///
+  /// WHY this replaced a whole-days count: a campaign can now grant a reward
+  /// that lives for a single hour, and rounding that up to '1 day' told the
+  /// customer their coupon lasted 24x longer than the server would honour.
+  /// The unit is chosen from the ACTUAL remaining time, so short windows read
+  /// in hours or minutes and long ones still read in days.
+  String? expiresInLabel([DateTime? now]) {
     final until = validUntil;
-    if (until == null) return 0;
-    final diff = until.difference(now ?? DateTime.now()).inHours;
-    return diff <= 0 ? 0 : (diff / 24).ceil();
+    if (until == null) return null;
+    final ms = until.difference(now ?? DateTime.now()).inMilliseconds;
+    if (ms <= 0) return null;
+
+    String plural(int n, String unit) => '$n $unit${n == 1 ? '' : 's'}';
+    final minutes = ms ~/ 60000;
+    if (minutes < 60) return 'expires in ${plural(minutes, 'minute')}';
+    final hours = minutes ~/ 60;
+    if (hours < 24) return 'expires in ${plural(hours, 'hour')}';
+    return 'expires in ${plural(hours ~/ 24, 'day')}';
   }
 
   @override

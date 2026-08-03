@@ -72,6 +72,13 @@ class SpinnerCampaign extends Equatable {
   final int maxSpinsPerUser;
   final int spinCooldownHours;
   final int couponValidityDays;
+
+  /// How long a won coupon stays redeemable, in HOURS from the spin.
+  ///
+  /// Authoritative whenever > 0; [couponValidityDays] is the older day-granular
+  /// field and stays the fallback so campaigns written before this existed keep
+  /// their configured window. Read [validityHours] rather than either field.
+  final int couponValidityHours;
   final bool isActive;
   final int totalSpins;
   final int totalWins;
@@ -97,6 +104,7 @@ class SpinnerCampaign extends Equatable {
     required this.maxSpinsPerUser,
     required this.spinCooldownHours,
     required this.couponValidityDays,
+    this.couponValidityHours = 0,
     required this.isActive,
     required this.totalSpins,
     required this.totalWins,
@@ -106,6 +114,32 @@ class SpinnerCampaign extends Equatable {
     required this.updatedAt,
     this.eligibility = SpinEligibility.allUsers,
   });
+
+  /// The reward validity window in hours, resolving the two stored fields.
+  ///
+  /// Mirrors `resolveValidityHours` in packages/shared/src/utils/spinValidity.ts
+  /// and the same three lines inside the `spinWheel` callable, which is what
+  /// actually stamps the expiry — change all three together, or the app will
+  /// promise a deadline the server does not enforce.
+  int get validityHours {
+    if (couponValidityHours > 0) return couponValidityHours;
+    if (couponValidityDays > 0) return couponValidityDays * 24;
+    return 72; // spec default: 3 days
+  }
+
+  /// [validityHours] as customer-facing copy: '1 hour', '6 hours', '3 days'.
+  ///
+  /// Whole days read better than the equivalent hour count for the common case,
+  /// but short windows — the reason the hours field exists — must say hours.
+  String get validityLabel {
+    final total = validityHours;
+    String plural(int n, String unit) => '$n $unit${n == 1 ? '' : 's'}';
+    if (total < 24) return plural(total, 'hour');
+    final days = total ~/ 24;
+    final hours = total % 24;
+    if (hours == 0) return plural(days, 'day');
+    return '${plural(days, 'day')} ${plural(hours, 'hour')}';
+  }
 
   /// Live right now: flagged active AND inside `[startDate, endDate]`.
   ///
@@ -127,6 +161,7 @@ class SpinnerCampaign extends Equatable {
         maxSpinsPerUser,
         spinCooldownHours,
         couponValidityDays,
+        couponValidityHours,
         isActive,
         totalSpins,
         totalWins,

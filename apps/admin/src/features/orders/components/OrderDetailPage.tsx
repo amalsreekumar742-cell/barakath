@@ -13,7 +13,15 @@ import { formatINR } from '@/utils/format';
 import { fetchOrderDetail } from '../api/fetchOrderDetail';
 import { updateOrderStatus } from '../api/updateOrderStatus';
 import { resetOrderDetail } from '../stores/ordersSlice';
-import { FLOW_STEPS, nextStatus, nextActionLabel, canCancel, isStepComplete } from '../utils/orderFlow';
+import {
+  FLOW_STEPS,
+  nextStatus,
+  nextActionLabel,
+  canCancel,
+  isStepComplete,
+  isOrderPaid,
+  unpaidAdvanceReason,
+} from '../utils/orderFlow';
 import { PaymentMethodBadge, PaymentStatusBadge } from './PaymentBadges';
 import ShipmentModal from './ShipmentModal';
 import CancelOrderModal from './CancelOrderModal';
@@ -117,6 +125,12 @@ const OrderDetailPage: FC = () => {
   }
 
   const action = nextActionLabel(order.status);
+  // Stock is reserved at checkout, before payment, and only dailyCleanup (which matches orders still
+  // at status 'Pending') gives it back. Advancing an unpaid order strands that stock for good and
+  // ships goods nobody paid for — so the advance button is disabled with the reason spelled out.
+  // Cancel stays enabled: it is the correct way to release an abandoned checkout.
+  const paid = isOrderPaid(order.paymentStatus);
+  const blockedReason = paid ? null : unpaidAdvanceReason(order.paymentStatus);
   const shippedOrLater = flowIndex(order.status) >= flowIndex(OrderStatus.SHIPPED);
   const timelineByStatus = new Map<string, OrderStatusTimelineEntry>(
     (order.statusTimeline ?? []).map((e) => [e.status, e]),
@@ -152,11 +166,12 @@ const OrderDetailPage: FC = () => {
           {action && (
             <button
               type="button"
-              disabled={updateStatusLoading}
+              disabled={updateStatusLoading || !paid}
+              title={blockedReason ?? undefined}
               onClick={() =>
                 order.status === OrderStatus.PACKED ? setShipOpen(true) : setConfirmAdvance(true)
               }
-              className="inline-flex items-center gap-2 rounded-md bg-primary px-5 py-2.5 text-[14px] font-semibold text-white hover:bg-primary-dark disabled:opacity-50"
+              className="inline-flex items-center gap-2 rounded-md bg-primary px-5 py-2.5 text-[14px] font-semibold text-white hover:bg-primary-dark disabled:cursor-not-allowed disabled:opacity-50"
             >
               {updateStatusLoading && <Icon name="Loader4Line" size={16} className="animate-spin" />}
               {action}
@@ -172,6 +187,14 @@ const OrderDetailPage: FC = () => {
             </button>
           )}
         </div>
+
+        {/* Why the advance button is dead — stated in the page, not just a tooltip. */}
+        {blockedReason && action && (
+          <div className="flex w-full gap-2 rounded-lg border border-warning-subtle bg-warning-subtle/50 px-3 py-2.5">
+            <Icon name="AlertLine" size={16} className="mt-0.5 shrink-0 text-warning" />
+            <p className="text-[13px] text-foreground">{blockedReason}</p>
+          </div>
+        )}
       </div>
 
       <div className="grid gap-4 lg:grid-cols-3">

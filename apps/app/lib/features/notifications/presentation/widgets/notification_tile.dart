@@ -9,8 +9,9 @@ import '../../domain/entities/app_notification.dart';
 ///
 /// Unread is signalled three ways, because one is never enough on a glanceable
 /// list: a tinted card instead of a bordered white one, a semibold title, and a
-/// small dot on the leading edge. The dot's slot is reserved even when read, so
-/// the two states line up instead of jittering as rows are opened.
+/// small dot on the trailing edge, just past the timestamp. The dot's slot is
+/// reserved even when read, so the two states line up instead of jittering as
+/// rows are opened.
 class NotificationTile extends StatelessWidget {
   const NotificationTile({
     super.key,
@@ -43,16 +44,6 @@ class NotificationTile extends StatelessWidget {
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Reserved dot slot — coloured only when unread.
-            Container(
-              width: 8,
-              height: 8,
-              margin: const EdgeInsets.only(top: 6, right: AppDimens.space8),
-              decoration: BoxDecoration(
-                color: unread ? AppColors.brandGreen : Colors.transparent,
-                shape: BoxShape.circle,
-              ),
-            ),
             Container(
               width: 40,
               height: 40,
@@ -110,6 +101,16 @@ class NotificationTile extends StatelessWidget {
                     ),
                   ],
                 ],
+              ),
+            ),
+            // Reserved dot slot — coloured only when unread.
+            Container(
+              width: 8,
+              height: 8,
+              margin: const EdgeInsets.only(top: 6, left: AppDimens.space8),
+              decoration: BoxDecoration(
+                color: unread ? AppColors.brandGreen : Colors.transparent,
+                shape: BoxShape.circle,
               ),
             ),
           ],

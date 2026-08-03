@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../../core/constants/app_dimens.dart';
 import '../../../../core/widgets/shimmer_loading.dart';
 
 /// Full-page skeleton for the Product Detail screen, shaped like the loaded
@@ -27,7 +28,7 @@ class ProductDetailShimmer extends StatelessWidget {
           ),
           SizedBox(height: 16),
           Padding(
-            padding: EdgeInsets.symmetric(horizontal: 16),
+            padding: EdgeInsets.symmetric(horizontal: AppDimens.screenPadding),
             child: ShimmerLoading(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,

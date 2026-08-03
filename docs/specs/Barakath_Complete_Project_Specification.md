@@ -278,9 +278,8 @@
 - Per product, not per order
 - One replacement per product per order (check orderId + productId)
 - Reasons: Item damaged/defective, Wrong item delivered, No longer needed, Quality not as expected
-- Approved → replacement order auto-created (₹0 free order, same variant or different variant if out of stock)
+- Approved → the returned line's value is refunded to the customer's WALLET; no order is created. Refund = line price × returned qty − that line's share of the order coupon + its share of GST; delivery is never refunded. (Supersedes the original rule "replacement order auto-created (₹0 free order)" — user decision, 2026-08-03.)
 - Rejected → admin enters reason in popup with text field
-- Replacement order goes through same flow: Pending → Accepted → ... → Delivered
 - Confirmation dialog + toast on approve/reject
 - FCM notification to customer on approve/reject
 

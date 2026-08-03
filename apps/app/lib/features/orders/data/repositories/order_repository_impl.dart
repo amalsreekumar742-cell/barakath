@@ -82,6 +82,20 @@ class OrderRepositoryImpl implements OrderRepository {
   }
 
   @override
+  Future<Either<Failure, Map<String, String>>>
+      getReturnStatusesByOrder() async {
+    try {
+      return Right(await _remote.getReturnStatusesByOrder());
+    } on AuthException catch (e) {
+      return Left(AuthFailure(e.message));
+    } on ServerException catch (e) {
+      return Left(ServerFailure(e.message));
+    } catch (_) {
+      return const Left(ServerFailure());
+    }
+  }
+
+  @override
   Future<Either<Failure, Unit>> cancelOrder({
     required String orderId,
     required String reason,

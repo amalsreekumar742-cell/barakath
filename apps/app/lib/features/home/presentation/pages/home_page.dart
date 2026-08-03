@@ -3,10 +3,10 @@ import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
 import '../../../../core/constants/app_colors.dart';
+import '../../../../core/constants/app_dimens.dart';
 import '../../../../core/widgets/empty_state.dart';
 import '../../../../core/widgets/error_state.dart';
 import '../../../../core/widgets/flash_sale_countdown.dart';
-import '../../../../core/widgets/product_card.dart';
 import '../providers/home_provider.dart';
 import '../widgets/banner_carousel.dart';
 import '../widgets/home_app_bar.dart';
@@ -15,9 +15,10 @@ import '../widgets/product_row.dart';
 import '../widgets/section_header.dart';
 import '../widgets/spin_banner.dart';
 
-/// Home tab (spec §2.6): banners, shop-by-category, flash sale with a countdown,
-/// new arrivals and a featured grid — each section hidden entirely when empty,
-/// so a store that runs no flash sale simply doesn't show one.
+/// Home tab (spec §2.6): banners, shop-by-category, then flash sale, new
+/// arrivals and one section per category — each a horizontal rail, and each
+/// hidden entirely when empty, so a store that runs no flash sale simply
+/// doesn't show one.
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
 
@@ -26,7 +27,8 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> {
-  static const EdgeInsets _hPadding = EdgeInsets.symmetric(horizontal: 20);
+  static const EdgeInsets _hPadding =
+      EdgeInsets.symmetric(horizontal: AppDimens.screenPadding);
 
   @override
   void initState() {
@@ -138,7 +140,7 @@ class _HomePageState extends State<HomePage> {
           ),
         ),
       ],
-      // New arrivals is a 2-up grid in the design, not a rail like flash sale.
+      // A rail, like every other product section on this page.
       if (home.newArrivals.isNotEmpty) ...[
         _sectionGap,
         SliverToBoxAdapter(
@@ -150,21 +152,12 @@ class _HomePageState extends State<HomePage> {
             ),
           ),
         ),
-        const SliverToBoxAdapter(child: SizedBox(height: 12)),
-        SliverPadding(
-          padding: _hPadding,
-          sliver: SliverGrid(
-            gridDelegate: _grid,
-            delegate: SliverChildBuilderDelegate(
-              (_, index) {
-                final product = home.newArrivals[index];
-                return ProductCard(
-                  product: product,
-                  variant: home.variantOf(product.id),
-                );
-              },
-              childCount: home.newArrivals.length,
-            ),
+        const SliverToBoxAdapter(child: SizedBox(height: 14)),
+        SliverToBoxAdapter(
+          child: ProductRow(
+            products: home.newArrivals,
+            variants: home.variants,
+            padding: _hPadding,
           ),
         ),
       ],
@@ -198,14 +191,4 @@ class _HomePageState extends State<HomePage> {
   }
 
   Widget get _sectionGap => const SliverToBoxAdapter(child: SizedBox(height: 24));
-
-  /// The design's 2-up product grid: 14px gutter, and a height that matches
-  /// [ProductRow]'s rail so the same card looks identical on both surfaces.
-  static const SliverGridDelegateWithFixedCrossAxisCount _grid =
-      SliverGridDelegateWithFixedCrossAxisCount(
-    crossAxisCount: 2,
-    crossAxisSpacing: 14,
-    mainAxisSpacing: 14,
-    mainAxisExtent: 256,
-  );
 }

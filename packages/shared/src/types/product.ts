@@ -18,6 +18,16 @@ export interface VariantProps {
   offerPrice: number;
   referralPrice: number;
   commission: number;
+  /**
+   * GST rate charged on this variant, as a percentage (18 = 18%).
+   *
+   * WHY per variant rather than the single `general/config` rate: rates differ by goods, and the tax
+   * invoice has to state the rate actually applied. ABSENT on every variant authored before this
+   * field existed — checkout falls back to the global `gstPercentage` for those, so read it as
+   * `typeof v.gstPercentage === 'number' ? … : globalRate` and never as `v.gstPercentage ?? 0`
+   * (a genuine 0% variant and an unset one are different things).
+   */
+  gstPercentage?: number;
   stock: number;
   /**
    * The variant's price WHILE a flash sale is live. Written by the `flashSaleManager` scheduler when a

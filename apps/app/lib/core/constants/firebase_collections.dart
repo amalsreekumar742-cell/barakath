@@ -10,6 +10,10 @@ class FirebaseCollections {
   static const String products = 'products';
   static const String variants = 'variants';
   static const String orders = 'orders';
+
+  /// Pre-payment checkout holds. The app reads these while a payment is in
+  /// flight; the real `orders` doc (same id) appears only once payment succeeds.
+  static const String orderDrafts = 'orderDrafts';
   static const String payments = 'payments';
   static const String categories = 'categories';
   static const String subCategories = 'subCategories';
@@ -40,8 +44,10 @@ class FirebaseCollections {
   //   * wheel segments are an INLINE `slots[]` array on the campaign doc, not an
   //     `offers` sub-collection;
   //   * a win mints a normal coupon in `coupons` with a `SPIN-` code prefix
-  //     (usageLimit 1, perUserLimit 1, validUntil = +3 days) — there is NO
-  //     `spinRewards` collection;
+  //     (usageLimit 1, perUserLimit 1, validUntil = now + the campaign's
+  //     validity window, which is `couponValidityHours` when set, else
+  //     `couponValidityDays`, else 3 days) — there is NO `spinRewards`
+  //     collection;
   //   * every spin, win or lose, is recorded in `spinHistory` — there is no
   //     `spinUsage` sub-collection.
   // So "My Coupons" reads `coupons` filtered by the SPIN- prefix, which

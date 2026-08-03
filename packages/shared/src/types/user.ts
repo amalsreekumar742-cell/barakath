@@ -48,11 +48,12 @@ export interface UserProps {
    *     (`affiliateBalance` is credited in the same transaction).
    *   - `totalReferrals` — incremented by `functions/src/growth/trackReferralSignup.ts` when a referred
    *     signup links to this affiliate's code.
-   *   - `affiliateEnabled` — an admin-owned per-user wallet-access toggle. No admin UI writes it today
-   *     (`apps/admin`'s `allocateAffiliate` only ever sets `affiliateCode`/`affiliateBalance`) and it is
-   *     absent on most documents, so it is OPTIONAL here and must be treated as `true` when missing —
-   *     exactly how `apps/app`'s `User` entity defaults it (`affiliateEnabled = true`). There is no
-   *     store-wide affiliate toggle anywhere in `general/config`; this per-user field is the only gate.
+   *   - `affiliateEnabled` — an admin-owned per-user wallet-access toggle, written by the
+   *     `setAffiliateEnabled` callable behind the Customer detail page's "Affiliate marketing" switch.
+   *     Affiliate access is OPT-IN: this field must be treated as `FALSE` when missing, so a customer
+   *     has wallet access only once an admin has explicitly granted it. It stays optional here because
+   *     older documents predate the flag; every reader defaults it to false rather than coercing it.
+   *     There is no store-wide affiliate toggle in `general/config`; this per-user field is the only gate.
    * The Flutter `User` entity (`apps/app/lib/features/auth/domain/entities/user.dart`) already declares
    * and reads all four straight off this same document — this type simply catches up to it.
    */

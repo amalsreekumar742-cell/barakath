@@ -18,9 +18,15 @@ class OrderItemModel extends OrderItem {
     required super.offerPrice,
     required super.quantity,
     required super.subtotal,
+    super.gstPercentage,
+    super.gstAmount,
   });
 
   factory OrderItemModel.fromMap(Map<String, dynamic> data) {
+    // Read as nullable, NOT through ModelParse.toDouble: that maps a missing key to 0.0, which would
+    // report a legacy order as taxed at 0% instead of "breakdown unavailable".
+    final rawPct = data['gstPercentage'];
+    final rawGst = data['gstAmount'];
     return OrderItemModel(
       productId: ModelParse.toStr(data['productId']),
       productName: ModelParse.toStr(data['productName']),
@@ -32,6 +38,8 @@ class OrderItemModel extends OrderItem {
       offerPrice: ModelParse.toDouble(data['offerPrice']),
       quantity: ModelParse.toInt(data['quantity']),
       subtotal: ModelParse.toDouble(data['subtotal']),
+      gstPercentage: rawPct is num ? rawPct.toDouble() : null,
+      gstAmount: rawGst is num ? rawGst.toDouble() : null,
     );
   }
 
@@ -47,6 +55,9 @@ class OrderItemModel extends OrderItem {
       'offerPrice': offerPrice,
       'quantity': quantity,
       'subtotal': subtotal,
+      // Omitted when absent, so a round-trip never turns "unknown" into an explicit 0%.
+      if (gstPercentage != null) 'gstPercentage': gstPercentage,
+      if (gstAmount != null) 'gstAmount': gstAmount,
     };
   }
 }

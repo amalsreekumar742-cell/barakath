@@ -28,7 +28,14 @@ export interface BundleItem {
  * silently excluded from the cart write but named in a toast so the customer knows what didn't make it
  * in, rather than the bundle quietly under-adding with no explanation.
  */
-export function AddAllButton({ items }: { items: BundleItem[] }) {
+export interface AddAllButtonProps {
+  /** The items to add — the TICKED subset, not necessarily the whole bundle. */
+  items: BundleItem[];
+  /** Overrides the label so the caller can count what is ticked. */
+  label?: string;
+}
+
+export function AddAllButton({ items, label = 'Add all to bag' }: AddAllButtonProps) {
   const dispatch = useAppDispatch();
   const { requireAuth } = useRequireAuth();
   const [adding, setAdding] = useState(false);
@@ -81,8 +88,17 @@ export function AddAllButton({ items }: { items: BundleItem[] }) {
   }
 
   return (
-    <Button variant="primary" size="md" loading={adding} onClick={onAddAll}>
-      Add all to bag
+    <Button
+      variant="primary"
+      size="md"
+      fullWidth
+      loading={adding}
+      // Nothing ticked: the click has nothing to do, so the button says so rather than firing a
+      // no-op that would toast "everything is out of stock".
+      disabled={items.length === 0}
+      onClick={onAddAll}
+    >
+      {label}
     </Button>
   );
 }

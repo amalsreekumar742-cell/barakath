@@ -28,6 +28,9 @@ class CloudFunctions {
   /// caller, widen the check server-side — do NOT cancel from the client.
   static const String cancelOrder = 'cancelOrder';
 
+  /// Release an unpaid checkout draft the customer walked away from.
+  static const String discardOrderDraft = 'discardOrderDraft';
+
   // Growth
   static const String spinWheel = 'spinWheel';
 

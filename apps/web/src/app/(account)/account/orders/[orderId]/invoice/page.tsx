@@ -14,6 +14,7 @@ import { fetchInvoiceBusiness, generateInvoiceCall, type InvoiceBusiness } from 
 import { SummaryRow } from '@/features/orders/components/SummaryRow';
 import { formatDate, money, orderReference, paymentMethodLabel } from '@/features/orders/utils/orderFormat';
 import { OrderStatus } from '@barakath/shared';
+import { gstBreakdown } from '@barakath/shared/utils/gstBreakdown';
 
 const EMPTY_BUSINESS: InvoiceBusiness = { name: 'Barakath', address: '', gstin: '', trn: '', gstPercentage: 0 };
 
@@ -104,16 +105,39 @@ export default function InvoicePage() {
   const invoiceNo = `INV-${order.id.slice(0, 8).toUpperCase()}`;
   const method = paymentMethodLabel(order);
   const taxable = order.grandTotal - (order.gstAmount || 0);
-  // Split into CGST + SGST halves — mirrors the deployed `generateInvoicePDF` Cloud Function's own
-  // derivation exactly (`functions/src/utility/generateInvoicePDF.ts`'s `totalLine('CGST (...)', ...)`
-  // / `totalLine('SGST (...)', ...)`), an intra-state assumption since the order document carries no
-  // place-of-supply field. Kept identical here so the on-screen render and the downloaded PDF never
-  // quote different numbers for the same order.
-  const halfRate = business.gstPercentage > 0 ? business.gstPercentage / 2 : 0;
-  const cgstLabel = halfRate > 0 ? `CGST (${halfRate}%)` : 'CGST';
-  const sgstLabel = halfRate > 0 ? `SGST (${halfRate}%)` : 'SGST';
-  const cgst = (order.gstAmount || 0) / 2;
-  const sgst = (order.gstAmount || 0) / 2;
+  // Rate-wise GST, one CGST/SGST pair per rate on the order. Mirrors the deployed
+  // `generateInvoicePDF` Cloud Function's own derivation exactly
+  // (`functions/src/utility/generateInvoicePDF.ts` + its `service/gstBreakdown.ts`), so the
+  // on-screen render and the downloaded PDF never quote different numbers for the same order.
+  //
+  // The CGST + SGST halving is an INTRA-STATE assumption, unchanged from before: the order document
+  // carries no place-of-supply field, so an inter-state order (which would be a single IGST line)
+  // cannot be told apart. What has changed is that the halves come from the rate ACTUALLY CHARGED on
+  // each line rather than from today's shop-wide rate — with per-variant GST those are no longer the
+  // same number, and a mixed-rate order would otherwise be taxed on paper at a rate it never paid.
+  //
+  // Flattened to a label/value list rather than mapped to a Fragment per rate: this workspace has a
+  // duplicated @types/react that makes `Fragment` itself fail typecheck (the known TS2786 family), so
+  // a flat list keeps the file clean instead of adding to that pile.
+  const gstRows = gstBreakdown(order);
+  const legacyHalfRate = business.gstPercentage > 0 ? business.gstPercentage / 2 : 0;
+  const gstLines: { label: string; value: string }[] =
+    gstRows.length > 0
+      ? gstRows.flatMap((row) => {
+          const on = ` on ${money(row.taxableValue)}`;
+          return [
+            { label: `CGST (${row.percentage / 2}%)${on}`, value: money(row.gstAmount / 2) },
+            { label: `SGST (${row.percentage / 2}%)${on}`, value: money(row.gstAmount / 2) },
+          ];
+        })
+      : // Orders placed before per-line GST carry only the order-level total — fall back to the
+        // single pair at the shop rate rather than inventing a split for them.
+        (order.gstAmount || 0) > 0
+        ? [
+            { label: legacyHalfRate > 0 ? `CGST (${legacyHalfRate}%)` : 'CGST', value: money((order.gstAmount || 0) / 2) },
+            { label: legacyHalfRate > 0 ? `SGST (${legacyHalfRate}%)` : 'SGST', value: money((order.gstAmount || 0) / 2) },
+          ]
+        : [];
   const address = order.shippingAddress;
 
   return (
@@ -224,12 +248,9 @@ export default function InvoicePage() {
             )}
             <SummaryRow label="Delivery" value={order.deliveryCharge <= 0 ? 'Free' : money(order.deliveryCharge)} />
             <SummaryRow label="Taxable value" value={money(taxable)} />
-            {order.gstAmount > 0 && (
-              <>
-                <SummaryRow label={cgstLabel} value={money(cgst)} />
-                <SummaryRow label={sgstLabel} value={money(sgst)} />
-              </>
-            )}
+            {gstLines.map((line) => (
+              <SummaryRow key={line.label} label={line.label} value={line.value} />
+            ))}
             <div className="pt-2">
               <SummaryRow label="Grand Total" value={money(order.grandTotal)} emphasis="total" />
             </div>

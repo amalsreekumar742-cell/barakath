@@ -1,4 +1,4 @@
-import { OrderStatus } from '@barakath/shared/config/enums';
+import { OrderStatus, PaymentStatus } from '@barakath/shared/config/enums';
 
 /**
  * Order status flow (spec §1.7): a strict linear progression the admin advances one step at a time.
@@ -46,6 +46,30 @@ export function nextActionLabel(current: string): string | null {
 /** Cancel is permitted only while the order is still Pending (spec §1.7). */
 export function canCancel(current: string): boolean {
   return current === OrderStatus.PENDING;
+}
+
+/**
+ * Has the money actually been collected? Only `Paid` counts. `Refunded` is deliberately excluded —
+ * a refunded order has had its money returned, so it must not be pushed further through fulfilment
+ * either.
+ */
+export function isOrderPaid(paymentStatus: string): boolean {
+  return paymentStatus === PaymentStatus.PAID;
+}
+
+/**
+ * Why an unpaid order may not be advanced — shown on the disabled action button and returned by the
+ * update thunk. Stock is reserved at checkout, BEFORE payment; `dailyCleanup` only reclaims it from
+ * orders still sitting at `status == 'Pending'`. Accepting an unpaid order therefore strands that
+ * stock permanently and ships goods no one paid for. Cancelling remains available and is the right
+ * way to release an abandoned checkout.
+ */
+export function unpaidAdvanceReason(paymentStatus: string): string {
+  if (paymentStatus === PaymentStatus.FAILED)
+    return 'Payment failed for this order — it cannot be processed. Cancel it to release the stock.';
+  if (paymentStatus === PaymentStatus.REFUNDED)
+    return 'This order has been refunded — it cannot be processed further.';
+  return 'Payment is not complete for this order — it cannot be processed. Cancel it to release the stock.';
 }
 
 /** Whether `status` has been reached given the order's current status (for timeline completion). */

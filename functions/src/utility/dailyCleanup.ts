@@ -3,135 +3,33 @@ import { logger } from 'firebase-functions';
 import { getFirestore, FieldValue, Timestamp } from 'firebase-admin/firestore';
 import { Collections } from '../config/collections';
 
-interface CleanupItem {
-  productId: string;
-  variantId: string;
-  quantity: number;
-}
-
-const THIRTY_MIN_MS = 30 * 60 * 1000;
 const BATCH_LIMIT = 400; // stay under Firestore's 500-op batch cap.
 
 /**
- * dailyCleanup — nightly housekeeping: cancel stale unpaid orders and expire lapsed coupons.
+ * dailyCleanup — nightly housekeeping: expire coupons past their validUntil
+ * (isActive && validUntil < now → isActive:false), batched. This also covers spin-reward "SPIN-"
+ * coupons, which live in the same `coupons` collection with a validUntil.
  *
- * WHY a scheduler (not onCall): this is unattended maintenance that must run on a clock with no user in
- *   the loop, doing cross-user financial writes (stock restore, wallet credit, coupon usage) that only the
- *   Admin SDK may perform.
- * WHY onSchedule daily 02:00 IST: off-peak, once a day is enough for these expiries (spec §5.5 dailyCleanup).
+ * WHY a scheduler (not onCall): unattended maintenance that must run on a clock with no user in the
+ *   loop, writing to documents only the Admin SDK may touch.
+ * WHY nightly: a coupon lapsing a few hours late costs nothing — it simply stays redeemable until the
+ *   sweep, and `validateCoupon` rejects it on its own date check at redemption time regardless.
  *
- * (1) Expire PENDING unpaid orders older than 30 min → Cancelled ('Payment timeout'): restore variant
- *     stock, credit back any wallet used (append a ledger entry), and decrement the coupon's usedCount.
- * (2) Expire coupons past validUntil (isActive && validUntil < now → isActive:false), batched. This pass
- *     also covers spin-reward "SPIN-" coupons that live in the coupons collection with a validUntil.
+ * NOTE: this job used to ALSO cancel stale unpaid orders. That moved to
+ *   `functions/src/orders/expireUnpaidOrders.ts`, which runs every 5 minutes — an unpaid order holds
+ *   reserved stock, so reclaiming it once a night was far too slow, and the customer is now shown a
+ *   10-minute countdown that a nightly job could not honour.
  *
- * SCHEMA NOTE: the spec also lists "expire spin rewards + spinner campaigns". Standalone spin rewards live
- *   in a `spinRewards` collection that is NOT in the shared Collections map, so they are out of scope here
- *   and flagged in the report; SPIN- coupons stored in `coupons` are handled by pass (2).
+ * SCHEMA NOTE: the spec also lists "expire spin rewards + spinner campaigns". Standalone spin rewards
+ *   live in a `spinRewards` collection that is NOT in the shared Collections map, so they are out of
+ *   scope here; SPIN- coupons stored in `coupons` are handled by this pass.
  */
 export const dailyCleanup = onSchedule({ schedule: 'every day 02:00', timeZone: 'Asia/Kolkata' }, async () => {
   const db = getFirestore();
   const now = Timestamp.now();
-  const cutoff = Timestamp.fromMillis(now.toMillis() - THIRTY_MIN_MS);
 
-  let ordersCancelled = 0;
   let couponsExpired = 0;
 
-  // ---- (1) Stale unpaid orders -------------------------------------------------------------------
-  // Filter status+paymentStatus in the query; the createdAt<cutoff test is applied in memory to avoid a
-  // composite index. Bounded by .limit for one nightly pass.
-  const pendingSnap = await db
-    .collection(Collections.orders)
-    .where('status', '==', 'Pending')
-    .where('paymentStatus', '==', 'Pending')
-    .limit(300)
-    .get();
-
-  for (const orderDoc of pendingSnap.docs) {
-    const order = orderDoc.data();
-    const createdAt = order.createdAt as Timestamp | undefined;
-    if (!createdAt || createdAt.toMillis() >= cutoff.toMillis()) continue; // not old enough yet.
-
-    const items = (order.items as CleanupItem[] | undefined) ?? [];
-    const couponCode = typeof order.couponCode === 'string' ? order.couponCode : '';
-    const walletUsed = Number(order.walletAmountUsed) || 0;
-    const userId = typeof order.userId === 'string' ? order.userId : '';
-
-    // Resolve the coupon ref up front (a query can't run inside the transaction).
-    let couponRef: FirebaseFirestore.DocumentReference | null = null;
-    if (couponCode) {
-      const couponSnap = await db
-        .collection(Collections.coupons)
-        .where('code', '==', couponCode)
-        .limit(1)
-        .get();
-      couponRef = couponSnap.docs[0]?.ref ?? null;
-    }
-
-    try {
-      await db.runTransaction(async (tx) => {
-        // READS FIRST — only the user doc needs reading (for the wallet running balance).
-        let newBalance = 0;
-        let userRef: FirebaseFirestore.DocumentReference | null = null;
-        if (walletUsed > 0 && userId) {
-          userRef = db.collection(Collections.users).doc(userId);
-          const userSnap = await tx.get(userRef);
-          const current = Number(userSnap.data()?.walletBalance) || 0;
-          newBalance = current + walletUsed;
-        }
-
-        // WRITES — restore stock (blind increments), refund wallet, revert coupon usage, cancel order.
-        for (const it of items) {
-          if (!it.productId || !it.variantId) continue;
-          tx.update(
-            db
-              .collection(Collections.products)
-              .doc(it.productId)
-              .collection(Collections.variants)
-              .doc(it.variantId),
-            { stock: FieldValue.increment(Number(it.quantity) || 0) },
-          );
-        }
-
-        if (userRef) {
-          tx.update(userRef, {
-            walletBalance: newBalance,
-            updatedAt: FieldValue.serverTimestamp(),
-          });
-          tx.set(db.collection(Collections.walletTransactions).doc(), {
-            userId,
-            type: 'Credit',
-            amount: walletUsed,
-            source: 'Refund',
-            description: `Refund for cancelled order ${orderDoc.id} (payment timeout)`,
-            orderId: orderDoc.id,
-            balanceAfter: newBalance,
-            createdAt: FieldValue.serverTimestamp(),
-          });
-        }
-
-        if (couponRef) {
-          tx.update(couponRef, { usedCount: FieldValue.increment(-1) });
-        }
-
-        tx.update(orderDoc.ref, {
-          status: 'Cancelled',
-          cancelReason: 'Payment timeout',
-          updatedAt: FieldValue.serverTimestamp(),
-          statusTimeline: FieldValue.arrayUnion({
-            status: 'Cancelled',
-            timestamp: Timestamp.now(),
-            note: 'Auto-cancelled: payment not completed within 30 minutes.',
-          }),
-        });
-      });
-      ordersCancelled += 1;
-    } catch (err) {
-      logger.error('dailyCleanup: failed to expire order', { orderId: orderDoc.id, err });
-    }
-  }
-
-  // ---- (2) Expired coupons -----------------------------------------------------------------------
   const couponSnap = await db
     .collection(Collections.coupons)
     .where('isActive', '==', true)
@@ -148,5 +46,5 @@ export const dailyCleanup = onSchedule({ schedule: 'every day 02:00', timeZone: 
     await batch.commit();
   }
 
-  logger.info('dailyCleanup run complete', { ordersCancelled, couponsExpired });
+  logger.info('dailyCleanup run complete', { couponsExpired });
 });

@@ -28,7 +28,18 @@ class Replacement extends Equatable {
   /// 'Pending' | 'Approved' | 'Rejected'.
   final String status;
   final String adminNote;
+
+  /// LEGACY — the free ₹0 replacement order approval used to create. Approvals
+  /// now refund to the wallet instead and always write ''. Non-empty only on
+  /// requests approved before that change.
   final String replacementOrderId;
+
+  /// Refund written by the admin's approval: the returned line's value net of
+  /// its share of the order's coupon and inclusive of its share of GST
+  /// (delivery is never refunded). 0/false on pending, rejected and older docs.
+  final double refundAmount;
+  final bool refundedToWallet;
+
   final String processedBy;
   final String processedByName;
   final DateTime? processedAt;
@@ -55,6 +66,8 @@ class Replacement extends Equatable {
     required this.status,
     required this.adminNote,
     required this.replacementOrderId,
+    this.refundAmount = 0,
+    this.refundedToWallet = false,
     required this.processedBy,
     required this.processedByName,
     required this.processedAt,
@@ -83,6 +96,8 @@ class Replacement extends Equatable {
         status,
         adminNote,
         replacementOrderId,
+        refundAmount,
+        refundedToWallet,
         processedBy,
         processedByName,
         processedAt,

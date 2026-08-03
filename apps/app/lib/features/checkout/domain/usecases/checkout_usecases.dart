@@ -60,6 +60,19 @@ class GetOrderPayment implements UseCase<PlaceOrderResult?, String> {
       _repository.fetchOrderPayment(params);
 }
 
+/// Cancel an order the customer abandoned without paying, so the stock, coupon
+/// slot and wallet debit it reserved come back at once instead of after the
+/// server's 10-minute sweep.
+@injectable
+class ReleaseAbandonedOrder implements UseCase<Unit, String> {
+  ReleaseAbandonedOrder(this._repository);
+  final CheckoutRepository _repository;
+
+  @override
+  Future<Either<Failure, Unit>> call(String params) =>
+      _repository.releaseAbandonedOrder(params);
+}
+
 class VerifyPaymentParams {
   const VerifyPaymentParams({
     required this.razorpayOrderId,

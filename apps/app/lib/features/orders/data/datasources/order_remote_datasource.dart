@@ -53,6 +53,10 @@ abstract class OrderRemoteDataSource {
     required String variantId,
   });
 
+  /// `orderId` → the status to label that order's return with, for every
+  /// return the signed-in customer has ever raised.
+  Future<Map<String, String>> getReturnStatusesByOrder();
+
   Future<void> cancelOrder({required String orderId, required String reason});
 
   /// Returns the invoice PDF download URL.
@@ -169,6 +173,50 @@ class OrderRemoteDataSourceImpl implements OrderRemoteDataSource {
         e.code,
       );
     }
+  }
+
+  @override
+  Future<Map<String, String>> getReturnStatusesByOrder() async {
+    final uid = _requireUid;
+    try {
+      // ONE query for the whole list, not one per card: My Orders renders a
+      // page of orders and asking per-order would be a read per row on every
+      // scroll. Single equality on `userId` — no composite index, and it is the
+      // clause `firestore.rules` scopes replacement reads by.
+      final snap = await _firestore
+          .collection(FirebaseCollections.replacements)
+          .where('userId', isEqualTo: uid)
+          .get();
+
+      final statuses = <String, String>{};
+      for (final doc in snap.docs) {
+        final data = doc.data();
+        final orderId = ModelParse.toStr(data['orderId']);
+        if (orderId.isEmpty) continue;
+        final status = ModelParse.toStr(data['status']);
+        statuses[orderId] = _mostRelevantReturnStatus(statuses[orderId], status);
+      }
+      return statuses;
+    } on FirebaseException catch (e) {
+      throw ServerException(
+        FirebaseErrorMessage.of(e) ?? 'Could not check your return requests.',
+        e.code,
+      );
+    }
+  }
+
+  /// An order can carry several returns — one per line. The card shows a single
+  /// tag, so the OPEN one wins: a pending request is the one the customer is
+  /// still waiting on. Otherwise an approved one beats a rejected one.
+  static String _mostRelevantReturnStatus(String? current, String incoming) {
+    if (current == null) return incoming;
+    int rank(String status) => switch (status.trim().toLowerCase()) {
+          'pending' => 3,
+          'approved' => 2,
+          'rejected' => 1,
+          _ => 0,
+        };
+    return rank(incoming) > rank(current) ? incoming : current;
   }
 
   @override

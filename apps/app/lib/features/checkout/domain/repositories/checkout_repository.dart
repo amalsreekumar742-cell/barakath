@@ -20,4 +20,9 @@ abstract class CheckoutRepository {
 
   /// Null on the Right side = no such order.
   Future<Either<Failure, PlaceOrderResult?>> fetchOrderPayment(String orderId);
+
+  /// Cancel an order the customer walked away from, returning its reserved
+  /// stock, coupon slot and wallet debit immediately rather than waiting for the
+  /// server's 10-minute sweep. Best-effort: never surfaced to the customer.
+  Future<Either<Failure, Unit>> releaseAbandonedOrder(String orderId);
 }

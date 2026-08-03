@@ -7,7 +7,7 @@ import { useAppDispatch, useAppSelector } from '@/stores/store';
 import Icon from '@/components/icons/Icon';
 import OrderStatusBadge from '@/components/OrderStatusBadge';
 import PhotoViewerModal from '@/components/PhotoViewerModal';
-import { formatINR } from '@/utils/format';
+import { formatINR, formatINRExact } from '@/utils/format';
 import { fetchReplacementDetail } from '../api/fetchReplacementDetail';
 import { resetReplacementDetail } from '../stores/replacementSlice';
 import ReplacementStatusBadge from './ReplacementStatusBadge';
@@ -41,10 +41,11 @@ const Field: FC<{ label: string; children: React.ReactNode }> = ({ label, childr
 );
 
 /**
- * ReplacementDetailPage (route /replacement/:id) — the full request view + approve/reject controls
- * (spec §1.10). Loads the request plus its original order on mount, clears them on unmount. The action
- * buttons appear ONLY while the request is Pending; approving spawns a free replacement order (whose id
- * then links from the "Replacement Order" card). The customer photos open in the shared PhotoViewer.
+ * ReplacementDetailPage (route /replacement/:id) — the full return-request view + approve/reject
+ * controls (spec §1.10). Loads the request plus its original order on mount, clears them on unmount.
+ * The action buttons appear ONLY while the request is Pending; approving refunds the returned line's
+ * value to the customer's wallet (shown in the "Wallet refund" card). The customer photos open in the
+ * shared PhotoViewer.
  */
 const ReplacementDetailPage: FC = () => {
   const { id = '' } = useParams();
@@ -85,13 +86,13 @@ const ReplacementDetailPage: FC = () => {
     return (
       <div className="p-6">
         <div className="rounded-xl border border-border bg-surface p-10 text-center">
-          <p className="text-[14px] text-muted">{detailError ?? 'Replacement request not found'}</p>
+          <p className="text-[14px] text-muted">{detailError ?? 'Return request not found'}</p>
           <button
             type="button"
             onClick={() => navigate('/replacement')}
             className="mt-3 rounded-md bg-primary px-4 py-2 text-[14px] font-semibold text-white hover:bg-primary-dark"
           >
-            Back to replacements
+            Back to returns
           </button>
         </div>
       </div>
@@ -111,7 +112,7 @@ const ReplacementDetailPage: FC = () => {
         onClick={() => navigate('/replacement')}
         className="mb-4 inline-flex items-center gap-1.5 text-[13px] font-semibold text-muted hover:text-foreground"
       >
-        <Icon name="ArrowLeftLine" size={16} /> Back to replacements
+        <Icon name="ArrowLeftLine" size={16} /> Back to returns
       </button>
 
       {/* Top section */}
@@ -269,7 +270,20 @@ const ReplacementDetailPage: FC = () => {
             )}
           </Card>
 
-          {/* Replacement order — only once approved and linked */}
+          {/* Wallet refund — how an approved return is settled now */}
+          {isApproved && replacement.refundedToWallet && (
+            <Card title="Wallet refund">
+              <p className="text-[18px] font-extrabold tracking-tight text-success">
+                {formatINRExact(replacement.refundAmount)}
+              </p>
+              <p className="mt-1.5 text-[12px] text-muted">
+                Credited to the customer&apos;s wallet. Delivery is not refunded.
+              </p>
+            </Card>
+          )}
+
+          {/* Legacy replacement order — only on requests approved before returns refunded to the
+              wallet. Kept so historical records stay navigable; nothing writes this any more. */}
           {isApproved && replacement.replacementOrderId && (
             <Card title="Replacement order">
               <button
@@ -280,7 +294,8 @@ const ReplacementDetailPage: FC = () => {
                 #{replacement.replacementOrderId.slice(0, 8)}
               </button>
               <p className="mt-1.5 text-[12px] text-muted">
-                A free replacement order was created and starts a fresh order flow.
+                A free replacement order was created for this request (legacy — approvals now refund to
+                the wallet).
               </p>
             </Card>
           )}

@@ -27,9 +27,20 @@ export interface InventoryRow {
   updatedAt: Timestamp | null;
 }
 
+/**
+ * How the inventory list is ordered. The two stock orders rank by the VARIANT's own `stock` — the
+ * number the table actually shows — which `fetchInventory` has to compute client-side over a bounded
+ * scan; see the strategy note there for why Firestore cannot serve that ordering directly.
+ */
+export type InventorySort = 'newest' | 'stockAsc' | 'stockDesc';
+
 /** Active inventory filter (spec §1.6). Search runs on the product keywords. */
 export interface InventoryFilters {
   searchTerm?: string;
+  /** Product-doc `categoryId`. Undefined = all categories. */
+  categoryId?: string;
+  /** Undefined is treated as 'newest' — the list's original order. */
+  sort?: InventorySort;
 }
 
 /**

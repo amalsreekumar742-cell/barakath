@@ -1,15 +1,16 @@
 import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import 'package:share_plus/share_plus.dart';
 
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_dimens.dart';
 import '../../../../core/widgets/app_toast.dart';
+import '../../../../core/widgets/circle_back_button.dart';
 import '../../../../core/widgets/error_state.dart';
 import '../../../../core/widgets/key_value_row.dart';
 import '../../../../core/widgets/section_card.dart';
 import '../../../../core/widgets/shimmer_loading.dart';
+import '../../domain/entities/gst_breakdown.dart';
 import '../../domain/entities/invoice_business.dart';
 import '../../domain/entities/order.dart';
 import '../providers/order_detail_provider.dart';
@@ -101,26 +102,9 @@ class _InvoicePageState extends State<InvoicePage> {
       backgroundColor: AppColors.background,
       appBar: AppBar(
         titleSpacing: 12,
-        leadingWidth: 74,
-        leading: Center(
-          child: GestureDetector(
-            onTap: () => context.canPop()
-                ? context.pop()
-                : context.go('/orders/${widget.orderId}'),
-            behavior: HitTestBehavior.opaque,
-            child: Container(
-              width: 42,
-              height: 42,
-              margin: const EdgeInsets.only(left: AppDimens.screenPadding),
-              decoration: BoxDecoration(
-                color: AppColors.surface,
-                shape: BoxShape.circle,
-                border: Border.all(color: AppColors.hairline),
-              ),
-              child: const Icon(Icons.arrow_back_rounded,
-                  size: 20, color: AppColors.textPrimary),
-            ),
-          ),
+        leadingWidth: CircleBackButton.leadingWidth,
+        leading: CircleBackButton.appBarLeading(
+          fallbackRoute: '/orders/${widget.orderId}',
         ),
         title: const Text(
           'Invoice',
@@ -378,6 +362,9 @@ class _InvoicePageState extends State<InvoicePage> {
     final gstLabel = business.gstPercentage > 0
         ? 'GST (${business.gstPercentage.toStringAsFixed(business.gstPercentage % 1 == 0 ? 0 : 1)}%)'
         : 'GST';
+    // Rate-wise breakup when the order carries per-line tax; empty for orders predating it.
+    final gstRows = gstBreakdown(order);
+    String pct(double v) => v.toStringAsFixed(v % 1 == 0 ? 0 : 1);
 
     return SectionCard(
       title: 'Summary',
@@ -411,9 +398,20 @@ class _InvoicePageState extends State<InvoicePage> {
             label: 'Taxable value',
             value: OrderFormat.money(taxable),
           ),
-          // ONE GST line — see the class doc for why this is not split into
-          // CGST + SGST.
-          KeyValueRow(label: gstLabel, value: OrderFormat.money(order.gstAmount)),
+          // Rate-wise GST when the order has it, else the single legacy line. Still not split into
+          // CGST + SGST — see the class doc for why that needs a place-of-supply flag.
+          if (gstRows.isNotEmpty)
+            for (final row in gstRows)
+              KeyValueRow(
+                label:
+                    'GST ${pct(row.percentage)}% on ${OrderFormat.money(row.taxableValue)}',
+                value: OrderFormat.money(row.gstAmount),
+              )
+          else
+            KeyValueRow(
+              label: gstLabel,
+              value: OrderFormat.money(order.gstAmount),
+            ),
           const Divider(height: AppDimens.space20, color: AppColors.hairline),
           KeyValueRow(
             label: 'Grand Total',

@@ -37,12 +37,32 @@ export interface VariantDraft {
   name: string;
   color: string;
   colorCode: string;
+  /**
+   * Purchase payment — what the business pays per unit. Persisted to `variantCosts/{variantId}`, NOT
+   * to the variant document, because variants are world-readable and this is the margin. See
+   * `FirestoreCollections.variantCosts`.
+   */
+  purchasePrice: number;
   mrp: number;
   offerPrice: number;
   referralPrice: number;
   commission: number;
+  /**
+   * GST rate for this variant as a percentage (18 = 18%). `null` means "use the shop default" — the
+   * state a variant authored before per-variant rates is loaded in, since those were taxed at the
+   * global Settings › Delivery & Tax rate. The form resolves null against that rate on submit, so a
+   * concrete number always reaches Firestore; defaulting it to 0 instead would silently un-tax every
+   * legacy variant the moment its product was edited.
+   */
+  gstPercentage: number | null;
   stock: number;
 }
+
+/**
+ * A variant on its way to Firestore. Identical to [VariantDraft] except that "inherit the shop
+ * default" has already been resolved, so the write path can never persist an ambiguous rate.
+ */
+export type VariantToSave = Omit<VariantDraft, 'gstPercentage'> & { gstPercentage: number };
 
 /** A frequently-bought-together pick shown as a removable card (spec §1.5). */
 export interface FBTItem {

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../../core/constants/app_colors.dart';
+import '../../../../core/constants/app_dimens.dart';
 import '../../../../core/widgets/custom_button.dart';
 
 /// What the user applied in the filter sheet. All fields nullable — null means
@@ -128,7 +129,12 @@ class _FilterBottomSheetState extends State<FilterBottomSheet> {
     return SafeArea(
       child: SingleChildScrollView(
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+          padding: const EdgeInsets.fromLTRB(
+            AppDimens.screenPadding,
+            0,
+            AppDimens.screenPadding,
+            20,
+          ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,

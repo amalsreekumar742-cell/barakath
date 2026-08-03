@@ -38,6 +38,13 @@ const LEGAL_LINKS: FooterLink[] = [
   { label: 'Terms & conditions', href: '/terms' },
 ];
 
+/**
+ * `tel:` accepts a leading `+` and digits only — a space or bracket in the URI makes some
+ * browsers drop the link entirely. Admins type support numbers free-form (e.g. "+91 8590 941583"),
+ * so strip the formatting for the href while the visible text keeps it.
+ */
+const telHref = (raw: string) => raw.replace(/[^\d+]/g, '');
+
 export function Footer({ settings }: FooterProps) {
   const contact = settings?.contactus;
   // Trim so a whitespace-only value counts as empty — the admin form can save " " for an untouched
@@ -93,7 +100,7 @@ export function Footer({ settings }: FooterProps) {
               {phone && (
                 <li>
                   <a
-                    href={`tel:${phone}`}
+                    href={`tel:${telHref(phone)}`}
                     className="inline-flex items-center gap-2 transition-colors hover:text-white"
                   >
                     <Phone className="size-4 shrink-0" aria-hidden />

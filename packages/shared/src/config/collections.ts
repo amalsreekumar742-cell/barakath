@@ -11,6 +11,8 @@
 export const FirestoreCollections = {
   subAdmins: 'subAdmins',
   orders: 'orders',
+  /** Pre-payment checkout holds. A draft becomes an `orders` doc (same id) only once payment succeeds — see functions/src/orders/service/promoteDraft.ts. */
+  orderDrafts: 'orderDrafts',
   products: 'products',
   categories: 'categories',
   /** Subcollection under a category: categories/{categoryId}/subCategories/{subCategoryId} (spec §1.4). */
@@ -26,6 +28,31 @@ export const FirestoreCollections = {
   variables: 'variables',
   /** Audit log of manual stock changes (spec §1.6 Adjust Stock). */
   stockAdjustments: 'stockAdjustments',
+  /**
+   * `variantCosts/{variantId}` — what the business PAID for one variant ("purchase payment"), the
+   * input to the profit report.
+   *
+   * WHY a separate top-level collection instead of a field on the variant document: variants are
+   * world-readable (`firestore.rules`: `products/{id}/variants/{vid}` → `allow read: if true`),
+   * because the storefront and the app render them without signing in. Firestore rules gate whole
+   * DOCUMENTS, never individual fields, so a `purchasePrice` on the variant would publish the
+   * business's cost — and therefore its margin on every product — to anyone who opens the site. This
+   * collection is admin-read/write only; Cloud Functions reach it through the Admin SDK.
+   *
+   * Doc id IS the variant id, so the cost is a direct get with no query or index.
+   */
+  variantCosts: 'variantCosts',
+  /**
+   * `orderCosts/{orderId}` — the cost of goods for one order, snapshotted at purchase time.
+   *
+   * WHY snapshotted rather than read from `variantCosts` when reporting: a variant's purchase price
+   * changes over time, so last month's profit must use last month's cost. WHY not on the order
+   * document: an order is readable by the customer who placed it (`resource.data.userId ==
+   * request.auth.uid`), and a cost line there would show every shopper exactly what you paid.
+   *
+   * Doc id IS the order id, so the profit report joins by id with no extra index.
+   */
+  orderCosts: 'orderCosts',
   general: 'general',
   // --- Customers & money (spec §1.8, §1.9) ---
   users: 'users',

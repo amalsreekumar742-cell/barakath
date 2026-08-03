@@ -48,11 +48,11 @@ const RejectReplacementModal: FC<Props> = ({ isOpen, replacementId, onClose, onR
       }),
     );
     if (rejectReplacement.fulfilled.match(res)) {
-      toast.success('Replacement request rejected');
+      toast.success('Return request rejected');
       onRejected();
       close();
     } else {
-      toast.error((res.payload as string) ?? 'Could not reject the replacement');
+      toast.error((res.payload as string) ?? 'Could not reject the return request');
     }
   };
 
@@ -60,7 +60,7 @@ const RejectReplacementModal: FC<Props> = ({ isOpen, replacementId, onClose, onR
     <Modal isOpen={isOpen} onClose={loading ? () => {} : close} maxWidth="max-w-md">
       <div className="rounded-xl border border-border bg-surface p-6 shadow-lg">
         <div className="mb-3 flex items-center justify-between">
-          <h2 className="text-[18px] font-bold tracking-tight text-foreground">Reject Replacement</h2>
+          <h2 className="text-[18px] font-bold tracking-tight text-foreground">Reject Return</h2>
           <button
             type="button"
             onClick={close}
@@ -75,7 +75,7 @@ const RejectReplacementModal: FC<Props> = ({ isOpen, replacementId, onClose, onR
         <div className="flex gap-2 rounded-lg border border-warning-subtle bg-warning-subtle/50 px-3 py-2.5">
           <Icon name="AlertLine" size={16} className="mt-0.5 shrink-0 text-warning" />
           <p className="text-[13px] text-foreground">
-            The customer will be notified that their replacement request has been rejected.
+            The customer will be notified that their return request has been rejected.
           </p>
         </div>
 

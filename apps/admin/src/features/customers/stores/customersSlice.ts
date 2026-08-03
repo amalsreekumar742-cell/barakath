@@ -8,7 +8,7 @@ import type {
   OrderProps,
 } from '@barakath/shared/types';
 import { fetchCustomers } from '../api/fetchCustomers';
-import { fetchCustomerCount } from '../api/fetchCustomerCount';
+import { fetchCustomerCount, type CustomerCounts } from '../api/fetchCustomerCount';
 import { fetchCustomerDetail } from '../api/fetchCustomerDetail';
 import { fetchCustomerOrders } from '../api/fetchCustomerOrders';
 import { fetchCustomerWalletTransactions } from '../api/fetchCustomerWalletTransactions';
@@ -43,7 +43,7 @@ interface CustomersState {
 
   filters: CustomerFilters;
 
-  counts: { total: number; affiliates: number };
+  counts: CustomerCounts;
 
   customerDetail: UserProps | null;
   detailLoading: boolean;
@@ -87,7 +87,7 @@ const initialState: CustomersState = {
   loadingMore: false,
   error: null,
   filters: { status: '', searchTerm: '' },
-  counts: { total: 0, affiliates: 0 },
+  counts: { total: 0, active: 0, blocked: 0 },
   customerDetail: null,
   detailLoading: false,
   detailError: null,

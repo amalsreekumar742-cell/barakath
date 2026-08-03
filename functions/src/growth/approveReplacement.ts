@@ -1,40 +1,48 @@
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import { getFirestore, FieldValue, Timestamp } from 'firebase-admin/firestore';
+import * as logger from 'firebase-functions/logger';
 import { Collections } from '../config/collections';
 import { validateAdmin } from '../utils/validateAuth';
 import { sendFCMToUser } from '../utils/sendFCM';
-
-/** Line item shape we copy from the original order (subset of OrderItemProps in packages/shared). */
-interface OrderItem {
-  productId: string;
-  productName: string;
-  productImage: string;
-  variantId: string;
-  variantName: string;
-  variantColor: string;
-  mrp: number;
-  offerPrice: number;
-  quantity: number;
-  subtotal: number;
-}
+import { creditWallet } from '../orders/service/wallet';
+import keywordsBuilder from '../utils/keywordsBuilder';
+import {
+  computeReplacementRefund,
+  ReplacementLineNotFoundError,
+  type RefundOrder,
+} from './service/replacementRefund';
 
 /**
- * approveReplacement — an admin approves a pending replacement request; we create a zero-value
- * replacement order for the customer and link it back onto the request.
+ * approveReplacement — an admin approves a pending return request; we refund the returned line's value
+ * to the customer's WALLET and resolve the request.
  *
- * WHY onCall + validateAdmin: only the admin panel (our own SDK client) calls this, and only an admin
- *   may resolve a request — the callable protocol gives us the verified admin claim for free.
- * WHY server-side: creating an order, flipping a customer-visible status, and pushing an FCM are
- *   privileged cross-user writes the Admin SDK must perform; a customer must never mint their own
- *   free replacement order.
- * WHY a batch: the request update and the new order must land together — a half-applied approval
- *   (order without the link back, or vice versa) would strand the replacement.
+ * WHY a wallet refund (not a free order): approval used to mint a zero-value "replacement order", which
+ *   paid the customer nothing, polluted the order list and sales reports with ₹0 rows, and was the sole
+ *   reason firestore.rules had to let an admin client create `orders` documents. The remedy is now money
+ *   back in the wallet, so none of that is needed (user decision, 2026-08-03; overrides spec §1.10's
+ *   "replacement order auto-created").
+ * WHY onCall + validateAdmin: only an admin may resolve a request, and the callable protocol gives us
+ *   the verified admin claim for free. The admin panel previously did this work client-side in a
+ *   writeBatch; crediting a wallet from a browser is not something rules can safely permit, so the whole
+ *   operation moved here.
+ * WHY a transaction: the balance is read and written inside it, so concurrent credits/debits for the
+ *   same customer serialise instead of clobbering each other.
+ * WHY the deterministic ledger id: `walletTransactions/replacement_{id}` exists at most once, so a
+ *   retried call — or someone flipping the request back to 'Pending' in the console — cannot double-pay.
+ *   Same construction as processReferralCommission's `${orderId}_referral`.
  *
  * Request:  { replacementId: string, adminNote?: string }
- * Response: { success: true, replacementOrderId: string }
+ * Response: { success: true, refundAmount: number, newBalance: number, walletTransactionId: string }
  */
 export const approveReplacement = onCall(
-  async (request): Promise<{ success: true; replacementOrderId: string }> => {
+  async (
+    request,
+  ): Promise<{
+    success: true;
+    refundAmount: number;
+    newBalance: number;
+    walletTransactionId: string;
+  }> => {
     const adminUid = validateAdmin(request);
 
     const { replacementId, adminNote } = (request.data ?? {}) as {
@@ -50,11 +58,12 @@ export const approveReplacement = onCall(
     const replacementRef = db.collection(Collections.replacements).doc(replacementId);
     const replacementSnap = await replacementRef.get();
     if (!replacementSnap.exists) {
-      throw new HttpsError('not-found', 'Replacement request not found');
+      throw new HttpsError('not-found', 'Return request not found');
     }
     const replacement = replacementSnap.data() as {
       orderId?: string;
       userId?: string;
+      productId?: string;
       variantId?: string;
       quantity?: number;
       status?: string;
@@ -65,96 +74,180 @@ export const approveReplacement = onCall(
     }
 
     const originalOrderId = replacement.orderId ?? '';
-    const orderSnap = originalOrderId
-      ? await db.collection(Collections.orders).doc(originalOrderId).get()
+    const orderRef = originalOrderId
+      ? db.collection(Collections.orders).doc(originalOrderId)
       : null;
-    if (!orderSnap || !orderSnap.exists) {
+    const orderSnap = orderRef ? await orderRef.get() : null;
+    if (!orderRef || !orderSnap || !orderSnap.exists) {
       throw new HttpsError('not-found', 'Original order not found');
     }
-    const originalOrder = orderSnap.data() as {
+    const originalOrder = orderSnap.data() as RefundOrder & {
       userId?: string;
-      userName?: string;
-      userPhone?: string;
-      userEmail?: string;
-      items?: OrderItem[];
-      paymentMethod?: string;
-      shippingAddress?: Record<string, unknown>;
-      isComboOrder?: boolean;
-      keywords?: string[];
+      status?: string;
+      paymentStatus?: string;
+      grandTotal?: number;
+      replacementRefundedTotal?: number;
     };
 
-    // Copy the replaced line item from the original order (preserves its product/variant/pricing
-    // detail); fall back to the whole basket if we can't match the variant.
-    const originalItems = originalOrder.items ?? [];
-    const matchedItem = originalItems.find((it) => it.variantId === replacement.variantId);
-    const replacementItems: OrderItem[] = matchedItem
-      ? [{ ...matchedItem, quantity: replacement.quantity ?? matchedItem.quantity }]
-      : originalItems;
-
-    const now = Timestamp.now();
-    const newOrderRef = db.collection(Collections.orders).doc();
-    const batch = db.batch();
-
-    // A replacement order is free: grandTotal 0, no delivery charge, already "Paid".
-    batch.set(newOrderRef, {
-      userId: originalOrder.userId ?? '',
-      userName: originalOrder.userName ?? '',
-      userPhone: originalOrder.userPhone ?? '',
-      userEmail: originalOrder.userEmail ?? '',
-      items: replacementItems,
-      subtotal: 0,
-      couponDiscount: 0,
-      couponCode: '',
-      walletAmountUsed: 0,
-      deliveryCharge: 0,
-      gstAmount: 0,
-      grandTotal: 0,
-      paymentMethod: originalOrder.paymentMethod ?? 'Razorpay',
-      paymentStatus: 'Paid',
-      razorpayOrderId: '',
-      razorpayPaymentId: '',
-      status: 'Pending',
-      shippingAddress: originalOrder.shippingAddress ?? {},
-      trackingId: '',
-      courierName: '',
-      statusTimeline: [
-        {
-          status: 'Pending',
-          // A Timestamp (not serverTimestamp) — FieldValue sentinels are illegal inside an array.
-          timestamp: now,
-          note: `Replacement for order #${originalOrderId}`,
-        },
-      ],
-      cancelReason: '',
-      isComboOrder: originalOrder.isComboOrder ?? false,
-      keywords: originalOrder.keywords ?? [],
-      createdAt: FieldValue.serverTimestamp(),
-      updatedAt: FieldValue.serverTimestamp(),
-    });
-
-    batch.update(replacementRef, {
-      status: 'Approved',
-      adminNote: note,
-      replacementOrderId: newOrderRef.id,
-      processedBy: adminUid,
-      processedByName: (request.auth?.token.name as string | undefined) ?? '',
-      processedAt: FieldValue.serverTimestamp(),
-      updatedAt: FieldValue.serverTimestamp(),
-    });
-
-    await batch.commit();
-
-    // Best-effort push; never let a notification failure undo the approval (already committed).
-    const customerId = originalOrder.userId ?? replacement.userId ?? '';
-    if (customerId) {
-      await sendFCMToUser(
-        customerId,
-        'Replacement approved',
-        'Your replacement request has been approved. A new order has been created.',
-        { type: 'Replacement', replacementId, orderId: newOrderRef.id },
+    // Nothing to give back if the customer never paid, or if the order was already refunded in full by
+    // cancelOrder/processRefund. Both would otherwise refund money that no longer exists on the order.
+    if (originalOrder.paymentStatus !== 'Paid') {
+      throw new HttpsError(
+        'failed-precondition',
+        'This order was not paid, so there is nothing to refund',
+      );
+    }
+    if (originalOrder.status === 'Cancelled') {
+      throw new HttpsError(
+        'failed-precondition',
+        'This order was cancelled and already refunded',
       );
     }
 
-    return { success: true, replacementOrderId: newOrderRef.id };
+    const customerId = originalOrder.userId ?? replacement.userId ?? '';
+    if (!customerId) {
+      throw new HttpsError('failed-precondition', 'The order has no customer to refund');
+    }
+
+    let breakdown;
+    try {
+      breakdown = computeReplacementRefund(originalOrder, {
+        productId: replacement.productId ?? '',
+        variantId: replacement.variantId ?? '',
+        quantity: replacement.quantity ?? 0,
+      });
+    } catch (err) {
+      if (err instanceof ReplacementLineNotFoundError) {
+        throw new HttpsError('not-found', err.message);
+      }
+      throw err;
+    }
+
+    // Cap against what is left on the order, so several partial returns can never jointly refund more
+    // than was paid. The stored running total is read again inside the transaction below.
+    const grandTotal = originalOrder.grandTotal ?? 0;
+    const alreadyRefunded = originalOrder.replacementRefundedTotal ?? 0;
+    const refundAmount = Math.min(breakdown.refundAmount, Math.max(0, grandTotal - alreadyRefunded));
+    if (refundAmount <= 0) {
+      throw new HttpsError('failed-precondition', 'Nothing left to refund on this order');
+    }
+
+    const userRef = db.collection(Collections.users).doc(customerId);
+    const ledgerRef = db
+      .collection(Collections.walletTransactions)
+      .doc(`replacement_${replacementId}`);
+
+    const newBalance = await db.runTransaction(async (tx) => {
+      const [freshReplacement, freshLedger, userDoc, freshOrder] = await Promise.all([
+        tx.get(replacementRef),
+        tx.get(ledgerRef),
+        tx.get(userRef),
+        tx.get(orderRef),
+      ]);
+
+      // Re-read the status INSIDE the transaction: the read at the top of this function is a snapshot,
+      // and two admins clicking Approve at the same moment must not both pass.
+      if (freshReplacement.get('status') !== 'Pending') {
+        throw new HttpsError('failed-precondition', 'This request has already been processed');
+      }
+      // The real idempotency guard. Survives the status being reset to 'Pending' by hand, which the
+      // check above cannot: the ledger row is the record that money actually moved.
+      if (freshLedger.exists) {
+        throw new HttpsError('failed-precondition', 'This request has already been refunded');
+      }
+      if (!userDoc.exists) {
+        throw new HttpsError('not-found', 'Customer not found');
+      }
+
+      const currentBalance = (userDoc.get('walletBalance') as number | undefined) ?? 0;
+      const balanceAfter = creditWallet(
+        tx,
+        userRef,
+        customerId,
+        currentBalance,
+        refundAmount,
+        originalOrderId,
+        `Refund for returned item in order #${originalOrderId}`,
+        ledgerRef,
+      );
+
+      tx.update(replacementRef, {
+        status: 'Approved',
+        adminNote: note,
+        refundAmount,
+        refundedToWallet: true,
+        walletTransactionId: ledgerRef.id,
+        // Always '' now — no replacement order is created. Non-empty values survive only on requests
+        // approved before this change, which the admin detail page still renders.
+        replacementOrderId: '',
+        processedBy: adminUid,
+        processedByName: (request.auth?.token.name as string | undefined) ?? '',
+        processedAt: FieldValue.serverTimestamp(),
+        updatedAt: FieldValue.serverTimestamp(),
+      });
+
+      // `increment` is atomic but NOT idempotent — the two guards above are what stop it running twice.
+      // The timeline note reuses the order's CURRENT status so onOrderStatusUpdate stays a no-op and
+      // the customer doesn't get a spurious "your order status changed" push.
+      tx.update(orderRef, {
+        replacementRefundedTotal: FieldValue.increment(refundAmount),
+        statusTimeline: FieldValue.arrayUnion({
+          status: freshOrder.get('status') ?? originalOrder.status ?? '',
+          // A Timestamp (not serverTimestamp) — FieldValue sentinels are illegal inside an array.
+          timestamp: Timestamp.now(),
+          note: `₹${refundAmount} refunded to wallet for a returned item`,
+        }),
+        updatedAt: FieldValue.serverTimestamp(),
+      });
+
+      return balanceAfter;
+    });
+
+    // Best-effort notification; never let a delivery failure undo the refund (already committed).
+    const title = 'Return approved — refund credited';
+    const body = `₹${refundAmount} has been credited to your Barakath wallet for order #${originalOrderId}.`;
+    try {
+      await sendFCMToUser(customerId, title, body, {
+        type: 'Replacement',
+        linkType: 'Order',
+        linkValue: originalOrderId,
+        replacementId,
+        amount: String(refundAmount),
+      });
+
+      // Persist an in-app notification so the customer sees history even if the push was missed. With
+      // no replacement order created, this is their only in-app record of the refund besides the
+      // wallet ledger row.
+      const notificationRef = db.collection(Collections.notifications).doc();
+      await notificationRef.set({
+        id: notificationRef.id,
+        title,
+        body,
+        image: '',
+        type: 'Replacement',
+        targetType: 'Specific',
+        targetUserIds: [customerId],
+        linkType: 'Order',
+        linkValue: originalOrderId,
+        isScheduled: false,
+        scheduledAt: null,
+        isSent: true,
+        sentAt: FieldValue.serverTimestamp(),
+        sentBy: 'system',
+        sentByName: 'System',
+        recipientCount: 1,
+        keywords: keywordsBuilder(title),
+        createdAt: FieldValue.serverTimestamp(),
+        updatedAt: FieldValue.serverTimestamp(),
+      });
+    } catch (err) {
+      logger.error('approveReplacement: notification failed after refund', {
+        replacementId,
+        refundAmount,
+        err,
+      });
+    }
+
+    return { success: true, refundAmount, newBalance, walletTransactionId: ledgerRef.id };
   },
 );

@@ -23,13 +23,31 @@ const Modal: FC<ModalProps> = ({ isOpen, onClose, maxWidth = 'max-w-lg', childre
   const panelRef = useRef<HTMLDivElement>(null);
   const lastFocused = useRef<HTMLElement | null>(null);
 
+  /**
+   * `onClose` is held in a ref so the effect below can depend on `isOpen` ALONE.
+   *
+   * WHY that matters: callers pass an inline arrow (`onClose={loading ? () => {} : close}`), so its
+   * identity changes on every render of the caller. With `onClose` in the dependency array, every
+   * keystroke in a modal's own input re-ran the effect — cleanup fired `lastFocused.current.focus()`,
+   * yanking focus back to the button that opened the dialog, and the re-run then moved it to the panel
+   * div. Typing one character into a field made focus leave it, so nothing longer than one character
+   * could be typed. Every dialog in the panel with a text field had this.
+   *
+   * Fixing it here rather than asking callers to memoize their handler: a component that breaks unless
+   * every caller remembers `useCallback` is a trap, and there are a dozen callers.
+   */
+  const onCloseRef = useRef(onClose);
+  useEffect(() => {
+    onCloseRef.current = onClose;
+  });
+
   useEffect(() => {
     if (!isOpen) return;
     lastFocused.current = document.activeElement as HTMLElement; // remember trigger to restore later
     document.body.style.overflow = 'hidden'; // lock background scroll while open
-    panelRef.current?.focus(); // move focus into the dialog
+    panelRef.current?.focus(); // move focus into the dialog — once, on open
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
+      if (e.key === 'Escape') onCloseRef.current();
     };
     document.addEventListener('keydown', onKey);
     return () => {
@@ -37,7 +55,7 @@ const Modal: FC<ModalProps> = ({ isOpen, onClose, maxWidth = 'max-w-lg', childre
       document.body.style.overflow = ''; // release scroll lock
       lastFocused.current?.focus(); // restore focus to the trigger
     };
-  }, [isOpen, onClose]);
+  }, [isOpen]);
 
   if (!isOpen) return null;
   return ReactDOM.createPortal(

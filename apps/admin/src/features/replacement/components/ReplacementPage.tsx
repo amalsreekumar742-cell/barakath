@@ -56,8 +56,8 @@ const ReplacementPage: FC = () => {
 
   const runExport = async () => {
     const res = await dispatch(exportReplacementsCSV(filters));
-    if (exportReplacementsCSV.fulfilled.match(res)) toast.success('Replacements exported');
-    else toast.error((res.payload as string) ?? 'Could not export replacements');
+    if (exportReplacementsCSV.fulfilled.match(res)) toast.success('Return requests exported');
+    else toast.error((res.payload as string) ?? 'Could not export return requests');
   };
 
   // One-time (per mount) load of the tab counts.
@@ -176,7 +176,7 @@ const ReplacementPage: FC = () => {
   return (
     <div className="p-6">
       <div className="mb-4">
-        <h1 className="text-[22px] font-extrabold tracking-tight text-foreground">Replacement</h1>
+        <h1 className="text-[22px] font-extrabold tracking-tight text-foreground">Returns</h1>
         <p className="mt-0.5 text-[13px] text-muted">
           {statusCounts.pending} pending · {statusCounts.approved} approved · {statusCounts.rejected} rejected
         </p>
@@ -256,7 +256,7 @@ const ReplacementPage: FC = () => {
             <Icon name="ToolsLine" size={28} />
           </div>
           <h2 className="text-[16px] font-bold text-foreground">
-            No {activeLabel.toLowerCase()} replacement requests
+            No {activeLabel.toLowerCase()} return requests
           </h2>
         </div>
       ) : (

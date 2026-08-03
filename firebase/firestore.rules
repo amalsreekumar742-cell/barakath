@@ -92,6 +92,25 @@ service cloud.firestore {
       allow read: if true;
     }
 
+    // --- Cost of goods — ADMIN ONLY, and deliberately not fields on the documents they describe ----
+    //
+    // `purchasePrice` is what the business pays a supplier. It cannot live on the variant document
+    // (world-readable, so the storefront can render a product without signing in) or on the order
+    // document (readable by the customer who placed it): Firestore rules gate whole DOCUMENTS, never
+    // individual fields, so either placement would publish the margin on every product to anyone who
+    // asked. Hence two sibling collections that nobody but an admin may read.
+    //
+    // The admin panel writes `variantCosts` alongside the product form's variant batch. `orderCosts`
+    // is written ONLY by `createPaymentOrder` through the Admin SDK, which bypasses these rules —
+    // so no client may forge a cost snapshot and skew the profit report.
+    match /variantCosts/{variantId} {
+      allow read, write: if isAdmin();
+    }
+    match /orderCosts/{orderId} {
+      allow read: if isAdmin();
+      allow write: if false;
+    }
+
     // --- Orders (spec §1.3, §1.7) — admin reads + advances status; customers place them elsewhere ---
     // WHY allow admin update (not create/delete): the admin panel is the trusted actor (gated by the
     // `admin` claim) that manually advances order status / cancels (spec §1.7 manual mode). Orders are
@@ -103,11 +122,26 @@ service cloud.firestore {
       // are computed and stamped by Cloud Functions.
       allow read: if isAdmin() || (isSignedIn() && resource.data.userId == request.auth.uid);
       allow update: if isAdmin();
-      // Admin MAY create an order: an approved replacement (spec §1.10) creates a free (₹0) replacement
-      // order from the admin panel. TODO: move that creation to a Cloud Function (atomicity + FCM), then
-      // this can return to `create: false`. Customer-placed orders come from the app's own rules.
-      allow create: if isAdmin();
+      // NO client may create an order — not even an admin. This used to be `isAdmin()` purely so the
+      // admin panel could mint the free (₹0) replacement order for an approved return; approvals now
+      // refund to the wallet inside the `approveReplacement` Cloud Function (Admin SDK, bypasses rules)
+      // and no replacement order is created at all, so the exception is gone.
+      allow create: if false;
       allow delete: if false;
+    }
+
+    // --- Order drafts — a checkout that has NOT been paid for yet ---
+    // An unpaid checkout is never an order. `createPaymentOrder` writes it here (holding stock, the
+    // coupon slot and any wallet amount) and `promoteDraftToOrder` moves it into `orders` only once
+    // the gateway confirms payment. Abandoned drafts are released by `expireUnpaidOrders` or the
+    // customer's own `discardOrderDraft` call.
+    //
+    // The owner may READ their own draft — the payment-failed screen shows its expiry countdown and
+    // the app retries payment against it. Every WRITE is server-side (Admin SDK, which bypasses
+    // rules): a client that could edit a draft could edit the price it is about to be charged.
+    match /orderDrafts/{draftId} {
+      allow read: if isAdmin() || (isSignedIn() && resource.data.userId == request.auth.uid);
+      allow write: if false;
     }
 
     // --- Stock adjustments (spec §1.6) — admin-written audit log; entries are immutable once created ---

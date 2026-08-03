@@ -39,6 +39,8 @@ export const CloudFunctions = {
   verifyPayment: 'verifyPayment',
   generateInvoicePDF: 'generateInvoicePDF',
   cancelOrder: 'cancelOrder',
+  /** Release an unpaid checkout draft the customer walked away from. */
+  discardOrderDraft: 'discardOrderDraft',
 
   // --- Wallet top-up (two steps: the amount is fixed server-side BEFORE payment, and the credit
   //     happens only against a verified signature afterwards). ---

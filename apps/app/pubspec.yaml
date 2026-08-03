@@ -95,12 +95,29 @@ dev_dependencies:
   build_runner: ^2.4.13
   injectable_generator: ^2.6.2
 
+  # App icon generation — run `dart run flutter_launcher_icons` after changing
+  # the source image or the config below.
+  flutter_launcher_icons: ^0.14.3
+
 flutter:
   uses-material-design: true
 
   assets:
     - assets/images/
     - assets/icons/
+
+# White-background launcher icon: the flame glyph on a plain white square (no
+# more brand-green fill). Source is the existing transparent-background glyph
+# already used as the Android adaptive-icon foreground.
+flutter_launcher_icons:
+  android: "ic_launcher"
+  ios: true
+  image_path: "android/app/src/main/res/mipmap-xxxhdpi/ic_launcher_foreground.png"
+  min_sdk_android: 21
+  remove_alpha_ios: true
+  background_color_ios: "#FFFFFF"
+  adaptive_icon_background: "#FFFFFF"
+  adaptive_icon_foreground: "android/app/src/main/res/mipmap-xxxhdpi/ic_launcher_foreground.png"
 
   # Custom fonts (declare here once font files are added to assets/fonts/):
   # fonts:

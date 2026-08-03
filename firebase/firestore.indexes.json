@@ -160,6 +160,67 @@
       ]
     },
     {
+      "//": "Reports payment mix (fetchPaymentReport methodAgg): method + status + createdAt range + sum(amount). The method+status+createdAt index above does NOT cover it — every aggregated field must appear in the index, and this query sums `amount`. Verified live: without this, all three method aggregates fail with FAILED_PRECONDITION, which takes down the whole payment report (they share one Promise.all) and renders 'Refund rate 0.0%' from a null result.",
+      "collectionGroup": "payments",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "method",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "status",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "createdAt",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "amount",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "//": "Reports refund total (fetchPaymentReport): status == Refunded + createdAt range + sum(refundAmount). The status+refundAmount index above has no createdAt, and status+createdAt has no refundAmount — a ranged sum needs both in one index.",
+      "collectionGroup": "payments",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "status",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "createdAt",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "refundAmount",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "//": "Reports GST collected (fetchPaymentReport): status == Paid + createdAt range + sum(gstAmount). Same shape as the status+createdAt+amount index above, for the other summed field.",
+      "collectionGroup": "payments",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "status",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "createdAt",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "gstAmount",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
       "//": "Sub Admin list: role filter + newest-first.",
       "collectionGroup": "subAdmins",
       "queryScope": "COLLECTION",
@@ -444,6 +505,53 @@
         },
         {
           "fieldPath": "grandTotal",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "//": "Reports > Sales: the SAME filters as the dashboard sum above, but the query aggregates",
+      "//2": "sum(grandTotal) AND sum(gstAmount) together (revenue is reported net of GST). EVERY",
+      "//3": "aggregated field has to be in the index, so the 3-field index above does not serve it —",
+      "//4": "without this one the query fails FAILED_PRECONDITION and the Reports page rendered a",
+      "//5": "confident '₹0 revenue / 0 orders' next to Top products that were showing real money.",
+      "collectionGroup": "orders",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "createdAt",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "status",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "grandTotal",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "gstAmount",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "//": "Reports > Coupons: createdAt range + status != 'Cancelled' + sum(couponDiscount) — same",
+      "//2": "rule again, a different aggregated field, so it needs its own index.",
+      "collectionGroup": "orders",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "createdAt",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "status",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "couponDiscount",
           "order": "ASCENDING"
         }
       ]
@@ -1315,6 +1423,21 @@
       ]
     },
     {
+      "//": "clearAffiliateCommissions (nightly) — Pending commissions whose 7-day hold has expired. Equality on status + range on clearsAt needs this composite; without it the job dies FAILED_PRECONDITION and nothing ever moves Pending → Confirmed.",
+      "collectionGroup": "affiliateTransactions",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "status",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "clearsAt",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
       "//": "Payments list — filter by status, newest first (spec §1.9).",
       "collectionGroup": "payments",
       "queryScope": "COLLECTION",
@@ -1617,6 +1740,21 @@
         {
           "fieldPath": "createdAt",
           "order": "DESCENDING"
+        }
+      ]
+    },
+    {
+      "//": "dailyCleanup (nightly) — active coupons whose validUntil has passed, so they can be deactivated. Equality on isActive + range on validUntil needs this composite; without it the coupon-expiry pass of dailyCleanup dies FAILED_PRECONDITION and lapsed coupons stay redeemable forever.",
+      "collectionGroup": "coupons",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "isActive",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "validUntil",
+          "order": "ASCENDING"
         }
       ]
     },
@@ -2410,6 +2548,25 @@
         },
         {
           "fieldPath": "totalReviews",
+          "order": "DESCENDING"
+        }
+      ]
+    },
+    {
+      "//": "Admin Inventory + Products list — search AND category together, newest first. Both screens allow the two filters at once; without this the combined query fails outright.",
+      "collectionGroup": "products",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "categoryId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "keywords",
+          "arrayConfig": "CONTAINS"
+        },
+        {
+          "fieldPath": "createdAt",
           "order": "DESCENDING"
         }
       ]

@@ -52,6 +52,11 @@ class _HelpCentrePageState extends State<HelpCentrePage> {
   /// wa.me needs a bare international number — no '+', spaces or dashes.
   String _whatsappDigits(String raw) => raw.replaceAll(RegExp(r'\D'), '');
 
+  /// The dialler accepts a leading '+' and digits only. Support numbers are
+  /// entered free-form in admin (e.g. "+91 8590 941583"), so drop the spacing
+  /// for the tel: URI while the tile still shows the number as typed.
+  String _dialDigits(String raw) => raw.replaceAll(RegExp(r'[^\d+]'), '');
+
   @override
   Widget build(BuildContext context) {
     final settings = context.watch<GeneralSettingsProvider>();
@@ -97,7 +102,7 @@ class _HelpCentrePageState extends State<HelpCentrePage> {
                         title: 'Call us',
                         subtitle: phone,
                         onTap: () => _launch(
-                          Uri(scheme: 'tel', path: phone),
+                          Uri(scheme: 'tel', path: _dialDigits(phone)),
                           'Could not open the dialler.',
                         ),
                       ),

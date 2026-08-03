@@ -6,6 +6,7 @@ import 'package:provider/provider.dart';
 
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_details.dart';
+import '../../../../core/constants/app_dimens.dart';
 import '../../../../core/widgets/app_toast.dart';
 import '../../../../core/widgets/phone_country_code_picker.dart';
 import '../providers/auth_provider.dart';
@@ -100,7 +101,12 @@ class _LoginPageState extends State<LoginPage> {
       backgroundColor: AppColors.background,
       body: SafeArea(
         child: SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(28, 28, 28, 32),
+          padding: const EdgeInsets.fromLTRB(
+            AppDimens.screenPadding,
+            28,
+            AppDimens.screenPadding,
+            32,
+          ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -161,15 +167,8 @@ class _LoginPageState extends State<LoginPage> {
                 ),
               ),
               const SizedBox(height: 24),
-              Text(
-                'Mobile number',
-                style: GoogleFonts.manrope(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
-                  color: AppColors.textSecondary,
-                ),
-              ),
-              const SizedBox(height: 7),
+              // No "Mobile number" label — the heading above already says it,
+              // and the field's own hint carries the instruction.
               Container(
                 decoration: BoxDecoration(
                   color: AppColors.surface,
@@ -213,8 +212,19 @@ class _LoginPageState extends State<LoginPage> {
                         decoration: InputDecoration(
                           counterText: '',
                           isCollapsed: true,
+                          // The wrapping Container draws the only box. `border`
+                          // alone is NOT enough: the theme's enabledBorder /
+                          // focusedBorder take precedence over it, which is what
+                          // was painting a second outline around the hint. Every
+                          // state has to be cleared, and `filled` turned off.
+                          filled: false,
                           border: InputBorder.none,
-                          hintText: '950 214 8890',
+                          enabledBorder: InputBorder.none,
+                          focusedBorder: InputBorder.none,
+                          errorBorder: InputBorder.none,
+                          focusedErrorBorder: InputBorder.none,
+                          disabledBorder: InputBorder.none,
+                          hintText: 'Enter number',
                           hintStyle: GoogleFonts.manrope(
                             fontSize: 15,
                             color: AppColors.textFaint,

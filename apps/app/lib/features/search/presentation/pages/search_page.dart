@@ -3,7 +3,9 @@ import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
 import '../../../../core/constants/app_colors.dart';
+import '../../../../core/constants/app_dimens.dart';
 import '../../../../core/utils/debouncer.dart';
+import '../../../../core/widgets/circle_back_button.dart';
 import '../../../../core/widgets/empty_state.dart';
 import '../../../../core/widgets/error_state.dart';
 import '../../../../core/widgets/product_card.dart';
@@ -145,7 +147,12 @@ class _SearchPageState extends State<SearchPage> {
       return const ShimmerGrid(
         itemCount: 6,
         childAspectRatio: _cardAspectRatio,
-        padding: EdgeInsets.fromLTRB(20, 12, 20, 20),
+        padding: EdgeInsets.fromLTRB(
+          AppDimens.screenPadding,
+          12,
+          AppDimens.screenPadding,
+          20,
+        ),
       );
     }
     if (provider.isInitial) {
@@ -194,24 +201,15 @@ class _SearchBarRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 10, 20, 12),
+      padding: const EdgeInsets.fromLTRB(
+        AppDimens.screenPadding,
+        10,
+        AppDimens.screenPadding,
+        12,
+      ),
       child: Row(
         children: [
-          GestureDetector(
-            onTap: onBack,
-            behavior: HitTestBehavior.opaque,
-            child: Container(
-              width: 42,
-              height: 42,
-              decoration: BoxDecoration(
-                color: AppColors.surface,
-                border: Border.all(color: AppColors.hairline),
-                shape: BoxShape.circle,
-              ),
-              child: const Icon(Icons.arrow_back_rounded,
-                  size: 20, color: AppColors.textPrimary),
-            ),
-          ),
+          CircleBackButton(onTap: onBack),
           const SizedBox(width: 12),
           Expanded(
             child: Container(
@@ -295,7 +293,12 @@ class _ResultsView extends StatelessWidget {
       controller: scrollController,
       slivers: [
         SliverPadding(
-          padding: const EdgeInsets.fromLTRB(20, 6, 20, 12),
+          padding: const EdgeInsets.fromLTRB(
+            AppDimens.screenPadding,
+            6,
+            AppDimens.screenPadding,
+            12,
+          ),
           sliver: SliverToBoxAdapter(
             child: Text.rich(
               TextSpan(
@@ -315,7 +318,7 @@ class _ResultsView extends StatelessWidget {
           ),
         ),
         SliverPadding(
-          padding: const EdgeInsets.symmetric(horizontal: 20),
+          padding: const EdgeInsets.symmetric(horizontal: AppDimens.screenPadding),
           sliver: SliverGrid.builder(
             itemCount: results.length,
             // Fixed extent, not a ratio: the card's height is driven by its
@@ -340,7 +343,12 @@ class _ResultsView extends StatelessWidget {
             child: ShimmerGrid(
               itemCount: 2,
               childAspectRatio: childAspectRatio,
-              padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
+              padding: const EdgeInsets.fromLTRB(
+                AppDimens.screenPadding,
+                16,
+                AppDimens.screenPadding,
+                20,
+              ),
             ),
           ),
         const SliverToBoxAdapter(child: SizedBox(height: 24)),

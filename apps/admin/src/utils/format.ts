@@ -18,6 +18,24 @@ export function formatINR(value: number): string {
   return inr0.format(Number.isFinite(value) ? value : 0);
 }
 
+const inr2 = new Intl.NumberFormat('en-IN', {
+  style: 'currency',
+  currency: 'INR',
+  minimumFractionDigits: 2,
+  maximumFractionDigits: 2,
+});
+
+/**
+ * Rupee amount WITH paise — e.g. 567.45 → "₹567.45", 567 → "₹567".
+ * WHY alongside `formatINR`: that one drops paise, which is right for headline/aggregate figures but
+ * wrong for an exact amount the admin is authorising or that was actually moved (a return refund is
+ * apportioned, so it routinely lands on paise). Whole rupees still render clean, without ".00".
+ */
+export function formatINRExact(value: number): string {
+  const v = Number.isFinite(value) ? value : 0;
+  return Number.isInteger(v) ? formatINR(v) : inr2.format(v);
+}
+
 /**
  * Compact rupee amount using Indian units (K / L / Cr) for large figures — e.g. 184000 → "₹1.84L".
  * WHY: dashboard KPI cards show headline revenue compactly (design: "₹1.84L"); small values stay full.

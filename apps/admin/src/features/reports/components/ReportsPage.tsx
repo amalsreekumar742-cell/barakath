@@ -15,6 +15,7 @@ import { useAppDispatch, useAppSelector } from '@/stores/store';
 import Icon from '@/components/icons/Icon';
 import { formatINR } from '@/utils/format';
 import { fetchSalesReport } from '../api/fetchSalesReport';
+import { fetchProfitReport } from '../api/fetchProfitReport';
 import { fetchCustomerReport } from '../api/fetchCustomerReport';
 import { fetchProductReport } from '../api/fetchProductReport';
 import { fetchPaymentReport } from '../api/fetchPaymentReport';
@@ -41,15 +42,15 @@ function compactINR(n: number): string {
  */
 const ReportsPage: FC = () => {
   const dispatch = useAppDispatch();
-  const { dateRange, groupBy, sales, customer, product, payment, exportLoading } = useAppSelector(
-    (s) => s.reports,
-  );
+  const { dateRange, groupBy, sales, profit, customer, product, payment, exportLoading } =
+    useAppSelector((s) => s.reports);
   const [dialog, setDialog] = useState<'none' | 'range' | 'export'>('none');
 
   // Load every overview section for the current window (sales grouped monthly for the bar chart).
   const refetch = useCallback(() => {
     const { from, to } = dateRange;
     void dispatch(fetchSalesReport({ from, to, groupBy }));
+    void dispatch(fetchProfitReport({ from, to, groupBy }));
     void dispatch(fetchCustomerReport({ from, to }));
     void dispatch(fetchProductReport({ from, to }));
     void dispatch(fetchPaymentReport({ from, to }));
@@ -75,6 +76,22 @@ const ReportsPage: FC = () => {
   };
 
   const s = sales.data;
+  const p = profit.data;
+
+  /**
+   * Profit can only be measured for orders with a purchase price on file. Saying so on the card is
+   * the difference between "you made ₹X" and "you made ₹X on the orders we can measure" — and every
+   * order placed before purchase payment existed falls in the second bucket.
+   */
+  const profitNote = useMemo(() => {
+    if (!p) return undefined;
+    if (p.totalOrders === 0) return undefined;
+    if (p.measuredOrders === 0) return 'No purchase prices recorded yet';
+    if (p.measuredOrders < p.totalOrders)
+      return `${p.marginPercent.toFixed(1)}% margin · ${p.measuredOrders} of ${p.totalOrders} orders costed`;
+    return `${p.marginPercent.toFixed(1)}% margin on ${compactINR(p.revenue)}`;
+  }, [p]);
+
   const refundRate = useMemo(() => {
     if (!payment.data || !s || s.totalRevenue <= 0) return 0;
     return (payment.data.refundTotal / s.totalRevenue) * 100;
@@ -121,8 +138,21 @@ const ReportsPage: FC = () => {
       </div>
 
       {/* KPI cards */}
-      <div className="mb-4 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <KpiCard label="Total revenue" value={compactINR(s?.totalRevenue ?? 0)} trend={s?.revenueTrend} loading={sales.loading} />
+      <div className="mb-4 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+        <KpiCard
+          label="Revenue (excl. GST)"
+          value={compactINR(s?.totalRevenue ?? 0)}
+          trend={s?.revenueTrend}
+          loading={sales.loading}
+          // The deduction is stated, not silent — otherwise this figure looks like a wrong total.
+          note={s && s.totalGst > 0 ? `${compactINR(s.totalGst)} GST excluded` : undefined}
+        />
+        <KpiCard
+          label="Gross profit"
+          value={compactINR(p?.profit ?? 0)}
+          loading={profit.loading}
+          note={profitNote}
+        />
         <KpiCard label="Orders" value={(s?.totalOrders ?? 0).toLocaleString('en-IN')} loading={sales.loading} />
         <KpiCard
           label="New customers"
@@ -201,13 +231,18 @@ const ReportsPage: FC = () => {
   );
 };
 
-/** KPI tile matching the prototype: label + 24px value + optional signed trend. */
-const KpiCard: FC<{ label: string; value: string; trend?: number; loading: boolean }> = ({
-  label,
-  value,
-  trend,
-  loading,
-}) => (
+/**
+ * KPI tile matching the prototype: label + 24px value + optional signed trend, plus an optional
+ * `note` for a figure that needs qualifying (what was deducted, what the coverage is). A number that
+ * silently excludes something is worse than one that says what it excluded.
+ */
+const KpiCard: FC<{
+  label: string;
+  value: string;
+  trend?: number;
+  note?: string;
+  loading: boolean;
+}> = ({ label, value, trend, note, loading }) => (
   <div className="rounded-xl border border-border bg-surface p-4 shadow-sm">
     <p className="text-[12px] font-medium text-faint">{label}</p>
     {loading ? (
@@ -220,6 +255,7 @@ const KpiCard: FC<{ label: string; value: string; trend?: number; loading: boole
             <TrendPill value={trend} />
           </div>
         )}
+        {note && <p className="mt-2 text-[11px] leading-snug text-faint">{note}</p>}
       </>
     )}
   </div>

@@ -34,8 +34,10 @@ class AppDimens {
   static const double space20 = 20;
   static const double space24 = 24;
 
-  /// Horizontal padding of every full screen.
-  static const double screenPadding = 20;
+  /// Horizontal padding of every full screen — the single gutter. Screens used
+  /// to run 16/20/24/28 depending on who built them; they are all this now, so
+  /// content never shifts sideways as you move between screens.
+  static const double screenPadding = 16;
 
   /// Inner padding of a content card.
   static const double cardPadding = 14;

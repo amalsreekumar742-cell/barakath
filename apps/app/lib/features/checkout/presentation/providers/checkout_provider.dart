@@ -15,11 +15,17 @@ import '../../domain/usecases/checkout_usecases.dart';
 /// own beyond the wallet split preview — the bill is the server's.
 @injectable
 class CheckoutProvider extends ChangeNotifier {
-  CheckoutProvider(this._placeOrder, this._verifyPayment, this._getOrderPayment);
+  CheckoutProvider(
+    this._placeOrder,
+    this._verifyPayment,
+    this._getOrderPayment,
+    this._releaseAbandonedOrder,
+  );
 
   final PlaceOrder _placeOrder;
   final VerifyPayment _verifyPayment;
   final GetOrderPayment _getOrderPayment;
+  final ReleaseAbandonedOrder _releaseAbandonedOrder;
 
   Address? _selectedAddress;
   bool _useWallet = false;
@@ -123,6 +129,18 @@ class CheckoutProvider extends ChangeNotifier {
     result.fold((failure) => _error = failure.message, (value) => order = value);
     if (order == null) notifyListeners();
     return order;
+  }
+
+  /// The customer closed the payment sheet without paying — hand the order's
+  /// stock, coupon slot and wallet debit straight back.
+  ///
+  /// Fire-and-forget on purpose: walking away has already succeeded from the
+  /// customer's point of view, a failure here is not something they can act on,
+  /// and `expireUnpaidOrders` is still the backstop. Nothing is surfaced and
+  /// `_error` is left alone so it cannot overwrite a real checkout message.
+  Future<void> releaseAbandonedOrder(String orderId) async {
+    if (orderId.isEmpty) return;
+    await _releaseAbandonedOrder(orderId);
   }
 
   /// Forget the checkout selections once an order is placed, so the next one

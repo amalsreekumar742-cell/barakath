@@ -9,6 +9,7 @@ export const Collections = {
   variants: 'variants',
   categories: 'categories',
   orders: 'orders',
+  orderDrafts: 'orderDrafts',
   payments: 'payments',
   walletTransactions: 'walletTransactions',
   /**
@@ -31,4 +32,7 @@ export const Collections = {
   stockAdjustments: 'stockAdjustments',
   subAdmins: 'subAdmins',
   addresses: 'addresses',
+  /** Admin-only cost of goods — see packages/shared/src/config/collections.ts for why these are not fields on the variant / order documents. Keep in lockstep with that file. */
+  variantCosts: 'variantCosts',
+  orderCosts: 'orderCosts',
 } as const;

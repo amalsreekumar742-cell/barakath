@@ -18,7 +18,7 @@ export const fetchReplacementDetail = createAsyncThunk<
 >('replacement/fetchDetail', async (replacementId, { rejectWithValue }) => {
   try {
     const snap = await getDoc(doc(db, FirestoreCollections.replacements, replacementId));
-    if (!snap.exists()) return rejectWithValue('Replacement request not found');
+    if (!snap.exists()) return rejectWithValue('Return request not found');
     const replacement = { ...snap.data(), id: snap.id } as ReplacementProps;
 
     let order: OrderProps | null = null;
@@ -30,7 +30,7 @@ export const fetchReplacementDetail = createAsyncThunk<
     return { replacement, order };
   } catch (err) {
     return rejectWithValue(
-      err instanceof Error ? err.message : 'Could not load the replacement request',
+      err instanceof Error ? err.message : 'Could not load the return request',
     );
   }
 });

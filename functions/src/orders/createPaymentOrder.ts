@@ -10,7 +10,7 @@ import {
   getRazorpaySecrets,
   isWalletEnabled,
 } from './service/configReader';
-import { computeOrderTotals, toPaisa } from './service/computeTotals';
+import { computeOrderTotals, toPaisa, round2 } from './service/computeTotals';
 import {
   findCouponByCode,
   countUserCouponUsage,
@@ -111,6 +111,24 @@ export const createPaymentOrder = onCall(async (request) => {
       const images = Array.isArray((p as { images?: unknown }).images)
         ? ((p as { images: unknown[] }).images as unknown[])
         : [];
+
+      // GST rate: the variant's own rate when it has one, else the global rate. The typeof check is
+      // load-bearing — `?? config.gstPercentage` would silently tax a genuine 0%-GST variant at the
+      // global rate, and `Number(...) || global` would do the same.
+      const rawGstPct = (v as { gstPercentage?: unknown }).gstPercentage;
+      const gstPercentage =
+        typeof rawGstPct === 'number' && Number.isFinite(rawGstPct) && rawGstPct >= 0
+          ? rawGstPct
+          : deliveryTax.gstPercentage;
+
+      // Purchase price lives in an admin-only collection, never on the (world-readable) variant doc.
+      // A missing cost is UNKNOWN margin — recorded as such so the profit report can exclude the
+      // order instead of reporting the entire sale as profit.
+      const costSnap = await db.collection(Collections.variantCosts).doc(item.variantId).get();
+      const rawCost = costSnap.exists ? (costSnap.data() ?? {}).purchasePrice : undefined;
+      const costKnown = typeof rawCost === 'number' && Number.isFinite(rawCost) && rawCost >= 0;
+      const purchasePrice = costKnown ? (rawCost as number) : 0;
+
       resolved.push({
         productId: item.productId,
         productName: String((p as { name?: unknown }).name ?? ''),
@@ -127,6 +145,9 @@ export const createPaymentOrder = onCall(async (request) => {
         offerPrice,
         quantity: item.quantity,
         subtotal: offerPrice * item.quantity,
+        gstPercentage,
+        purchasePrice,
+        costKnown,
       });
     }
     const subtotal = resolved.reduce((s, i) => s + i.subtotal, 0);
@@ -187,10 +208,21 @@ export const createPaymentOrder = onCall(async (request) => {
       : 'Wallet';
     const paymentStatus: 'Pending' | 'Paid' = isRazorpay ? 'Pending' : 'Paid';
 
-    // Mint ids up front so the Razorpay receipt + payment doc can reference the order id.
-    const orderRef = db.collection(Collections.orders).doc();
+    // Mint the id up front so the Razorpay receipt, the coupon-usage record and the wallet ledger can
+    // all reference it. THE SAME ID is used for the draft and, later, for the real order — so every
+    // reference minted here stays valid once payment promotes the draft, and the customer's order
+    // number never changes under them.
+    const orderId = db.collection(Collections.orders).doc().id;
+
+    // WHERE the document lands is the whole point of the draft model:
+    //   - a Razorpay leg is still unpaid, so it goes to `orderDrafts` and becomes an `orders` doc
+    //     only when payment succeeds (promoteDraftToOrder). Nothing unpaid ever reaches `orders`.
+    //   - a wallet-only cart is ALREADY paid at this instant (the debit below is the payment), so it
+    //     writes a real, Paid order directly — there is nothing to wait for.
+    const orderRef = isRazorpay
+      ? db.collection(Collections.orderDrafts).doc(orderId)
+      : db.collection(Collections.orders).doc(orderId);
     const paymentRef = db.collection(Collections.payments).doc();
-    const orderId = orderRef.id;
 
     // ---- 7. Razorpay order (only when there is an amount to collect) -----------------------------
     let razorpayOrderId: string | null = null;
@@ -244,6 +276,18 @@ export const createPaymentOrder = onCall(async (request) => {
         debitWallet(tx, userRef, uid, freshBalance, totals.walletAmountUsed, orderId);
       }
 
+      // The customer's lifetime counters, which the admin Customers list and the customer report
+      // read. ONLY on the wallet-only path: that branch writes a real, already-Paid order here,
+      // whereas a Razorpay cart is still a draft at this point and gets counted by
+      // promoteDraftToOrder instead. Counting here for both would credit an order for every
+      // abandoned checkout.
+      if (!isRazorpay) {
+        tx.update(userRef, {
+          totalOrders: FieldValue.increment(1),
+          totalSpent: FieldValue.increment(totals.grandTotal),
+        });
+      }
+
       const now = Timestamp.now();
       tx.set(orderRef, {
         id: orderId,
@@ -251,7 +295,10 @@ export const createPaymentOrder = onCall(async (request) => {
         userName,
         userPhone,
         userEmail,
-        items: resolved.map((i) => ({
+        // NOTE what is deliberately absent here: `purchasePrice`. An order document is readable by
+        // the customer who placed it, so a cost line on it would show every shopper the margin. The
+        // cost snapshot goes to `orderCosts/{orderId}` below, which is admin-only.
+        items: resolved.map((i, idx) => ({
           productId: i.productId,
           productName: i.productName,
           productImage: i.productImage,
@@ -262,6 +309,9 @@ export const createPaymentOrder = onCall(async (request) => {
           offerPrice: i.offerPrice,
           quantity: i.quantity,
           subtotal: i.subtotal,
+          // Per-line tax, so the invoice can state a rate-wise breakup instead of one lump figure.
+          gstPercentage: i.gstPercentage,
+          gstAmount: totals.lineGst[idx] ?? 0,
         })),
         subtotal: totals.subtotal,
         couponDiscount: totals.couponDiscount,
@@ -286,28 +336,63 @@ export const createPaymentOrder = onCall(async (request) => {
         updatedAt: FieldValue.serverTimestamp(),
       });
 
-      tx.set(paymentRef, {
-        id: paymentRef.id,
+      // Cost of goods, snapshotted at purchase time in an ADMIN-ONLY document (see
+      // Collections.orderCosts). Keyed by the order id, which is minted once and survives the
+      // draft → order promotion, so this stays joined to the order the customer ends up with. An
+      // abandoned draft leaves an orphan here, which is harmless: the profit report joins FROM
+      // orders, so a cost row with no order is never read.
+      //
+      // Lines with no recorded purchase price are excluded from BOTH totals rather than counted at
+      // zero cost — otherwise an unpriced item would read as pure profit.
+      const costLines = resolved.map((i) => ({
+        productId: i.productId,
+        variantId: i.variantId,
+        quantity: i.quantity,
+        purchasePrice: i.purchasePrice,
+        sellingPrice: i.offerPrice,
+        lineCost: round2(i.purchasePrice * i.quantity),
+        costKnown: i.costKnown,
+      }));
+      const priced = costLines.filter((l) => l.costKnown);
+      tx.set(db.collection(Collections.orderCosts).doc(orderId), {
         orderId,
-        userId: uid,
-        userName,
-        userPhone,
-        amount: totals.grandTotal,
-        method: paymentMethod,
-        razorpayOrderId: razorpayOrderId ?? '',
-        razorpayPaymentId: '',
-        razorpaySignature: '',
-        walletAmountUsed: totals.walletAmountUsed,
-        razorpayAmountPaid: totals.razorpayAmount,
-        status: paymentStatus,
-        refundId: '',
-        refundAmount: 0,
-        refundedAt: null,
-        gstAmount: totals.gstAmount,
-        metadata: {},
+        lines: costLines,
+        totalCost: round2(priced.reduce((sum, l) => sum + l.lineCost, 0)),
+        totalSelling: round2(
+          priced.reduce((sum, l) => sum + l.sellingPrice * l.quantity, 0),
+        ),
+        costKnown: costLines.length > 0 && priced.length === costLines.length,
         createdAt: FieldValue.serverTimestamp(),
-        updatedAt: FieldValue.serverTimestamp(),
       });
+
+      // The payments ledger records money that MOVED. For a Razorpay leg nothing has moved yet, so
+      // the payment doc is written by promoteDraftToOrder once the gateway confirms — which is also
+      // what keeps never-completed attempts out of the admin Payments page. A wallet-only order was
+      // paid by the debit above, so its payment doc belongs here.
+      if (!isRazorpay) {
+        tx.set(paymentRef, {
+          id: paymentRef.id,
+          orderId,
+          userId: uid,
+          userName,
+          userPhone,
+          amount: totals.grandTotal,
+          method: paymentMethod,
+          razorpayOrderId: '',
+          razorpayPaymentId: '',
+          razorpaySignature: '',
+          walletAmountUsed: totals.walletAmountUsed,
+          razorpayAmountPaid: 0,
+          status: paymentStatus,
+          refundId: '',
+          refundAmount: 0,
+          refundedAt: null,
+          gstAmount: totals.gstAmount,
+          metadata: {},
+          createdAt: FieldValue.serverTimestamp(),
+          updatedAt: FieldValue.serverTimestamp(),
+        });
+      }
     });
 
     return {

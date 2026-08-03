@@ -1,15 +1,18 @@
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import { logger } from 'firebase-functions/v2';
-import { getFirestore, FieldValue } from 'firebase-admin/firestore';
+import { getFirestore } from 'firebase-admin/firestore';
 import { createHmac, timingSafeEqual } from 'crypto';
 import { Collections } from '../config/collections';
 import { getGeneralConfig, getSecretsDoc } from '../config/razorpay';
 import { validateAuth } from '../utils/validateAuth';
 import { getRazorpaySecrets } from './service/configReader';
+import { promoteDraftToOrder } from './service/promoteDraft';
 
 /**
  * verifyPayment — the client's handoff after Razorpay checkout succeeds. Verifies the Razorpay signature
- * (HMAC of `order_id|payment_id` with the key secret) and, if valid, marks the order + payment Paid.
+ * (HMAC of `order_id|payment_id` with the key secret) and, if valid, PROMOTES the checkout draft into a
+ * real order (see service/promoteDraft.ts). Until this point the checkout lives in `orderDrafts` and no
+ * `orders` document exists at all — that is what keeps unpaid attempts out of the admin panel.
  *
  * WHY onCall: called only by our own app right after the Razorpay SDK returns success — the callable
  *   protocol gives a verified caller for free.
@@ -62,37 +65,30 @@ export const verifyPayment = onCall(async (request) => {
       expectedBuf.length === actualBuf.length && timingSafeEqual(expectedBuf, actualBuf);
     if (!valid) return { verified: false };
 
-    // Find the order by its Razorpay order id (bounded to 1).
-    const orderQuery = await db
-      .collection(Collections.orders)
+    // The checkout is still a DRAFT at this point — nothing unpaid ever reaches `orders` — so find it
+    // in `orderDrafts` by its Razorpay order id. Fall back to `orders` for the case where the webhook
+    // beat us here and already promoted it (and for any draft-era order still in flight at deploy).
+    const draftQuery = await db
+      .collection(Collections.orderDrafts)
       .where('razorpayOrderId', '==', orderId)
       .limit(1)
       .get();
-    const orderDoc = orderQuery.docs[0];
-    if (!orderDoc) throw new HttpsError('not-found', 'Order not found for this payment.');
+    let internalOrderId = draftQuery.docs[0]?.id;
+    if (!internalOrderId) {
+      const orderQuery = await db
+        .collection(Collections.orders)
+        .where('razorpayOrderId', '==', orderId)
+        .limit(1)
+        .get();
+      internalOrderId = orderQuery.docs[0]?.id;
+    }
+    if (!internalOrderId) throw new HttpsError('not-found', 'Order not found for this payment.');
 
-    // Mark order + its payment doc Paid. Idempotent: writing the same values twice is harmless.
-    await db.runTransaction(async (tx) => {
-      const payQuery = await tx.get(
-        db.collection(Collections.payments).where('orderId', '==', orderDoc.id).limit(1),
-      );
-      tx.update(orderDoc.ref, {
-        paymentStatus: 'Paid',
-        razorpayPaymentId: paymentId,
-        updatedAt: FieldValue.serverTimestamp(),
-      });
-      const payDoc = payQuery.docs[0];
-      if (payDoc) {
-        tx.update(payDoc.ref, {
-          status: 'Paid',
-          razorpayPaymentId: paymentId,
-          razorpaySignature: signature,
-          updatedAt: FieldValue.serverTimestamp(),
-        });
-      }
-    });
+    // Promote the draft into a real order. Idempotent by construction — if the webhook got here
+    // first, this returns 'already-promoted' and writes nothing.
+    await promoteDraftToOrder(internalOrderId, paymentId, signature);
 
-    return { verified: true, orderId: orderDoc.id };
+    return { verified: true, orderId: internalOrderId };
   } catch (err) {
     if (err instanceof HttpsError) throw err;
     logger.error('verifyPayment failed', err);

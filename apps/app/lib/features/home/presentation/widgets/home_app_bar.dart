@@ -3,7 +3,9 @@ import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
 import '../../../../core/constants/app_colors.dart';
+import '../../../../core/constants/app_dimens.dart';
 import '../../../auth/presentation/providers/auth_provider.dart';
+import '../../../profile/presentation/widgets/profile_avatar.dart';
 
 /// The home header (Figma node 46:5325): a greeting stack on the left, the
 /// notification bell and the customer's avatar on the right. Pinned so the
@@ -22,20 +24,22 @@ class HomeAppBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     String name = '';
+    String photo = '';
     try {
-      name = context.watch<AuthProvider>().currentUser?.fullName.trim() ?? '';
+      final user = context.watch<AuthProvider>().currentUser;
+      name = user?.fullName.trim() ?? '';
+      photo = user?.profileImage ?? '';
     } catch (_) {
       // No auth in this tree (previews) — fall back to the generic greeting.
     }
     final firstName = name.isEmpty ? '' : name.split(RegExp(r'\s+')).first;
-    final initial = firstName.isEmpty ? '?' : firstName[0].toUpperCase();
 
     return SliverAppBar(
       pinned: true,
       elevation: 0,
       scrolledUnderElevation: 0.5,
       backgroundColor: AppColors.background,
-      titleSpacing: 20,
+      titleSpacing: AppDimens.screenPadding,
       toolbarHeight: 64,
       title: Row(
         children: [
@@ -73,8 +77,15 @@ class HomeAppBar extends StatelessWidget {
             onTap: () => context.push('/notifications'),
           ),
           const SizedBox(width: 10),
-          _Avatar(initial: initial, onTap: () => context.go('/profile')),
-          const SizedBox(width: 20),
+          GestureDetector(
+            onTap: () => context.go('/profile'),
+            behavior: HitTestBehavior.opaque,
+            child: ProfileAvatar(imageUrl: photo, fullName: name, size: 42),
+          ),
+          // Tighter than the screen gutter on purpose: the avatar is a filled
+          // circle with no optical padding of its own, so a full 16 leaves it
+          // looking stranded from the edge.
+          const SizedBox(width: AppDimens.space8),
         ],
       ),
     );
@@ -130,43 +141,6 @@ class _BellButton extends StatelessWidget {
   }
 }
 
-/// 42px gradient avatar carrying the customer's initial (Figma node 46:5340).
-class _Avatar extends StatelessWidget {
-  const _Avatar({required this.initial, required this.onTap});
-
-  final String initial;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      behavior: HitTestBehavior.opaque,
-      child: Container(
-        width: 42,
-        height: 42,
-        alignment: Alignment.center,
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(21),
-          gradient: const LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [AppColors.brandGreen, AppColors.brandGreenDark],
-          ),
-        ),
-        child: Text(
-          initial,
-          style: const TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.w800,
-            color: Colors.white,
-          ),
-        ),
-      ),
-    );
-  }
-}
-
 /// The tappable search pill that sits at the top of the home scroll area
 /// (Figma node 46:5343). It's a button, not a field — typing happens on the
 /// search page, which owns suggestions and history.
@@ -197,7 +171,7 @@ class HomeSearchBar extends StatelessWidget {
                 style: TextStyle(fontSize: 14, color: AppColors.textFaint),
               ),
             ),
-            Icon(Icons.tune_rounded, size: 18, color: AppColors.textPrimary),
+            // Icon(Icons.tune_rounded, size: 18, color: AppColors.textPrimary),
           ],
         ),
       ),

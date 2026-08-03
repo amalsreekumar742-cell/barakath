@@ -10,8 +10,12 @@
     ".": "./src/index.ts",
     "./config/collections": "./src/config/collections.ts",
     "./config/enums": "./src/config/enums.ts",
+    "./config/orderTimeout": "./src/config/orderTimeout.ts",
     "./types": "./src/types/index.ts",
-    "./utils/keywordsBuilder": "./src/utils/keywordsBuilder.ts"
+    "./utils/keywordsBuilder": "./src/utils/keywordsBuilder.ts",
+    "./utils/replacementRefund": "./src/utils/replacementRefund.ts",
+    "./utils/gstBreakdown": "./src/utils/gstBreakdown.ts",
+    "./utils/spinValidity": "./src/utils/spinValidity.ts"
   },
   "scripts": {
     "build": "tsc --noEmit",

@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
 
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_dimens.dart';
+import '../../../../core/widgets/circle_back_button.dart';
 
 /// The header every profile sub-page uses: a 42px circular back button and a
 /// 20/800 title, matching the design frames (`37 · Settings`, `35 · Help`).
@@ -21,30 +21,10 @@ class ProfileAppBar extends StatelessWidget implements PreferredSizeWidget {
   Widget build(BuildContext context) {
     return AppBar(
       titleSpacing: AppDimens.space12,
-      leadingWidth: 74,
+      leadingWidth: CircleBackButton.leadingWidth,
       backgroundColor: AppColors.background,
       elevation: 0,
-      leading: Center(
-        child: GestureDetector(
-          onTap: () => context.canPop() ? context.pop() : context.go('/profile'),
-          behavior: HitTestBehavior.opaque,
-          child: Container(
-            width: 42,
-            height: 42,
-            margin: const EdgeInsets.only(left: AppDimens.screenPadding),
-            decoration: BoxDecoration(
-              color: AppColors.surface,
-              shape: BoxShape.circle,
-              border: Border.all(color: AppColors.hairline),
-            ),
-            child: const Icon(
-              Icons.arrow_back_rounded,
-              size: 20,
-              color: AppColors.textPrimary,
-            ),
-          ),
-        ),
-      ),
+      leading: CircleBackButton.appBarLeading(fallbackRoute: '/profile'),
       title: Text(
         title,
         style: const TextStyle(

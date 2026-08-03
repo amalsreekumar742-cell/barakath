@@ -13,7 +13,7 @@ import { OrderStatus, PaymentStatus } from '@barakath/shared/config/enums';
 import type { OrderProps, VariantProps } from '@barakath/shared/types';
 import { db } from '@/lib/firebaseConfig';
 import { sumStock, deriveStockStatus } from '@/features/products/utils/stock';
-import { nextStatus, canCancel } from '../utils/orderFlow';
+import { nextStatus, canCancel, isOrderPaid, unpaidAdvanceReason } from '../utils/orderFlow';
 
 export interface UpdateOrderStatusInput {
   orderId: string;
@@ -39,6 +39,12 @@ export interface UpdateOrderStatusResult {
  * RESTORE stock (increment each item's variant + re-derive the product totals), all in one atomic batch
  * so status, timeline, refund flag and stock never diverge.
  *
+ * WHY an unpaid order cannot be advanced: `createPaymentOrder` reserves stock BEFORE the customer pays,
+ * and the only things that give that stock back are the `payment.failed` webhook and `dailyCleanup` —
+ * and `dailyCleanup` only matches orders still at `status == 'Pending'`. Moving an unpaid order to
+ * Accepted therefore strands its stock permanently AND ships goods that were never paid for. Cancelling
+ * stays allowed at any payment status: that is the correct way to clear an abandoned checkout.
+ *
  * WHY a client `Timestamp.now()` in the timeline (not serverTimestamp): Firestore forbids the
  * serverTimestamp sentinel inside an array element, so each timeline entry stamps the client time.
  */
@@ -61,6 +67,8 @@ export const updateOrderStatus = createAsyncThunk<
       if (!canCancel(current)) return rejectWithValue('Order can only be cancelled while Pending');
       if (!input.cancelReason?.trim()) return rejectWithValue('Cancel reason is required');
     } else {
+      if (!isOrderPaid(order.paymentStatus))
+        return rejectWithValue(unpaidAdvanceReason(order.paymentStatus));
       if (input.newStatus !== nextStatus(current))
         return rejectWithValue(`Cannot move from "${current}" to "${input.newStatus}"`);
       if (input.newStatus === OrderStatus.SHIPPED && (!input.trackingId?.trim() || !input.courierName?.trim()))

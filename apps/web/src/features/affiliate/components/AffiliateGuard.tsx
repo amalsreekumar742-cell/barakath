@@ -37,10 +37,9 @@ export function AffiliateGuard({
   const authLoading = useAppSelector((s) => s.auth.authLoading);
 
   const isAffiliate = Boolean(user?.affiliateCode?.trim());
-  // Absent on most documents today (no admin UI writes it yet) — default true, exactly like the
-  // Flutter `User` entity's own `affiliateEnabled = true` default, so a missing field never locks an
-  // allocated affiliate out of their own money.
-  const walletEnabled = user?.affiliateEnabled !== false;
+  // Opt-in: only an explicit `true` grants wallet access. A missing field means "never granted",
+  // matching the admin toggle and the Flutter `User` entity's own `affiliateEnabled = false` default.
+  const walletEnabled = user?.affiliateEnabled === true;
   const blocked = !authLoading && (!isAffiliate || (requireWalletAccess && !walletEnabled));
 
   useEffect(() => {

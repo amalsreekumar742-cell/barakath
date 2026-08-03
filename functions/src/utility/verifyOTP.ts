@@ -105,6 +105,12 @@ export const verifyOTP = onCall(async (request) => {
       walletBalance: 0,
       affiliateCode: '',
       affiliateBalance: 0,
+      // Affiliate access is opt-in — written explicitly rather than left absent so the admin
+      // toggle and the app/web guards read a real stored value instead of a fallback.
+      affiliateEnabled: false,
+      pendingCommission: 0,
+      confirmedCommission: 0,
+      totalReferrals: 0,
       totalOrders: 0,
       totalSpent: 0,
       keywords: keywordsBuilder(normalized.e164),

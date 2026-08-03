@@ -17,10 +17,27 @@ const toForm = (s: GeneralSettingsProps) => ({
   helpEmail: s.contactus.helpEmail,
 });
 
-const TEN_DIGITS = /^\d{10}$/;
+/**
+ * Accepts any international number: an optional leading `+`, then digits with
+ * spaces/hyphens/parentheses allowed as separators. Length is checked on the
+ * digits alone — E.164 allows at most 15, and no country has fewer than 6.
+ */
+const PHONE_SHAPE = /^\+?[\d\s\-()]+$/;
+const phoneDigits = (v: string) => v.replace(/\D/g, '').length;
+const isValidPhone = (v: string) =>
+  PHONE_SHAPE.test(v) && phoneDigits(v) >= 6 && phoneDigits(v) <= 15;
+
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-/** Tab 6 — Help & Support (spec §1.21). Phone/WhatsApp are 10-digit Indian numbers (+91 prefix shown). */
+/**
+ * Tab 6 — Help & Support (spec §1.21).
+ *
+ * Phone/WhatsApp are free-form international numbers. There is deliberately no
+ * hardcoded +91 and no 10-digit rule: support numbers may sit outside India, and
+ * `wa.me` links (apps/web Footer, the app's help centre) need a country code to
+ * resolve at all — a bare national number produced a dead WhatsApp link. Admins
+ * type the full number including its country code.
+ */
 const HelpSupportTab: FC<Props> = ({ settings, onDirtyChange }) => {
   const dispatch = useAppDispatch();
   const { saveLoading } = useAppSelector((s) => s.settings);
@@ -36,15 +53,11 @@ const HelpSupportTab: FC<Props> = ({ settings, onDirtyChange }) => {
   const set = <K extends keyof typeof form>(k: K, v: (typeof form)[K]) =>
     setForm((f) => ({ ...f, [k]: v }));
 
-  // Keep only digits for the phone fields, capped at 10.
-  const setDigits = (k: 'helpPhone' | 'helpWhatsApp', v: string) =>
-    set(k, v.replace(/\D/g, '').slice(0, 10));
-
   const requestSave = () => {
-    if (form.helpPhone && !TEN_DIGITS.test(form.helpPhone))
-      return toast.error('Phone must be a 10-digit number');
-    if (form.helpWhatsApp && !TEN_DIGITS.test(form.helpWhatsApp))
-      return toast.error('WhatsApp must be a 10-digit number');
+    if (form.helpPhone.trim() && !isValidPhone(form.helpPhone.trim()))
+      return toast.error('Enter a valid phone number with country code, e.g. +91 8590941583');
+    if (form.helpWhatsApp.trim() && !isValidPhone(form.helpWhatsApp.trim()))
+      return toast.error('Enter a valid WhatsApp number with country code, e.g. +91 8590941583');
     if (form.helpEmail && !EMAIL.test(form.helpEmail.trim()))
       return toast.error('Enter a valid email address');
     setConfirmOpen(true);
@@ -53,8 +66,8 @@ const HelpSupportTab: FC<Props> = ({ settings, onDirtyChange }) => {
   const doSave = async () => {
     const res = await dispatch(
       updateHelpSupport({
-        helpPhone: form.helpPhone,
-        helpWhatsApp: form.helpWhatsApp,
+        helpPhone: form.helpPhone.trim(),
+        helpWhatsApp: form.helpWhatsApp.trim(),
         helpEmail: form.helpEmail.trim(),
       }),
     );
@@ -63,38 +76,28 @@ const HelpSupportTab: FC<Props> = ({ settings, onDirtyChange }) => {
     else toast.error((res.payload as string) ?? 'Could not save help & support');
   };
 
-  const phonePrefix = (
-    <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[14px] text-muted">
-      +91
-    </span>
-  );
-
   return (
     <SettingsCard title="Help & Support" description="Contact details shown to customers.">
       <div className="grid gap-5 sm:grid-cols-2">
         <Field label="Phone number">
-          <div className="relative">
-            {phonePrefix}
-            <input
-              inputMode="numeric"
-              className={`${inputCls} pl-12`}
-              placeholder="10-digit number"
-              value={form.helpPhone}
-              onChange={(e) => setDigits('helpPhone', e.target.value)}
-            />
-          </div>
+          <input
+            type="tel"
+            inputMode="tel"
+            className={inputCls}
+            placeholder="+91 8590941583"
+            value={form.helpPhone}
+            onChange={(e) => set('helpPhone', e.target.value)}
+          />
         </Field>
         <Field label="WhatsApp number">
-          <div className="relative">
-            {phonePrefix}
-            <input
-              inputMode="numeric"
-              className={`${inputCls} pl-12`}
-              placeholder="10-digit number"
-              value={form.helpWhatsApp}
-              onChange={(e) => setDigits('helpWhatsApp', e.target.value)}
-            />
-          </div>
+          <input
+            type="tel"
+            inputMode="tel"
+            className={inputCls}
+            placeholder="+91 8590941583"
+            value={form.helpWhatsApp}
+            onChange={(e) => set('helpWhatsApp', e.target.value)}
+          />
         </Field>
         <Field label="Email address">
           <input

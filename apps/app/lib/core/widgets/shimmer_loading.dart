@@ -57,6 +57,10 @@ class ShimmerBox extends StatelessWidget {
 class ShimmerCard extends StatelessWidget {
   const ShimmerCard({super.key, this.height = 120});
 
+  /// Height of the IMAGE block only — the card renders 70px taller than this
+  /// (12+12 padding, 2 border, and 44 for the two text lines and their gaps).
+  /// Inside a fixed-height slot (a grid's `mainAxisExtent`) pass
+  /// `slotHeight - 70`, not the slot height, or the Column overflows.
   final double height;
 
   @override

@@ -7,7 +7,9 @@ import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 
 import '../../../../core/constants/app_colors.dart';
+import '../../../../core/constants/app_dimens.dart';
 import '../../../../core/widgets/app_toast.dart';
+import '../../../../core/widgets/circle_back_button.dart';
 import '../providers/auth_provider.dart';
 
 /// CreateProfilePage — optional, skippable profile step for new users
@@ -200,7 +202,12 @@ class _CreateProfilePageState extends State<CreateProfilePage> {
       backgroundColor: AppColors.background,
       body: SafeArea(
         child: SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(28, 16, 28, 28),
+          padding: const EdgeInsets.fromLTRB(
+            AppDimens.screenPadding,
+            16,
+            AppDimens.screenPadding,
+            28,
+          ),
           child: Form(
             key: _formKey,
             child: Column(
@@ -210,10 +217,7 @@ class _CreateProfilePageState extends State<CreateProfilePage> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    _CircleIconButton(
-                      icon: Icons.arrow_back_rounded,
-                      onTap: () => context.canPop() ? context.pop() : context.go('/home'),
-                    ),
+                    const CircleBackButton(),
                     GestureDetector(
                       behavior: HitTestBehavior.opaque,
                       onTap: _skip,
@@ -398,29 +402,6 @@ class _Field extends StatelessWidget {
 }
 
 /// Circular white icon button with a hairline border.
-class _CircleIconButton extends StatelessWidget {
-  const _CircleIconButton({required this.icon, required this.onTap});
-  final IconData icon;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        height: 40,
-        width: 40,
-        decoration: BoxDecoration(
-          color: AppColors.surface,
-          shape: BoxShape.circle,
-          border: Border.all(color: AppColors.hairline),
-        ),
-        child: Icon(icon, size: 20, color: AppColors.textPrimary),
-      ),
-    );
-  }
-}
-
 /// Green circular avatar showing the name initial (or the picked photo), with a
 /// gold edit badge — matching the Figma profile design.
 class _AvatarPicker extends StatelessWidget {

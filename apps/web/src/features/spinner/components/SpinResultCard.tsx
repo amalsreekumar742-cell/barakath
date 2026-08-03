@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { format } from 'date-fns';
 import { Check, Copy, Frown, Gift } from 'lucide-react';
+import { formatTimeRemaining } from '@barakath/shared/utils/spinValidity';
 import { Button } from '@/components/Button';
 import { toastSuccess } from '@/lib/toast';
 import type { SpinWheelResponse } from '../api/submitSpin';
@@ -33,6 +34,22 @@ export function SpinResultCard({ result, spinsRemaining, spinning, onSpinAgain }
   const [copied, setCopied] = useState(false);
   const isWin = result.resultType === 'Coupon';
   const details = result.couponDetails;
+
+  /**
+   * A campaign can now grant a reward that lives for an hour, and "Expires 3 Aug 2026" is worse than
+   * useless for one of those — it reads as "you have all day". Anything landing inside 24h states the
+   * countdown instead; longer windows keep the date, which is what you actually want to note down.
+   *
+   * Computed at render (not in an interval) deliberately: this card appears immediately after the spin
+   * and is replaced by the next one, so it never lives long enough for a ticking clock to matter.
+   */
+  const expiryLine = (() => {
+    if (!details) return '';
+    const msLeft = details.validUntil - Date.now();
+    if (msLeft <= 0) return 'Expired';
+    if (msLeft < 24 * 3_600_000) return formatTimeRemaining(details.validUntil, Date.now());
+    return `Expires ${format(new Date(details.validUntil), 'd MMM yyyy')}`;
+  })();
 
   async function handleCopy() {
     if (!result.couponCode) return;
@@ -89,9 +106,7 @@ export function SpinResultCard({ result, spinsRemaining, spinning, onSpinAgain }
           </div>
           {details && (
             <p className="mt-2 text-xs text-faint">
-              {[spinConditionsLine(details), `Expires ${format(new Date(details.validUntil), 'd MMM yyyy')}`]
-                .filter(Boolean)
-                .join(' · ')}
+              {[spinConditionsLine(details), expiryLine].filter(Boolean).join(' · ')}
             </p>
           )}
         </div>

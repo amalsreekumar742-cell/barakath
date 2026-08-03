@@ -42,6 +42,23 @@ export interface SpinnerCampaignProps {
   maxSpinsPerUser: number;
   spinCooldownHours: number;
   couponValidityDays: number;
+  /**
+   * How long a won coupon stays redeemable, in HOURS from the moment of the spin. This is the
+   * authoritative validity window whenever it is > 0 — `couponValidityDays` is then ignored.
+   *
+   * WHY hours and not just days: a campaign may want a reward that lapses in 1 hour to create urgency,
+   * which day granularity cannot express (the old minimum was a whole day). Rather than reinterpret
+   * `couponValidityDays`, which every existing campaign document already carries, this is a new field
+   * that takes precedence when set.
+   *
+   * Resolution order (implemented once in `resolveValidityHours`, mirrored by `spinWheel`):
+   *   couponValidityHours > 0  ->  that many hours
+   *   else couponValidityDays > 0  ->  days x 24
+   *   else  ->  72 (the spec's 3-day default)
+   *
+   * Campaigns written before this field existed have it absent, so they keep their day-based window.
+   */
+  couponValidityHours: number;
   isActive: boolean;
   totalSpins: number;
   totalWins: number;

@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_dimens.dart';
+import '../../../../core/widgets/circle_back_button.dart';
 import '../../../../core/widgets/shimmer_loading.dart';
 import '../../../auth/domain/entities/user.dart';
 import '../../../auth/presentation/providers/auth_provider.dart';
@@ -19,28 +20,8 @@ PreferredSizeWidget affiliateAppBar(
     backgroundColor: AppColors.background,
     elevation: 0,
     titleSpacing: 12,
-    leadingWidth: 74,
-    leading: Center(
-      child: GestureDetector(
-        onTap: () => context.canPop() ? context.pop() : context.go('/profile'),
-        behavior: HitTestBehavior.opaque,
-        child: Container(
-          width: 40,
-          height: 40,
-          margin: const EdgeInsets.only(left: AppDimens.space20),
-          decoration: BoxDecoration(
-            color: AppColors.surface,
-            shape: BoxShape.circle,
-            border: Border.all(color: AppColors.hairline),
-          ),
-          child: const Icon(
-            Icons.arrow_back_rounded,
-            size: 20,
-            color: AppColors.textPrimary,
-          ),
-        ),
-      ),
-    ),
+    leadingWidth: CircleBackButton.leadingWidth,
+    leading: CircleBackButton.appBarLeading(fallbackRoute: '/profile'),
     title: Text(
       title,
       style: const TextStyle(
@@ -53,7 +34,7 @@ PreferredSizeWidget affiliateAppBar(
     actions: [
       if (trailing != null) ...[
         trailing,
-        const SizedBox(width: AppDimens.space20),
+        const SizedBox(width: AppDimens.screenPadding),
       ],
     ],
   );

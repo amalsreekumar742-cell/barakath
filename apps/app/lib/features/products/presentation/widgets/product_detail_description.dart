@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../../core/constants/app_colors.dart';
+import '../../../../core/constants/app_dimens.dart';
 
 /// Product description, collapsed to 3 lines with a Read more / Read less
 /// toggle. The toggle only appears when the text actually overflows, measured
@@ -30,7 +31,7 @@ class _ProductDetailDescriptionState extends State<ProductDetailDescription> {
     if (widget.description.trim().isEmpty) return const SizedBox.shrink();
 
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
+      padding: const EdgeInsets.symmetric(horizontal: AppDimens.screenPadding),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [

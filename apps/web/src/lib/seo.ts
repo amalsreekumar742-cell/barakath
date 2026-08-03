@@ -185,7 +185,10 @@ export function organizationSchema(
     schema.contactPoint = {
       '@type': 'ContactPoint',
       contactType: 'customer support',
-      ...(contact.helpPhone ? { telephone: contact.helpPhone } : {}),
+      // schema.org expects an E.164-style number, so strip the admin's display spacing.
+      ...(contact.helpPhone
+        ? { telephone: contact.helpPhone.replace(/[^\d+]/g, '') }
+        : {}),
       ...(contact.helpEmail ? { email: contact.helpEmail } : {}),
     };
   }

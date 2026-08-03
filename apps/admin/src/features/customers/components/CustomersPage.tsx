@@ -118,9 +118,27 @@ const CustomersPage: FC = () => {
     <div className="p-6">
       <div className="mb-4">
         <h1 className="text-[22px] font-extrabold tracking-tight text-foreground">Customers</h1>
-        <p className="mt-0.5 text-[13px] text-muted">
-          {counts.total.toLocaleString('en-IN')} registered · {counts.affiliates.toLocaleString('en-IN')} affiliates
-        </p>
+        <p className="mt-0.5 text-[13px] text-muted">Every registered customer, newest first.</p>
+      </div>
+
+      {/* Aggregate counts. These are collection-wide `getCountFromServer` totals, NOT a tally of the
+          rows paginated in so far — the list loads a page at a time, so counting `customers` here
+          would report "12 active" on a store with hundreds. Active/Blocked also double as shortcuts
+          into the matching status pill. */}
+      <div className="mb-5 grid grid-cols-1 gap-3 sm:grid-cols-3">
+        <CountCard label="Total customers" value={counts.total} />
+        <CountCard
+          label="Active"
+          value={counts.active}
+          tone="success"
+          onClick={() => dispatch(setCustomerStatusFilter(UserStatus.ACTIVE))}
+        />
+        <CountCard
+          label="Blocked"
+          value={counts.blocked}
+          tone="danger"
+          onClick={() => dispatch(setCustomerStatusFilter(UserStatus.BLOCKED))}
+        />
       </div>
 
       {/* Status pills */}
@@ -248,6 +266,47 @@ const CustomersPage: FC = () => {
         </div>
       )}
     </div>
+  );
+};
+
+/**
+ * One aggregate count above the list. Clickable variants filter the list to that status, so the card
+ * answers "how many are blocked?" and then takes you to them.
+ */
+const CountCard: FC<{
+  label: string;
+  value: number;
+  tone?: 'default' | 'success' | 'danger';
+  onClick?: () => void;
+}> = ({ label, value, tone = 'default', onClick }) => {
+  const valueClass =
+    tone === 'success'
+      ? 'text-success'
+      : tone === 'danger'
+        ? 'text-error'
+        : 'text-foreground';
+
+  const content = (
+    <>
+      <p className="text-[12px] font-semibold uppercase tracking-wide text-muted">{label}</p>
+      <p className={`mt-1 text-[26px] font-extrabold tracking-tight ${valueClass}`}>
+        {value.toLocaleString('en-IN')}
+      </p>
+    </>
+  );
+
+  if (!onClick) {
+    return <div className="rounded-xl border border-border bg-surface p-4">{content}</div>;
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="rounded-xl border border-border bg-surface p-4 text-left transition-colors hover:border-primary"
+    >
+      {content}
+    </button>
   );
 };
 

@@ -221,17 +221,15 @@ class _SpinResultSheetState extends State<SpinResultSheet> {
 
   /// "Min order ₹50 · expires in 3 days" — each half omitted when it doesn't
   /// apply. The expiry comes from the coupon the SERVER minted, so a campaign
-  /// with a non-default `couponValidityDays` reads correctly.
+  /// with any validity window (including a 1-hour one) reads correctly.
   String? _conditionsLine(SpinRewardCoupon? coupon) {
     if (coupon == null) return null;
     final parts = <String>[];
     if (coupon.minimumOrderAmount > 0) {
       parts.add('Min order ₹${formatMoney(coupon.minimumOrderAmount)}');
     }
-    final days = coupon.daysRemaining();
-    if (days > 0) {
-      parts.add(days == 1 ? 'expires in 1 day' : 'expires in $days days');
-    }
+    final expiry = coupon.expiresInLabel();
+    if (expiry != null) parts.add(expiry);
     return parts.isEmpty ? null : parts.join(' · ');
   }
 }

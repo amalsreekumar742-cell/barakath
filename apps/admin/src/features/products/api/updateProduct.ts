@@ -7,8 +7,9 @@ import type { ProductProps, VariantProps, SpecificationProps } from '@barakath/s
 import { db } from '@/lib/firebaseConfig';
 import { isSkuTaken } from './checkSku';
 import { resolveProductImages } from './createProduct';
+import { queueVariantCost, queueVariantCostDelete } from './variantCosts';
 import { sumStock, deriveStockStatus, deriveListFields } from '../utils/stock';
-import type { VariantDraft, ImageDraft } from '../types';
+import type { VariantToSave, ImageDraft } from '../types';
 
 export interface UpdateProductInput {
   id: string;
@@ -28,7 +29,7 @@ export interface UpdateProductInput {
   lowStockThreshold: number;
   frequentlyBoughtTogether: string[];
   status: ProductStatus;
-  variants: VariantDraft[];
+  variants: VariantToSave[];
 }
 
 /**
@@ -105,12 +106,18 @@ export const updateProduct = createAsyncThunk<
         offerPrice: v.offerPrice,
         referralPrice: v.referralPrice,
         commission: v.commission,
+        gstPercentage: v.gstPercentage,
         stock: v.stock,
       };
       if (v.isNew) batch.set(ref, { ...base, createdAt: serverTimestamp() });
       else batch.update(ref, base);
+      // Cost rides the SAME batch as the variant it belongs to.
+      queueVariantCost(batch, ref.id, input.id, v.purchasePrice);
     }
-    for (const id of removedIds) batch.delete(doc(varCol, id));
+    for (const id of removedIds) {
+      batch.delete(doc(varCol, id));
+      queueVariantCostDelete(batch, id);
+    }
     await batch.commit();
 
     const snap = await getDoc(productRef);

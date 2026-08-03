@@ -22,6 +22,12 @@ interface SearchSelectProps {
   disabled?: boolean;
   loading?: boolean;
   emptyText?: string;
+  /**
+   * Hides the in-dropdown search box. For a short fixed list (a sort order, a two-way toggle) the
+   * search field is noise the user has to look past — the skill's "custom dropdown, not native
+   * <select>" rule is about the control, not about forcing a search box onto three options.
+   */
+  searchable?: boolean;
 }
 
 const SearchSelect: FC<SearchSelectProps> = ({
@@ -32,6 +38,7 @@ const SearchSelect: FC<SearchSelectProps> = ({
   disabled,
   loading,
   emptyText = 'No options',
+  searchable = true,
 }) => {
   const [open, setOpen] = useState(false);
   const [term, setTerm] = useState('');
@@ -73,15 +80,17 @@ const SearchSelect: FC<SearchSelectProps> = ({
 
       {open && (
         <div className="absolute z-20 mt-1 w-full overflow-hidden rounded-md border border-border bg-surface shadow-lg">
-          <div className="border-b border-border p-2">
-            <input
-              autoFocus
-              value={term}
-              onChange={(e) => setTerm(e.target.value)}
-              placeholder="Search…"
-              className="w-full rounded-md border border-border-strong px-2.5 py-1.5 text-[13px] outline-none focus:border-primary"
-            />
-          </div>
+          {searchable && (
+            <div className="border-b border-border p-2">
+              <input
+                autoFocus
+                value={term}
+                onChange={(e) => setTerm(e.target.value)}
+                placeholder="Search…"
+                className="w-full rounded-md border border-border-strong px-2.5 py-1.5 text-[13px] outline-none focus:border-primary"
+              />
+            </div>
+          )}
           <ul className="max-h-56 overflow-y-auto py-1">
             {filtered.length === 0 ? (
               <li className="px-3 py-2 text-[13px] text-muted">{emptyText}</li>

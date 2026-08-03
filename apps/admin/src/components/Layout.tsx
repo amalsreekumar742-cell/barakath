@@ -3,6 +3,7 @@ import { Outlet } from 'react-router-dom';
 import Sidebar from './Sidebar';
 import TopBar from './TopBar';
 import PageSkeleton from './PageSkeleton';
+import { useDocumentTitle } from '@/hooks/useDocumentTitle';
 
 /**
  * Layout — the admin shell (spec §1.2, §1.22; design: enterprise density, warm off-white canvas).
@@ -12,8 +13,12 @@ import PageSkeleton from './PageSkeleton';
  *   content scrolls — standard dashboard ergonomics.
  * WHY Suspense/PageSkeleton: routes are lazy-loaded; the skeleton fills the content area while a route
  *   chunk loads (design: skeletons for all loading states).
+ * WHY the title hook lives here: every page renders inside this shell, so one call keeps the browser
+ *   tab in step with the route for all of them.
  */
 const Layout: FC = () => {
+  useDocumentTitle();
+
   return (
     <div className="flex h-screen overflow-hidden bg-app text-foreground">
       <Sidebar />

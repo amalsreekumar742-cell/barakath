@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../../core/constants/app_colors.dart';
+import '../../../../core/constants/app_dimens.dart';
 
 /// The screen's initial (pre-query) content: recent search history followed by
 /// trending terms. Purely presentational — every action is a callback, so the
@@ -28,7 +29,12 @@ class SearchSuggestionsView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ListView(
-      padding: const EdgeInsets.fromLTRB(20, 6, 20, 24),
+      padding: const EdgeInsets.fromLTRB(
+        AppDimens.screenPadding,
+        6,
+        AppDimens.screenPadding,
+        24,
+      ),
       children: [
         if (recentSearches.isNotEmpty) ...[
           _SectionLabel(

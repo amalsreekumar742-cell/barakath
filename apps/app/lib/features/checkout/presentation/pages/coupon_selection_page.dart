@@ -4,7 +4,9 @@ import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
 import '../../../../core/constants/app_colors.dart';
+import '../../../../core/constants/app_dimens.dart';
 import '../../../../core/widgets/app_toast.dart';
+import '../../../../core/widgets/circle_back_button.dart';
 import '../../../../core/widgets/custom_text_field.dart';
 import '../../../../core/widgets/empty_state.dart';
 import '../../../../core/widgets/error_state.dart';
@@ -85,25 +87,8 @@ class _CouponSelectionPageState extends State<CouponSelectionPage> {
       backgroundColor: AppColors.background,
       appBar: AppBar(
         titleSpacing: 12,
-        leadingWidth: 74,
-        leading: Center(
-          child: GestureDetector(
-            onTap: () => context.pop(),
-            behavior: HitTestBehavior.opaque,
-            child: Container(
-              width: 42,
-              height: 42,
-              margin: const EdgeInsets.only(left: 20),
-              decoration: BoxDecoration(
-                color: AppColors.surface,
-                shape: BoxShape.circle,
-                border: Border.all(color: AppColors.hairline),
-              ),
-              child: const Icon(Icons.arrow_back_rounded,
-                  size: 20, color: AppColors.textPrimary),
-            ),
-          ),
-        ),
+        leadingWidth: CircleBackButton.leadingWidth,
+        leading: CircleBackButton.appBarLeading(fallbackRoute: '/checkout'),
         title: const Text(
           'Apply coupon',
           style: TextStyle(
@@ -119,7 +104,12 @@ class _CouponSelectionPageState extends State<CouponSelectionPage> {
       body: Column(
         children: [
           Padding(
-            padding: const EdgeInsets.fromLTRB(20, 12, 20, 8),
+            padding: const EdgeInsets.fromLTRB(
+              AppDimens.screenPadding,
+              12,
+              AppDimens.screenPadding,
+              8,
+            ),
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -188,7 +178,12 @@ class _CouponSelectionPageState extends State<CouponSelectionPage> {
     }
 
     return ListView(
-      padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+      padding: const EdgeInsets.fromLTRB(
+        AppDimens.screenPadding,
+        8,
+        AppDimens.screenPadding,
+        24,
+      ),
       children: [
         if (mine.isNotEmpty) ...[
           const _SectionLabel('From your spins'),

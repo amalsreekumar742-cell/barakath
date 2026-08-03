@@ -7,6 +7,7 @@ import '../../../../core/constants/app_dimens.dart';
 import '../../../../core/constants/domain_enums.dart';
 import '../../../../core/widgets/app_toast.dart';
 import '../../../../core/widgets/cached_image.dart';
+import '../../../../core/widgets/circle_back_button.dart';
 import '../../../../core/widgets/custom_button.dart';
 import '../../../../core/widgets/error_state.dart';
 import '../../../../core/widgets/key_value_row.dart';
@@ -169,26 +170,8 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
       backgroundColor: AppColors.background,
       appBar: AppBar(
         titleSpacing: 12,
-        leadingWidth: 74,
-        leading: Center(
-          child: GestureDetector(
-            onTap: () =>
-                context.canPop() ? context.pop() : context.go('/orders'),
-            behavior: HitTestBehavior.opaque,
-            child: Container(
-              width: 42,
-              height: 42,
-              margin: const EdgeInsets.only(left: AppDimens.screenPadding),
-              decoration: BoxDecoration(
-                color: AppColors.surface,
-                shape: BoxShape.circle,
-                border: Border.all(color: AppColors.hairline),
-              ),
-              child: const Icon(Icons.arrow_back_rounded,
-                  size: 20, color: AppColors.textPrimary),
-            ),
-          ),
-        ),
+        leadingWidth: CircleBackButton.leadingWidth,
+        leading: CircleBackButton.appBarLeading(fallbackRoute: '/orders'),
         title: const Text(
           'Order details',
           style: TextStyle(
@@ -484,10 +467,10 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
     final replaceable = provider.replaceableItems;
 
     return [
-      // "Invoice" and "Replacement" only when Delivered (spec §2.17), side by
-      // side. Replacement used to live per-line inside each item tile; it is one
-      // footer action now, so the two post-delivery things a customer can do
-      // sit together at the bottom instead of one being buried in the list.
+      // "Invoice" and "Return" only when Delivered (spec §2.17), side by side.
+      // Return used to live per-line inside each item tile; it is one footer
+      // action now, so the two post-delivery things a customer can do sit
+      // together at the bottom instead of one being buried in the list.
       if (status == OrderStatus.delivered)
         Row(
           children: [
@@ -502,7 +485,7 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
             const SizedBox(width: AppDimens.space12),
             Expanded(
               child: CustomButton(
-                label: 'Replacement',
+                label: 'Return',
                 icon: Icons.assignment_return_outlined,
                 variant: ButtonVariant.outline,
                 // Disabled rather than hidden: a customer looking for "where do

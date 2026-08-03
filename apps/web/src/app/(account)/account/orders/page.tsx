@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { PackageSearch } from 'lucide-react';
 import { Breadcrumb } from '@/components/Breadcrumb';
 import { Button } from '@/components/Button';
@@ -10,7 +10,7 @@ import { useAppDispatch, useAppSelector } from '@/stores/store';
 import { toastError, toastSuccess } from '@/lib/toast';
 import { AccountPageHeader } from '@/features/account/components/AccountPageHeader';
 import { usePaginatedCollection } from '@/features/account/hooks/usePaginatedCollection';
-import { ordersQuery, mapOrder } from '@/features/orders/api/orders';
+import { ordersQuery, mapOrder, fetchReturnStatusesByOrder } from '@/features/orders/api/orders';
 import { OrderCard } from '@/features/orders/components/OrderCard';
 import { reorderItems } from '@/features/orders/utils/reorder';
 import type { OrderProps } from '@barakath/shared';
@@ -32,6 +32,31 @@ export default function MyOrdersPage() {
   const [reorderingId, setReorderingId] = useState<string | null>(null);
 
   const query = useMemo(() => (uid ? ordersQuery(uid) : null), [uid]);
+
+  /**
+   * `orderId` → return status, for the Return tag. Read once for the whole page, alongside the
+   * orders rather than before them: the tag is decoration, so a failure here leaves the cards
+   * untagged instead of blanking a working list.
+   */
+  const [returnStatuses, setReturnStatuses] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    if (!uid) {
+      setReturnStatuses({});
+      return;
+    }
+    let active = true;
+    fetchReturnStatusesByOrder(uid)
+      .then((statuses) => {
+        if (active) setReturnStatuses(statuses);
+      })
+      .catch(() => {
+        // Deliberately silent — see above.
+      });
+    return () => {
+      active = false;
+    };
+  }, [uid]);
   const { items, isLoading, isLoadingMore, hasMore, loadMore, error } = usePaginatedCollection({
     query,
     mapper: mapOrder,
@@ -89,6 +114,7 @@ export default function MyOrdersPage() {
               <OrderCard
                 key={order.id}
                 order={order}
+                returnStatus={returnStatuses[order.id]}
                 reordering={reorderingId === order.id}
                 onReorder={handleReorder}
               />

@@ -27,6 +27,8 @@ class ReplacementModel extends Replacement {
     required super.status,
     required super.adminNote,
     required super.replacementOrderId,
+    super.refundAmount,
+    super.refundedToWallet,
     required super.processedBy,
     required super.processedByName,
     required super.processedAt,
@@ -58,6 +60,9 @@ class ReplacementModel extends Replacement {
       status: ModelParse.toStr(data['status'], 'Pending'),
       adminNote: ModelParse.toStr(data['adminNote']),
       replacementOrderId: ModelParse.toStr(data['replacementOrderId']),
+      // Server-written on approval; absent on pending, rejected and older docs.
+      refundAmount: ModelParse.toDouble(data['refundAmount']),
+      refundedToWallet: ModelParse.toBool(data['refundedToWallet'], false),
       processedBy: ModelParse.toStr(data['processedBy']),
       processedByName: ModelParse.toStr(data['processedByName']),
       processedAt: ModelParse.dateTime(data['processedAt']),
@@ -72,6 +77,11 @@ class ReplacementModel extends Replacement {
   /// requires `status == 'Pending'`, `adminNote == ''` and
   /// `replacementOrderId == ''` on create, so a request can never arrive
   /// pre-approved. Everything after that is admin-owned.
+  ///
+  /// `refundAmount`/`refundedToWallet` are deliberately NOT written here: they
+  /// are server-owned (the `approveReplacement` Cloud Function stamps them) and
+  /// `firestore.rules` has no create-time constraint on them, so adding them
+  /// would only risk breaking already-installed app builds.
   ///
   /// `keywords` feeds the admin's `array-contains` replacement search
   /// (firestore.indexes.json) — omitting it makes the request unsearchable.

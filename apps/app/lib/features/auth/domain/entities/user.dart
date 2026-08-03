@@ -26,7 +26,7 @@ class User extends Equatable {
     this.pendingCommission = 0,
     this.confirmedCommission = 0,
     this.totalReferrals = 0,
-    this.affiliateEnabled = true,
+    this.affiliateEnabled = false,
   });
 
   final String id;
@@ -60,9 +60,9 @@ class User extends Equatable {
 
   final int totalReferrals;
 
-  /// Admin toggle for affiliate WALLET access. Defaults true so an allocated
-  /// affiliate whose document predates the flag is not locked out of their own
-  /// money by a missing field.
+  /// Admin toggle for affiliate WALLET access. Affiliate access is OPT-IN, so
+  /// this defaults to false: a missing field means an admin never granted it.
+  /// Only the `setAffiliateEnabled` callable writes it.
   final bool affiliateEnabled;
 
   /// A signed-in user who has filled in at least their display name.

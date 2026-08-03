@@ -2,11 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import 'package:share_plus/share_plus.dart';
+import 'package:youtube_player_flutter/youtube_player_flutter.dart';
 
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_details.dart';
+import '../../../../core/constants/app_dimens.dart';
 import '../../../../core/di/injection_container.dart';
 import '../../../../core/widgets/app_toast.dart';
+import '../../../../core/widgets/circle_back_button.dart';
 import '../../../../core/widgets/error_state.dart';
 import '../../../../core/widgets/image_viewer.dart';
 import '../../../../core/widgets/login_prompt_sheet.dart';
@@ -17,6 +20,7 @@ import '../../../wishlist/presentation/providers/wishlist_provider.dart';
 import '../../../cart/domain/entities/cart_item.dart';
 import '../../../cart/presentation/providers/cart_provider.dart';
 import '../../domain/entities/variant.dart';
+import '../../domain/repositories/product_detail_repository.dart';
 import '../providers/product_detail_provider.dart';
 import '../widgets/product_detail_bottom_bar.dart';
 import '../widgets/product_detail_bundle_section.dart';
@@ -26,7 +30,6 @@ import '../widgets/product_detail_reviews_section.dart';
 import '../widgets/product_detail_shimmer.dart';
 import '../widgets/product_detail_specifications.dart';
 import '../widgets/product_detail_variant_selector.dart';
-import '../widgets/product_detail_youtube_section.dart';
 
 /// Product Detail screen (spec §2.10).
 ///
@@ -59,6 +62,33 @@ class _ProductDetailView extends StatefulWidget {
 }
 
 class _ProductDetailViewState extends State<_ProductDetailView> {
+  /// The gallery's video player, owned HERE rather than inside the gallery.
+  ///
+  /// WHY this high up: fullscreen is [YoutubePlayerBuilder]'s job, and it works
+  /// by rendering the player ALONE in landscape and the page content only in
+  /// portrait. It therefore has to sit above everything the fullscreen video
+  /// should replace — the whole Scaffold. Created lazily on the first tap of
+  /// the play button, so a product page that is never scrolled to the video
+  /// never pays for a platform WebView.
+  YoutubePlayerController? _videoController;
+
+  void _playVideo(String videoId) {
+    if (_videoController != null) return;
+    setState(() {
+      _videoController = YoutubePlayerController(
+        initialVideoId: videoId,
+        // autoPlay: this only ever runs from an explicit tap on the play button.
+        flags: const YoutubePlayerFlags(autoPlay: true, mute: false),
+      );
+    });
+  }
+
+  @override
+  void dispose() {
+    _videoController?.dispose();
+    super.dispose();
+  }
+
   /// Guests have no wishlist (spec §2.4) — prompt to sign in rather than firing
   /// a write the rules will reject.
   Future<void> _toggleWishlist() async {
@@ -75,6 +105,14 @@ class _ProductDetailViewState extends State<_ProductDetailView> {
     Share.share(
       '$productName — ${AppDetails.appName}\n${AppDetails.playStoreLink}',
     );
+  }
+
+  /// Reports a colour/size tap that landed on a sold-out variant. Null means the
+  /// product carries no variant for that value at all, which the selector cannot
+  /// produce — it only ever offers values read off the variants themselves.
+  void _warnIfSoldOut(Variant? variant) {
+    if (variant == null || variant.stock > 0) return;
+    AppToast.error(context, 'This option is out of stock');
   }
 
   /// Adds the SELECTED variant. Guests are prompted to log in first; an
@@ -124,20 +162,92 @@ class _ProductDetailViewState extends State<_ProductDetailView> {
     return true;
   }
 
+  /// Adds every ticked row of "Frequently bought together" in one go.
+  ///
+  /// Rows that cannot be added are skipped rather than aborting the batch — a
+  /// single out-of-stock partner must not stop the other three from landing in
+  /// the cart — and the toast reports what actually happened.
+  void _addBundleToCart(List<BundleItem> selected) {
+    if (!context.read<AuthProvider>().isAuthenticated) {
+      showLoginPromptSheet(context);
+      return;
+    }
+
+    final cart = context.read<CartProvider>();
+    var added = 0;
+    var skipped = 0;
+
+    for (final item in selected) {
+      final variant = item.variant;
+      if (variant == null || !variant.inStock) {
+        skipped++;
+        continue;
+      }
+      if (cart.containsVariant(item.product.id, variant.id)) continue;
+
+      cart.addToCart(
+        CartItem(
+          productId: item.product.id,
+          variantId: variant.id,
+          productName: item.product.name,
+          variantName: variant.name,
+          variantColor: variant.color,
+          productImage: item.product.thumbnail,
+          quantity: 1,
+        ),
+      );
+      added++;
+    }
+
+    if (added == 0) {
+      AppToast.info(
+        context,
+        skipped > 0
+            ? 'Those items are out of stock'
+            : 'Already in cart',
+      );
+      return;
+    }
+    AppToast.success(
+      context,
+      skipped == 0
+          ? 'Added $added ${added == 1 ? 'item' : 'items'} to cart'
+          : 'Added $added, skipped $skipped out of stock',
+    );
+  }
+
 
   @override
   Widget build(BuildContext context) {
     final detail = context.watch<ProductDetailProvider>();
+    final videoController = _videoController;
 
+    // Before the play button is tapped there is no player, so the page is built
+    // straight. Once there is one, YoutubePlayerBuilder wraps EVERYTHING: in
+    // landscape it renders the player alone, which is what makes fullscreen
+    // show only the video instead of the whole product page behind it.
+    if (videoController == null) return _buildScaffold(detail, null);
+
+    return YoutubePlayerBuilder(
+      player: YoutubePlayer(
+        controller: videoController,
+        showVideoProgressIndicator: true,
+        progressIndicatorColor: AppColors.cta,
+      ),
+      builder: (context, player) => _buildScaffold(detail, player),
+    );
+  }
+
+  Widget _buildScaffold(ProductDetailProvider detail, Widget? videoPlayer) {
     return Scaffold(
       backgroundColor: AppColors.background,
       body: Stack(
         children: [
-          Positioned.fill(child: _buildBody(detail)),
+          Positioned.fill(child: _buildBody(detail, videoPlayer)),
           Positioned(
             top: MediaQuery.paddingOf(context).top + 8,
             left: 12,
-            child: _CircleBack(onTap: () => Navigator.of(context).maybePop()),
+            child: const CircleBackButton(style: CircleBackStyle.onImage),
           ),
         ],
       ),
@@ -158,7 +268,7 @@ class _ProductDetailViewState extends State<_ProductDetailView> {
     );
   }
 
-  Widget _buildBody(ProductDetailProvider detail) {
+  Widget _buildBody(ProductDetailProvider detail, Widget? videoPlayer) {
     switch (detail.status) {
       case ProductDetailStatus.initial:
       case ProductDetailStatus.loading:
@@ -169,11 +279,11 @@ class _ProductDetailViewState extends State<_ProductDetailView> {
           onRetry: () => detail.fetchProductDetail(widget.productId),
         );
       case ProductDetailStatus.loaded:
-        return _buildContent(detail);
+        return _buildContent(detail, videoPlayer);
     }
   }
 
-  Widget _buildContent(ProductDetailProvider detail) {
+  Widget _buildContent(ProductDetailProvider detail, Widget? videoPlayer) {
     final product = detail.product!;
     final images = detail.galleryImages;
 
@@ -183,6 +293,11 @@ class _ProductDetailViewState extends State<_ProductDetailView> {
         children: [
           ProductDetailGallery(
             images: images,
+            // Rides as the last page of the carousel, after every image.
+            videoUrl: product.youtubeVideoLink,
+            videoPlayer: videoPlayer,
+            videoController: _videoController,
+            onPlayVideo: _playVideo,
             selectedIndex: detail.selectedImageIndex,
             onIndexChanged: detail.selectImage,
             onImageTap: (index) => showImageViewer(
@@ -202,19 +317,29 @@ class _ProductDetailViewState extends State<_ProductDetailView> {
           const SizedBox(height: 20),
           if (detail.variants.isNotEmpty) ...[
             ProductDetailVariantSelector(
-              variants: detail.variants,
-              selectedVariantId: detail.selectedVariant?.id,
-              onSelect: detail.selectVariant,
-              onOutOfStockTap: (_) => AppToast.error(context, 'This variant is out of stock'),
+              colorOptions: detail.colorOptions,
+              sizeOptions: detail.sizeOptions,
+              selectedColor: detail.selectedColor,
+              selectedSize: detail.selectedSize,
+              // A tap always lands on a real variant, but that variant may be
+              // sold out — say so rather than leaving the shopper to notice the
+              // disabled Add-to-bag button on their own.
+              onSelectColor: (color) => _warnIfSoldOut(detail.selectColor(color)),
+              onSelectSize: (size) => _warnIfSoldOut(detail.selectSize(size)),
             ),
             const SizedBox(height: 20),
           ],
           if (product.isCombo && detail.bundleItems.isNotEmpty) ...[
             ProductDetailBundleSection(
+              currentItem: BundleItem(
+                product: product,
+                variant: detail.selectedVariant,
+              ),
               items: detail.bundleItems,
               comboDeliveryCharge: product.comboDeliveryCharge,
               // Push (not go) so the shopper can walk back up the bundle chain.
               onItemTap: (id) => context.push('/product/$id'),
+              onAddSelected: _addBundleToCart,
             ),
             const SizedBox(height: 20),
           ],
@@ -223,10 +348,6 @@ class _ProductDetailViewState extends State<_ProductDetailView> {
             const SizedBox(height: 20),
           ProductDetailSpecifications(specifications: product.specifications),
           if (product.specifications.isNotEmpty) const SizedBox(height: 20),
-          if (product.youtubeVideoLink.trim().isNotEmpty) ...[
-            ProductDetailYoutubeSection(videoUrl: product.youtubeVideoLink),
-            const SizedBox(height: 20),
-          ],
           ProductDetailReviewsSection(
             reviews: detail.reviews,
             averageRating: product.averageRating,
@@ -239,7 +360,7 @@ class _ProductDetailViewState extends State<_ProductDetailView> {
           if (detail.relatedProducts.isNotEmpty) ...[
             const SizedBox(height: 24),
             const Padding(
-              padding: EdgeInsets.symmetric(horizontal: 20),
+              padding: EdgeInsets.symmetric(horizontal: AppDimens.screenPadding),
               child: Text(
                 'You may also like',
                 style: TextStyle(
@@ -254,7 +375,7 @@ class _ProductDetailViewState extends State<_ProductDetailView> {
               height: 256,
               child: ListView.separated(
                 scrollDirection: Axis.horizontal,
-                padding: const EdgeInsets.symmetric(horizontal: 20),
+                padding: const EdgeInsets.symmetric(horizontal: AppDimens.screenPadding),
                 itemCount: detail.relatedProducts.length,
                 separatorBuilder: (_, __) => const SizedBox(width: 12),
                 itemBuilder: (_, index) {
@@ -283,7 +404,7 @@ class _ProductDetailViewState extends State<_ProductDetailView> {
     final product = detail.product!;
 
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
+      padding: const EdgeInsets.symmetric(horizontal: AppDimens.screenPadding),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -432,7 +553,12 @@ class _AffiliateBanner extends StatelessWidget {
     if (selected.commission <= 0) return const SizedBox.shrink();
 
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 14, 16, 0),
+      padding: const EdgeInsets.fromLTRB(
+        AppDimens.screenPadding,
+        14,
+        AppDimens.screenPadding,
+        0,
+      ),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
         decoration: BoxDecoration(
@@ -492,7 +618,7 @@ class _ReplacementLine extends StatelessWidget {
     final color = available ? AppColors.brandGreen : AppColors.muted;
 
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
+      padding: const EdgeInsets.symmetric(horizontal: AppDimens.screenPadding),
       child: Row(
         children: [
           Icon(
@@ -506,8 +632,8 @@ class _ReplacementLine extends StatelessWidget {
           Expanded(
             child: Text(
               available
-                  ? 'Replacement available on this product'
-                  : 'Replacement not available on this product',
+                  ? 'Returns available on this product'
+                  : 'Returns not available on this product',
               style: TextStyle(
                 color: color,
                 fontSize: 13,
@@ -516,29 +642,6 @@ class _ReplacementLine extends StatelessWidget {
             ),
           ),
         ],
-      ),
-    );
-  }
-}
-
-class _CircleBack extends StatelessWidget {
-  const _CircleBack({required this.onTap});
-
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: AppColors.surface.withValues(alpha: 0.92),
-      shape: const CircleBorder(),
-      child: InkWell(
-        customBorder: const CircleBorder(),
-        onTap: onTap,
-        child: const SizedBox(
-          height: 40,
-          width: 40,
-          child: Icon(Icons.arrow_back_rounded, size: 20, color: AppColors.ink),
-        ),
       ),
     );
   }

@@ -167,6 +167,28 @@ function OrderSuccessContent() {
           await new Promise((r) => setTimeout(r, NOT_FOUND_RETRY_DELAYS_MS[attempt]));
         }
       }
+      if (cancelled) return;
+
+      // No order document — but that no longer means "no such order". An unpaid checkout lives in
+      // `orderDrafts` and only becomes an `orders` doc when payment is confirmed, so arriving here
+      // before the webhook has promoted it is normal, not an error. If the customer's own draft is
+      // still in flight, show "confirming" and wait for the order to appear rather than bouncing
+      // them off a page they have every right to be on.
+      try {
+        const draftSnap = await getDoc(
+          doc(db, FirestoreCollections.orderDrafts, orderId as string),
+        );
+        const draft = draftSnap.exists()
+          ? ({ ...draftSnap.data(), id: draftSnap.id } as OrderProps)
+          : null;
+        if (!cancelled && draft && draft.userId === uid && draft.status !== 'Cancelled') {
+          setState('confirming');
+          subscribeToSettlement(orderId as string);
+          return;
+        }
+      } catch {
+        // Fall through to the redirect — no worse than the previous behaviour.
+      }
       if (!cancelled) redirectAway();
     }
 

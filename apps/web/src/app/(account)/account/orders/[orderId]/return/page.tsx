@@ -181,7 +181,7 @@ export default function RequestReplacementPage() {
         </div>
 
         <div className="rounded-xl bg-primary-subtle p-4 text-sm font-semibold text-primary">
-          Approved requests get a free replacement shipped within 24 hours
+          Approved returns are refunded to your Barakath wallet within 24 hours
         </div>
 
         <Button variant="primary" fullWidth disabled={!canSubmit} onClick={() => setShowConfirm(true)}>

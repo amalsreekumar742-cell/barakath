@@ -47,6 +47,7 @@ export const createCampaign = createAsyncThunk<
       maxSpinsPerUser: input.maxSpinsPerUser,
       spinCooldownHours: input.spinCooldownHours,
       couponValidityDays: input.couponValidityDays,
+      couponValidityHours: input.couponValidityHours,
       isActive: input.isActive,
       totalSpins: 0,
       totalWins: 0,

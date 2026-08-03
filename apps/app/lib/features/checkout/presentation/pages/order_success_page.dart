@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
 import '../../../../core/constants/app_colors.dart';
+import '../../../../core/constants/app_dimens.dart';
 import '../../../cart/presentation/providers/cart_provider.dart';
 import '../../../orders/presentation/widgets/order_format.dart';
 
@@ -55,7 +56,7 @@ class _OrderSuccessPageState extends State<OrderSuccessPage> {
           ),
           child: SafeArea(
             child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 24),
+              padding: const EdgeInsets.symmetric(horizontal: AppDimens.screenPadding),
               child: Column(
                 children: [
                   const Spacer(flex: 3),

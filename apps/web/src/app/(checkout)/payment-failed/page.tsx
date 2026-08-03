@@ -9,6 +9,7 @@ import { FirestoreCollections, type OrderProps } from '@barakath/shared';
 import { db } from '@/lib/firebaseConfig';
 import { Button } from '@/components/Button';
 import { SkeletonText } from '@/components/Skeleton';
+import { OrderExpiryCountdown } from '@/components/OrderExpiryCountdown';
 
 /**
  * /payment-failed?orderId=<id> — the terminal "it didn't work" screen (spec 3.21).
@@ -52,6 +53,9 @@ function PaymentFailedContent() {
 
   const [state, setState] = useState<ViewState>(orderId ? 'checking' : 'ready');
   const [secondaryLine, setSecondaryLine] = useState<string | null>(null);
+  // Epoch millis of the order's createdAt, when it is still alive and unpaid — drives the expiry
+  // countdown. Null when the order is already Cancelled, was never found, or no orderId was given.
+  const [expiryFromMs, setExpiryFromMs] = useState<number | null>(null);
 
   useEffect(() => {
     if (!orderId) return;
@@ -62,7 +66,13 @@ function PaymentFailedContent() {
       for (let attempt = 0; attempt <= LOOKUP_RETRY_DELAYS_MS.length; attempt += 1) {
         if (cancelled) return;
         try {
-          const snap = await getDoc(doc(db, FirestoreCollections.orders, orderId as string));
+          // An unpaid checkout is an `orderDrafts` document — `orders/{id}` only comes into existence
+          // once payment succeeds. Check `orders` FIRST anyway: if the payment did settle while the
+          // browser was navigating here, the redirect below must win over showing a failure page.
+          let snap = await getDoc(doc(db, FirestoreCollections.orders, orderId as string));
+          if (!snap.exists()) {
+            snap = await getDoc(doc(db, FirestoreCollections.orderDrafts, orderId as string));
+          }
           if (snap.exists()) {
             const data = { ...snap.data(), id: snap.id } as OrderProps;
             if (cancelled) return;
@@ -72,6 +82,12 @@ function PaymentFailedContent() {
               return;
             }
             setSecondaryLine(pickSecondaryLine(data));
+            // Only count down an order that can still be paid. A Cancelled one has already had its
+            // stock released, so a ticking clock would be nonsense.
+            if (data.status !== 'Cancelled') {
+              const createdMs = data.createdAt?.toMillis?.();
+              if (typeof createdMs === 'number') setExpiryFromMs(createdMs);
+            }
             setState('ready');
             return;
           }
@@ -108,6 +124,12 @@ function PaymentFailedContent() {
         Your payment could not be processed. No amount has been deducted.
       </p>
       {secondaryLine && <p className="mt-1 max-w-sm text-sm text-faint">{secondaryLine}</p>}
+
+      {/* The original order is still holding its items in stock until it expires — say so, with the
+          real deadline, rather than letting it disappear silently. */}
+      {expiryFromMs !== null && (
+        <OrderExpiryCountdown createdAtMs={expiryFromMs} className="mt-4 max-w-sm text-left" />
+      )}
 
       <div className="mt-7 flex flex-wrap items-center justify-center gap-3">
         <Button variant="primary" size="lg" onClick={() => router.push('/cart')}>

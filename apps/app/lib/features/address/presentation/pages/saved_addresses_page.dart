@@ -3,6 +3,8 @@ import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
 import '../../../../core/constants/app_colors.dart';
+import '../../../../core/constants/app_dimens.dart';
+import '../../../../core/widgets/circle_back_button.dart';
 import '../../../../core/widgets/empty_state.dart';
 import '../../../../core/widgets/error_state.dart';
 import '../../../../core/widgets/shimmer_loading.dart';
@@ -72,25 +74,8 @@ class _SavedAddressesPageState extends State<SavedAddressesPage> {
       backgroundColor: AppColors.background,
       appBar: AppBar(
         titleSpacing: 12,
-        leadingWidth: 74,
-        leading: Center(
-          child: GestureDetector(
-            onTap: () => context.pop(),
-            behavior: HitTestBehavior.opaque,
-            child: Container(
-              width: 42,
-              height: 42,
-              margin: const EdgeInsets.only(left: 20),
-              decoration: BoxDecoration(
-                color: AppColors.surface,
-                shape: BoxShape.circle,
-                border: Border.all(color: AppColors.hairline),
-              ),
-              child: const Icon(Icons.arrow_back_rounded,
-                  size: 20, color: AppColors.textPrimary),
-            ),
-          ),
-        ),
+        leadingWidth: CircleBackButton.leadingWidth,
+        leading: CircleBackButton.appBarLeading(fallbackRoute: '/profile'),
         title: Text(
           widget.selectMode ? 'Delivery address' : 'Saved addresses',
           style: const TextStyle(
@@ -107,7 +92,12 @@ class _SavedAddressesPageState extends State<SavedAddressesPage> {
           ? null
           : SafeArea(
               child: Container(
-                padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+                padding: const EdgeInsets.fromLTRB(
+                  AppDimens.screenPadding,
+                  12,
+                  AppDimens.screenPadding,
+                  12,
+                ),
                 decoration: const BoxDecoration(
                   color: AppColors.surface,
                   border: Border(top: BorderSide(color: AppColors.hairline)),
@@ -165,7 +155,12 @@ class _SavedAddressesPageState extends State<SavedAddressesPage> {
     }
 
     return ListView.separated(
-      padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
+      padding: const EdgeInsets.fromLTRB(
+        AppDimens.screenPadding,
+        8,
+        AppDimens.screenPadding,
+        24,
+      ),
       itemCount: provider.addresses.length + 1,
       separatorBuilder: (_, __) => const SizedBox(height: 12),
       itemBuilder: (itemContext, i) {

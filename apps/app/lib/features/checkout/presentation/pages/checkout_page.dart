@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
@@ -5,8 +7,10 @@ import 'package:razorpay_flutter/razorpay_flutter.dart';
 
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_details.dart';
+import '../../../../core/constants/app_dimens.dart';
 import '../../../../core/widgets/app_toast.dart';
 import '../../../../core/widgets/cached_image.dart';
+import '../../../../core/widgets/circle_back_button.dart';
 import '../../../address/domain/entities/address.dart';
 import '../../../address/presentation/providers/address_provider.dart';
 import '../../../auth/presentation/providers/auth_provider.dart';
@@ -160,7 +164,21 @@ class _CheckoutPageState extends State<CheckoutPage> {
 
   void _onPaymentError(PaymentFailureResponse response) {
     if (!mounted) return;
-    context.go('/payment-failed?orderId=${_pending?.orderId ?? ''}');
+    final orderId = _pending?.orderId ?? '';
+
+    // The customer backed out of the sheet without ever attempting payment, so
+    // release the order now rather than letting it sit for the server's 10-minute
+    // sweep holding stock nobody else can buy. Razorpay fires NO webhook for an
+    // attempt that never happened, so this is the only prompt signal there is.
+    //
+    // ONLY for PAYMENT_CANCELLED. A real declined attempt (any other code) means
+    // Razorpay WILL send payment.failed, which performs the very same reversal —
+    // cancelling here too would restore the stock twice.
+    if (response.code == Razorpay.PAYMENT_CANCELLED && orderId.isNotEmpty) {
+      unawaited(context.read<CheckoutProvider>().releaseAbandonedOrder(orderId));
+    }
+
+    context.go('/payment-failed?orderId=$orderId');
   }
 
   void _onExternalWallet(ExternalWalletResponse response) {
@@ -193,25 +211,8 @@ class _CheckoutPageState extends State<CheckoutPage> {
       backgroundColor: AppColors.background,
       appBar: AppBar(
         titleSpacing: 12,
-        leadingWidth: 74,
-        leading: Center(
-          child: GestureDetector(
-            onTap: () => context.pop(),
-            behavior: HitTestBehavior.opaque,
-            child: Container(
-              width: 42,
-              height: 42,
-              margin: const EdgeInsets.only(left: 20),
-              decoration: BoxDecoration(
-                color: AppColors.surface,
-                shape: BoxShape.circle,
-                border: Border.all(color: AppColors.hairline),
-              ),
-              child: const Icon(Icons.arrow_back_rounded,
-                  size: 20, color: AppColors.textPrimary),
-            ),
-          ),
-        ),
+        leadingWidth: CircleBackButton.leadingWidth,
+        leading: CircleBackButton.appBarLeading(fallbackRoute: '/cart'),
         title: const Text(
           'Checkout',
           style: TextStyle(
@@ -225,7 +226,12 @@ class _CheckoutPageState extends State<CheckoutPage> {
         elevation: 0,
       ),
       body: ListView(
-        padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
+        padding: const EdgeInsets.fromLTRB(
+          AppDimens.screenPadding,
+          12,
+          AppDimens.screenPadding,
+          24,
+        ),
         children: [
           _AddressSection(
             address: checkout.selectedAddress,
@@ -295,7 +301,12 @@ class _CheckoutPageState extends State<CheckoutPage> {
       ),
       bottomNavigationBar: SafeArea(
         child: Container(
-          padding: const EdgeInsets.fromLTRB(20, 12, 20, 12),
+          padding: const EdgeInsets.fromLTRB(
+            AppDimens.screenPadding,
+            12,
+            AppDimens.screenPadding,
+            12,
+          ),
           decoration: const BoxDecoration(
             color: AppColors.surface,
             border: Border(top: BorderSide(color: AppColors.hairline)),

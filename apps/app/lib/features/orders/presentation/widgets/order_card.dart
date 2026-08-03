@@ -29,12 +29,17 @@ class OrderCard extends StatelessWidget {
     required this.onTrack,
     required this.onReorder,
     this.isReordering = false,
+    this.returnStatus,
   });
 
   final Order order;
   final VoidCallback onTap;
   final VoidCallback onTrack;
   final VoidCallback onReorder;
+
+  /// The status of the return raised against this order ('Pending' |
+  /// 'Approved' | 'Rejected'), or null when none was. Drives the Return tag.
+  final String? returnStatus;
 
   /// A reorder is in flight for THIS card — the link shows a spinner.
   final bool isReordering;
@@ -80,6 +85,13 @@ class OrderCard extends StatelessWidget {
                   StatusBadge.forStatus(status.label, dense: true),
                 ],
               ),
+              // On its own line, not beside the status badge: two dense pills
+              // plus the reference do not fit a narrow screen, and the
+              // reference is the Expanded child that would be squeezed away.
+              if (returnStatus != null) ...[
+                const SizedBox(height: AppDimens.space8),
+                _ReturnTag(status: returnStatus!),
+              ],
               const SizedBox(height: AppDimens.space12),
               _thumbnails(),
               const SizedBox(height: AppDimens.space12),
@@ -167,11 +179,11 @@ class OrderCard extends StatelessWidget {
   }
 
   /// Active → Track, Delivered → Reorder, Cancelled → a static "Refunded to
-  /// wallet" note (spec §2.17). All three are text, per the design.
+  /// bank" note (spec §2.17). All three are text, per the design.
   Widget _action(OrderStatus status) {
     if (status == OrderStatus.cancelled) {
       return const Text(
-        'Refunded to wallet',
+        'Refunded to bank',
         style: TextStyle(
           fontSize: 12,
           fontWeight: FontWeight.w700,
@@ -204,6 +216,62 @@ class OrderCard extends StatelessWidget {
             color: AppColors.brandGreen,
           ),
         ),
+      ),
+    );
+  }
+}
+
+/// The "Return" tag: an icon plus the state of the return raised against this
+/// order.
+///
+/// A plain [StatusBadge] would say only "Pending", which beside an order status
+/// badge reads as the ORDER being pending. The word "Return" has to be in the
+/// label, so this borrows the badge's tone mapping rather than its widget.
+class _ReturnTag extends StatelessWidget {
+  const _ReturnTag({required this.status});
+
+  final String status;
+
+  String get _label => switch (status.trim().toLowerCase()) {
+        'approved' => 'Return approved',
+        'rejected' => 'Return rejected',
+        // Anything else — including a status a newer admin build introduces —
+        // reads as still open, which is the safe thing to tell a customer.
+        _ => 'Return requested',
+      };
+
+  @override
+  Widget build(BuildContext context) {
+    final tone = StatusBadge.toneFor(status);
+    final color = switch (tone) {
+      StatusTone.positive => AppColors.semanticSuccess,
+      StatusTone.negative => AppColors.statusError,
+      _ => AppColors.goldStrong,
+    };
+
+    return Container(
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppDimens.space8,
+        vertical: 3,
+      ),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.10),
+        borderRadius: BorderRadius.circular(AppDimens.radiusSm),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.assignment_return_outlined, size: 13, color: color),
+          const SizedBox(width: AppDimens.space4),
+          Text(
+            _label,
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w800,
+              color: color,
+            ),
+          ),
+        ],
       ),
     );
   }

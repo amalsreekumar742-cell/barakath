@@ -15,6 +15,14 @@ class OrderItem extends Equatable {
   final int quantity;
   final double subtotal;
 
+  /// GST rate applied to this line at checkout (18 = 18%), and the rupee tax it produced.
+  ///
+  /// Both are NULL on orders placed before per-line GST existed — those carry only the order-level
+  /// `gstAmount`. Null means "no rate-wise breakup available for this order", never 0%, so the
+  /// invoice falls back to a single GST line rather than inventing a split.
+  final double? gstPercentage;
+  final double? gstAmount;
+
   const OrderItem({
     required this.productId,
     required this.productName,
@@ -26,6 +34,8 @@ class OrderItem extends Equatable {
     required this.offerPrice,
     required this.quantity,
     required this.subtotal,
+    this.gstPercentage,
+    this.gstAmount,
   });
 
   @override
@@ -40,6 +50,8 @@ class OrderItem extends Equatable {
         offerPrice,
         quantity,
         subtotal,
+        gstPercentage,
+        gstAmount,
       ];
 }
 

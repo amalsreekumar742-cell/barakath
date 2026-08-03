@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../../core/constants/app_colors.dart';
+import '../../../../core/constants/app_dimens.dart';
 import '../../domain/repositories/product_repository.dart';
 
 /// Sort picker for the product listing (spec §2.9).
@@ -33,7 +34,12 @@ class SortBottomSheet extends StatelessWidget {
         children: [
           const _Grabber(),
           const Padding(
-            padding: EdgeInsets.fromLTRB(20, 4, 20, 8),
+            padding: EdgeInsets.fromLTRB(
+              AppDimens.screenPadding,
+              4,
+              AppDimens.screenPadding,
+              8,
+            ),
             child: Text(
               'Sort By',
               style: TextStyle(

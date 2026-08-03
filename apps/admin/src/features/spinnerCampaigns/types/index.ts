@@ -47,6 +47,8 @@ export interface CampaignInput {
   maxSpinsPerUser: number;
   spinCooldownHours: number;
   couponValidityDays: number;
+  /** Reward validity in hours — authoritative when > 0 (see SpinnerCampaignProps.couponValidityHours). */
+  couponValidityHours: number;
   isActive: boolean;
   startDate: Date;
   endDate: Date;

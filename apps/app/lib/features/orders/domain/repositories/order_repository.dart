@@ -51,6 +51,11 @@ abstract class OrderRepository {
     required String variantId,
   });
 
+  /// `orderId` → return status, for every return the customer has raised.
+  /// Drives the "Return" tag on the My Orders cards, which the order document
+  /// itself carries no field for.
+  Future<Either<Failure, Map<String, String>>> getReturnStatusesByOrder();
+
   /// Cancel a still-Pending order via the `cancelOrder` callable. The client
   /// never writes `status` itself — money moves server-side.
   Future<Either<Failure, Unit>> cancelOrder({

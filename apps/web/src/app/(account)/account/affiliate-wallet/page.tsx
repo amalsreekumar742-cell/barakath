@@ -128,7 +128,8 @@ function WalletBody({ uid }: { uid: string }) {
 
   if (!user) return null;
 
-  const walletEnabled = user.affiliateEnabled !== false;
+  // Opt-in — see AffiliateGuard. Only an explicit `true` grants wallet access.
+  const walletEnabled = user.affiliateEnabled === true;
   const lifetimeEarnings = user.pendingCommission + user.confirmedCommission;
 
   return (

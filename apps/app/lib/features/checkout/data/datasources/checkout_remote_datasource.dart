@@ -30,6 +30,10 @@ abstract class CheckoutRemoteDataSource {
   /// Re-read an existing order's Razorpay handles so a failed payment can be
   /// retried against the SAME order rather than creating a duplicate one.
   Future<PlaceOrderResult?> fetchOrderPayment(String orderId);
+
+  /// Cancel an order the customer abandoned without paying, so its reserved
+  /// stock, coupon slot and wallet debit come back immediately.
+  Future<void> releaseAbandonedOrder(String orderId);
 }
 
 @LazySingleton(as: CheckoutRemoteDataSource)
@@ -102,10 +106,19 @@ class CheckoutRemoteDataSourceImpl implements CheckoutRemoteDataSource {
   Future<PlaceOrderResult?> fetchOrderPayment(String orderId) async {
     if (orderId.isEmpty) return null;
     try {
-      final snap = await _firestore
+      // An unpaid checkout is an `orderDrafts` document — `orders/{id}` exists only once payment
+      // succeeds. Check `orders` first so a checkout that settled while the customer sat on the
+      // failure screen is reported as the real (paid) order rather than a stale draft.
+      var snap = await _firestore
           .collection(FirebaseCollections.orders)
           .doc(orderId)
           .get();
+      if (!snap.exists) {
+        snap = await _firestore
+            .collection(FirebaseCollections.orderDrafts)
+            .doc(orderId)
+            .get();
+      }
       final data = snap.data();
       if (data == null) return null;
 
@@ -114,9 +127,26 @@ class CheckoutRemoteDataSourceImpl implements CheckoutRemoteDataSource {
         orderId: snap.id,
         razorpayOrderId: rzpOrderId.isEmpty ? null : rzpOrderId,
         amount: ModelParse.toDouble(data['razorpayAmount']),
+        // Needed by the payment-expiry countdown on PaymentFailedPage.
+        createdAt: ModelParse.dateTime(data['createdAt']),
+        status: ModelParse.toStr(data['status']),
       );
     } on FirebaseException catch (e) {
       throw ServerException(FirebaseErrorMessage.of(e) ?? 'Could not load that order.', e.code);
     }
+  }
+
+  @override
+  Future<void> releaseAbandonedOrder(String orderId) async {
+    if (orderId.isEmpty) return;
+    // `discardOrderDraft`, not `cancelOrder`: an unpaid checkout is an
+    // `orderDrafts` document that has never been an order. The function re-checks
+    // ownership and that the draft is still Pending inside its own transaction,
+    // so a payment that landed a beat before the sheet closed is left for the
+    // webhook to settle instead of having its reservation pulled out from under
+    // it.
+    await _functions
+        .httpsCallable(CloudFunctions.discardOrderDraft)
+        .call<Map<String, dynamic>>({'orderId': orderId});
   }
 }

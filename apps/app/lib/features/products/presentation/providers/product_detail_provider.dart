@@ -3,9 +3,11 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:injectable/injectable.dart';
 
+import '../../../../core/utils/youtube_url.dart';
 import '../../../reviews/domain/entities/review.dart';
 import '../../domain/entities/product.dart';
 import '../../domain/entities/variant.dart';
+import '../../domain/entities/variant_option.dart';
 import '../../domain/repositories/product_detail_repository.dart';
 import '../../domain/usecases/get_bundle_products.dart';
 import '../../domain/usecases/get_first_variants.dart';
@@ -160,7 +162,14 @@ class ProductDetailProvider extends ChangeNotifier {
 
     (await variantsFuture).fold(
       (_) => _variants = const <Variant>[],
-      (value) => _variants = value,
+      // Copied into a genuine List<Variant>: the datasource hands back a
+      // List<VariantModel>, and Dart keeps that reified element type even
+      // though the static type here is List<Variant>. Any later
+      // `firstWhere(..., orElse: () => <a Variant>)` on it then fails at RUNTIME
+      // with "type '() => Variant' is not a subtype of '(() => VariantModel)?'",
+      // which no amount of analysis catches. One copy at the boundary makes
+      // every downstream use of this list safe.
+      (value) => _variants = List<Variant>.of(value),
     );
     (await bundleFuture).fold(
       (_) => _bundleItems = const <BundleItem>[],
@@ -214,9 +223,122 @@ class ProductDetailProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  // ---------------------------------------------------------------------------
+  // Colour / size axes
+  //
+  // A variant is a (colour, size) PAIR, but the shopper picks one axis at a
+  // time. The catalogue's pairs are SPARSE — a product with 3 colours and 3
+  // sizes typically has 3 variants (Gold/30ml, Amber/50ml, Emerald/100ml), not
+  // 9 — so the two rows cannot be independent: most combinations the shopper
+  // could compose simply do not exist.
+  //
+  // The rule below never dead-ends. Tapping an axis value ALWAYS keeps that
+  // value and moves the other axis to the nearest real variant:
+  //   1. the exact pair, if the merchant created it;
+  //   2. otherwise the first variant carrying the tapped value, preferring one
+  //      that is in stock.
+  // So every chip is live, every tap lands on a real variant, and no shopper is
+  // shown a price or an Add-to-bag button for something that was never sold.
+  // ---------------------------------------------------------------------------
+
+  /// The selected variant's colour, or '' when nothing is selected.
+  String get selectedColor => _selectedVariant?.color.trim() ?? '';
+
+  /// The selected variant's size/unit label, or '' when nothing is selected.
+  String get selectedSize => _selectedVariant?.name.trim() ?? '';
+
+  List<String> _distinct(String Function(Variant) pick) {
+    final seen = <String>{};
+    final values = <String>[];
+    for (final variant in _variants) {
+      final value = pick(variant).trim();
+      // Authoring order is the merchant's order — never sorted alphabetically.
+      if (value.isNotEmpty && seen.add(value)) values.add(value);
+    }
+    return values;
+  }
+
+  /// The colour row. Empty when no variant names a colour, which hides the row
+  /// rather than rendering a header over nothing.
+  List<VariantOption> get colorOptions => _distinct((v) => v.color)
+      .map(
+        (color) => VariantOption(
+          value: color,
+          colorCode: _variants
+              .firstWhere((v) => v.color.trim() == color)
+              .colorCode,
+          soldOut: _variants
+              .where((v) => v.color.trim() == color)
+              .every((v) => v.stock <= 0),
+        ),
+      )
+      .toList();
+
+  /// The size/unit row. Empty when no variant names a size.
+  List<VariantOption> get sizeOptions => _distinct((v) => v.name)
+      .map(
+        (size) => VariantOption(
+          value: size,
+          colorCode: '',
+          soldOut:
+              _variants.where((v) => v.name.trim() == size).every((v) => v.stock <= 0),
+        ),
+      )
+      .toList();
+
+  /// Selects the best variant for [color], keeping the current size when that
+  /// pair exists. Returns the variant now selected so the caller can react to a
+  /// sold-out landing (null when the product has no such colour).
+  Variant? selectColor(String color) => _selectAxis(
+        matches: (v) => v.color.trim() == color.trim(),
+        keeps: (v) => v.name.trim() == selectedSize,
+      );
+
+  /// Selects the best variant for [size], keeping the current colour when that
+  /// pair exists.
+  Variant? selectSize(String size) => _selectAxis(
+        matches: (v) => v.name.trim() == size.trim(),
+        keeps: (v) => v.color.trim() == selectedColor,
+      );
+
+  Variant? _selectAxis({
+    required bool Function(Variant) matches,
+    required bool Function(Variant) keeps,
+  }) {
+    final candidates = <Variant>[..._variants.where(matches)];
+    if (candidates.isEmpty) return null;
+
+    final exact = <Variant>[...candidates.where(keeps)];
+    final pool = exact.isNotEmpty ? exact : candidates;
+    // Prefer something buyable, but only among variants that already carry the
+    // tapped value — the tapped axis is never silently overridden.
+    //
+    // Written as a loop rather than `firstWhere(..., orElse: …)` on purpose: the
+    // orElse closure's return type is checked against the list's REIFIED element
+    // type, so that form throws at runtime the moment this list is backed by
+    // subtype instances. A loop has no such trap.
+    var variant = pool.first;
+    for (final candidate in pool) {
+      if (candidate.stock > 0) {
+        variant = candidate;
+        break;
+      }
+    }
+    selectVariant(variant);
+    return variant;
+  }
+
+  /// Pages the gallery shows: every image, plus one for the product video when
+  /// the link parses. The video page is the LAST index, so the bound below has
+  /// to include it — otherwise swiping or tapping through to the video is
+  /// silently rejected and the carousel snaps back to the last photo.
+  int get galleryPageCount =>
+      galleryImages.length +
+      (YoutubeUrl.extractId(_product?.youtubeVideoLink ?? '') == null ? 0 : 1);
+
   void selectImage(int index) {
     if (index == _selectedImageIndex) return;
-    if (index < 0 || index >= galleryImages.length) return;
+    if (index < 0 || index >= galleryPageCount) return;
     _selectedImageIndex = index;
     notifyListeners();
   }
