@@ -28,10 +28,24 @@ const VARIANT: Record<Variant, string> = {
   destructive: 'bg-error text-white hover:brightness-95',
 };
 
+/**
+ * Sizes are touch-first and shrink at `lg:`, not the other way round.
+ *
+ * WHY `sm` is 44px on a phone: a 36px control is below the 44px minimum the design brief sets for
+ * hit targets, and `sm` is used for exactly the dense inline actions (Track, Reorder, Apply) that
+ * are hardest to hit on a phone. It keeps its compact 36px on pointer devices via `lg:`.
+ *
+ * WHY `lg` is 52px on a phone: that is the Flutter app's primary CTA height
+ * (`app_theme.dart` ElevatedButton minimumSize), and `lg` is what the sticky bottom action bars use.
+ *
+ * These deliberately use only the `lg:` breakpoint — never `sm:` — because this build's compiled
+ * `@media` blocks are ordered by first use, not width, so mixing two breakpoints on one property
+ * is unreliable. See the note in `globals.css`.
+ */
 const SIZE: Record<Size, string> = {
-  sm: 'h-9 px-3 text-[13px] rounded-md',
+  sm: 'h-11 px-3 text-[13px] rounded-md lg:h-9',
   md: 'h-11 px-4 text-sm rounded-md',
-  lg: 'h-12 px-6 text-[15px] rounded-lg',
+  lg: 'h-[52px] px-6 text-base rounded-md lg:h-12 lg:rounded-lg lg:text-[15px]',
 };
 
 export interface ButtonProps extends Omit<ButtonHTMLAttributes<HTMLButtonElement>, 'children'> {

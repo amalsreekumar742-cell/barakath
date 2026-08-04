@@ -25,11 +25,18 @@ import PaymentDetailModal from './PaymentDetailModal';
 
 const columnHelper = createColumnHelper<PaymentProps>();
 
+/**
+ * Status filters offered on the list.
+ *
+ * Pending and Failed are deliberately absent: they are still valid `PaymentStatus`
+ * values, still rendered by `PaymentStatusBadge`, and still reachable under "All"
+ * — they just no longer get a filter tab of their own. The filter state starts
+ * empty and these tabs were the only way to set it, so removing them cannot strand
+ * the list behind a filter the UI can't clear.
+ */
 const STATUS_TABS = [
   { label: 'All', value: '' },
   { label: 'Paid', value: PaymentStatus.PAID },
-  { label: 'Pending', value: PaymentStatus.PENDING },
-  { label: 'Failed', value: PaymentStatus.FAILED },
   { label: 'Refunded', value: PaymentStatus.REFUNDED },
 ];
 

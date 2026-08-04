@@ -111,7 +111,7 @@ export default function RequestReplacementPage() {
           { label: 'Home', href: '/' },
           { label: 'My Orders', href: '/account/orders' },
           { label: orderReference(order.id), href: `/account/orders/${order.id}` },
-          { label: 'Return / Replace' },
+          { label: 'Return' },
         ]}
       />
 

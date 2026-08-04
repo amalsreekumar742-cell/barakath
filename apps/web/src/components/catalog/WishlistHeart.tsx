@@ -2,10 +2,9 @@
 
 import type { MouseEvent } from 'react';
 import { Heart } from 'lucide-react';
-import { useRouter } from 'next/navigation';
-import toast from 'react-hot-toast';
 
 import { useAppDispatch, useAppSelector } from '@/stores/store';
+import { setLoginSheetOpen } from '@/stores/uiSlice';
 
 /**
  * The wishlist slice's optimistic-toggle action, referenced by its RTK type string (slice name +
@@ -30,10 +29,12 @@ export interface WishlistHeartProps {
  * otherwise Server-rendered card, kept deliberately tiny so the card itself stays server-renderable
  * and SEO-friendly.
  *
- * WHY guests are sent to /login rather than silently toggling: a wishlist belongs to a signed-in
- * customer (spec §2.4, `firestore.rules`), so a guest has nowhere to save to. The Flutter card shows
- * a login prompt for exactly this; the website mirrors it with a toast + redirect so a guest's tap
- * is not swallowed.
+ * WHY guests get the login SHEET rather than an immediate redirect to /login: a wishlist belongs to
+ * a signed-in customer (spec §2.4, `firestore.rules`), so a guest has nowhere to save to — but
+ * yanking a browsing visitor off the grid they are scrolling to a full sign-in page loses their
+ * place for a tap that may have been exploratory. The Flutter card raises `login_prompt_sheet.dart`
+ * here, and the shared sheet (mounted once by `StorefrontShell`, opened through `uiSlice` because a
+ * shared component may not import a feature) now lets the website mirror that exactly.
  *
  * WHY it dispatches the optimistic slice toggle only: the heart must feel instant, so it flips the
  * shared `productIds` immediately. Persisting the change to `users/{uid}/wishlist/{productId}` (a
@@ -46,7 +47,6 @@ export interface WishlistHeartProps {
  */
 export function WishlistHeart({ productId, className = '' }: WishlistHeartProps) {
   const dispatch = useAppDispatch();
-  const router = useRouter();
   const isGuest = useAppSelector((s) => s.auth.isGuest);
   const isWishlisted = useAppSelector((s) => s.wishlist.productIds.includes(productId));
 
@@ -54,8 +54,7 @@ export function WishlistHeart({ productId, className = '' }: WishlistHeartProps)
     e.preventDefault();
     e.stopPropagation();
     if (isGuest) {
-      toast('Sign in to save items to your wishlist.');
-      router.push('/login');
+      dispatch(setLoginSheetOpen(true));
       return;
     }
     dispatch({ type: WISHLIST_TOGGLE, payload: productId });
@@ -68,7 +67,10 @@ export function WishlistHeart({ productId, className = '' }: WishlistHeartProps)
       aria-pressed={isWishlisted}
       aria-label={isWishlisted ? 'Remove from wishlist' : 'Add to wishlist'}
       className={[
-        'inline-flex size-8 items-center justify-center rounded-full bg-surface/90 shadow-sm backdrop-blur',
+        // 36px on touch, 32px on pointer devices. The Flutter card's heart is 30px, but a finger
+        // needs more than a mouse does, and this sits inside a <Link> where a near-miss navigates to
+        // the product instead of saving it — the most annoying way for a tap to be wrong.
+        'inline-flex size-9 items-center justify-center rounded-full bg-surface/90 shadow-sm backdrop-blur lg:size-8',
         'transition hover:bg-surface focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary',
         className,
       ]
@@ -76,8 +78,7 @@ export function WishlistHeart({ productId, className = '' }: WishlistHeartProps)
         .join(' ')}
     >
       <Heart
-        className={isWishlisted ? 'fill-current text-error' : 'text-ink'}
-        size={16}
+        className={`size-[18px] lg:size-4 ${isWishlisted ? 'fill-current text-error' : 'text-ink'}`}
         strokeWidth={2}
         aria-hidden
       />

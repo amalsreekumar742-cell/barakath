@@ -1,8 +1,5 @@
 import type { Metadata } from 'next';
-import { Header } from '@/components/layout/Header';
-import { Footer } from '@/components/layout/Footer';
-import { getCategories, toNavCategories } from '@/lib/data/catalog';
-import { getGeneralSettings } from '@/lib/data/settings';
+import { StorefrontShell } from '@/components/layout/StorefrontShell';
 
 /**
  * (checkout) — cart, order outcome, wishlist and spin. Storefront flows that belong to a PERSON.
@@ -22,14 +19,6 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false },
 };
 
-export default async function CheckoutLayout({ children }: { children: React.ReactNode }) {
-  const [settings, categories] = await Promise.all([getGeneralSettings(), getCategories()]);
-
-  return (
-    <div className="flex min-h-screen flex-col">
-      <Header settings={settings} categories={toNavCategories(categories)} />
-      <div className="flex-1">{children}</div>
-      <Footer settings={settings} />
-    </div>
-  );
+export default function CheckoutLayout({ children }: { children: React.ReactNode }) {
+  return <StorefrontShell mobileSearch>{children}</StorefrontShell>;
 }

@@ -77,52 +77,6 @@ export async function fetchReplacementForLine(
 }
 
 /**
- * `orderId` → the status to label that order's return with, for every return this customer has
- * raised. Feeds the "Return" tag on the My Orders cards.
- *
- * WHY one query for the whole list rather than `fetchReplacementForLine` per row: the order document
- * carries no return flag (a return lives in `replacements/{id}`), and asking per card would be a read
- * per row on every page of orders — the exact cost `OrderCard`'s own doc comment refuses for its
- * "Return / Replace" gating. A single equality on `userId` needs no composite index and is the clause
- * `firestore.rules` scopes replacement reads by.
- */
-export async function fetchReturnStatusesByOrder(uid: string): Promise<Record<string, string>> {
-  const snap = await getDocs(
-    query(collection(db, FirestoreCollections.replacements), where('userId', '==', uid)),
-  );
-
-  const statuses: Record<string, string> = {};
-  for (const d of snap.docs) {
-    const { orderId, status } = d.data() as ReplacementProps;
-    if (!orderId) continue;
-    statuses[orderId] = mostRelevantReturnStatus(statuses[orderId], status ?? '');
-  }
-  return statuses;
-}
-
-/**
- * An order can carry several returns — one per line — but the card shows a single tag, so the OPEN
- * one wins: a pending request is the one the customer is still waiting on. Otherwise an approved one
- * beats a rejected one.
- */
-function mostRelevantReturnStatus(current: string | undefined, incoming: string): string {
-  if (current === undefined) return incoming;
-  const rank = (status: string) => {
-    switch (status.trim().toLowerCase()) {
-      case 'pending':
-        return 3;
-      case 'approved':
-        return 2;
-      case 'rejected':
-        return 1;
-      default:
-        return 0;
-    }
-  };
-  return rank(incoming) > rank(current) ? incoming : current;
-}
-
-/**
  * cancelOrder — WEB_BATCH4_NOTES.md §3: verified live (`functions/src/orders/cancelOrder.ts`) that the
  * owning customer is explicitly allowed (`isAdmin || ownsOrder`), not admin-only as an earlier prompt
  * doc claimed. Called directly for the signed-in customer; the function pins the cancel reason itself

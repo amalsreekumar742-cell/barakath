@@ -17,14 +17,23 @@ import { createSlice, type PayloadAction } from '@reduxjs/toolkit';
  */
 export interface UiState {
   isMegaMenuOpen: boolean;
-  isMobileNavOpen: boolean;
+  /**
+   * The guest login prompt (`components/layout/LoginSheet.tsx`).
+   *
+   * WHY it lives here rather than in the auth feature: it is opened from the bottom nav (a shared
+   * layout component), and will be opened from product cards and the wishlist heart — none of which
+   * may import the auth feature under `import/no-restricted-paths`. This slice is the only place
+   * they can meet. It replaced `isMobileNavOpen` when the left header drawer was removed in favour
+   * of the bottom navigation.
+   */
+  isLoginSheetOpen: boolean;
   isFilterDrawerOpen: boolean;
   isLogoutDialogOpen: boolean;
 }
 
 const initialState: UiState = {
   isMegaMenuOpen: false,
-  isMobileNavOpen: false,
+  isLoginSheetOpen: false,
   isFilterDrawerOpen: false,
   isLogoutDialogOpen: false,
 };
@@ -36,8 +45,8 @@ const uiSlice = createSlice({
     setMegaMenuOpen(state, action: PayloadAction<boolean>) {
       state.isMegaMenuOpen = action.payload;
     },
-    setMobileNavOpen(state, action: PayloadAction<boolean>) {
-      state.isMobileNavOpen = action.payload;
+    setLoginSheetOpen(state, action: PayloadAction<boolean>) {
+      state.isLoginSheetOpen = action.payload;
     },
     setFilterDrawerOpen(state, action: PayloadAction<boolean>) {
       state.isFilterDrawerOpen = action.payload;
@@ -52,7 +61,7 @@ const uiSlice = createSlice({
      */
     closeAllOverlays(state) {
       state.isMegaMenuOpen = false;
-      state.isMobileNavOpen = false;
+      state.isLoginSheetOpen = false;
       state.isFilterDrawerOpen = false;
     },
   },
@@ -60,7 +69,7 @@ const uiSlice = createSlice({
 
 export const {
   setMegaMenuOpen,
-  setMobileNavOpen,
+  setLoginSheetOpen,
   setFilterDrawerOpen,
   setLogoutDialogOpen,
   closeAllOverlays,

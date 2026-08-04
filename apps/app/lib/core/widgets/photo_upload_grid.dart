@@ -66,6 +66,13 @@ class _PhotoUploadGridState extends State<PhotoUploadGrid> {
         sourcePath: picked.path,
         compressFormat: ImageCompressFormat.jpg,
         compressQuality: 90,
+        // Evidence photos need detail (a damaged product, a review shot), so this
+        // cap is far looser than the avatar's — but it must exist. Without it a
+        // modern phone photo routinely lands over the 2MB Storage limit and the
+        // grid refuses the customer's picture outright. 1920 on the long edge is
+        // full-HD: plenty to show damage, comfortably inside the cap.
+        maxWidth: 1920,
+        maxHeight: 1920,
         uiSettings: [
           AndroidUiSettings(
             toolbarTitle: 'Crop photo',

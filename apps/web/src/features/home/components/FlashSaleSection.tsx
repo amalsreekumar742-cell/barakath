@@ -26,9 +26,11 @@ export function FlashSaleSection({ flashSale }: FlashSaleSectionProps) {
         actionLabel="See all"
       />
       <div className="mt-5">
+        {/* Card width is released at `md:` — the same breakpoint ProductRail switches from
+            snap-carousel to grid at — and never at `sm:`, per the cascade note in globals.css. */}
         <ProductRail>
           {items.map(({ product, variant }) => (
-            <div key={product.id} className="w-40 shrink-0 snap-start sm:w-auto">
+            <div key={product.id} className="w-40 shrink-0 snap-start md:w-auto">
               <FlashProductCard product={product} variant={variant} />
             </div>
           ))}

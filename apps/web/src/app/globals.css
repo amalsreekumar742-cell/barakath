@@ -51,9 +51,14 @@
   --color-info: #005aa5;
   --color-info-subtle: #dfefff;
 
-  /* --- Typography: Manrope, one brand typeface --- */
-  --font-sans: "Manrope", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
-  --font-display: "Manrope", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  /*
+   * --- Typography: Manrope, one brand typeface ---
+   * `--font-manrope` is the self-hosted family next/font generates in `src/app/layout.tsx` and
+   * binds to <html>. The literal "Manrope" fallback after it keeps a locally-installed copy
+   * working if the font files ever fail to load.
+   */
+  --font-sans: var(--font-manrope), "Manrope", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-display: var(--font-manrope), "Manrope", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
 
   /* --- Radius (px) — controls 8, cards 16 --- */
   --radius-xs: 4px;
@@ -67,6 +72,9 @@
   --shadow-sm: 0 2px 4px rgba(27, 28, 29, 0.04), 0 1px 2px rgba(95, 74, 46, 0.04);
   --shadow-md: 0 6px 16px rgba(95, 74, 46, 0.08), 0 1px 2px rgba(95, 74, 46, 0.04);
   --shadow-lg: 0 16px 40px rgba(95, 74, 46, 0.12), 0 2px 6px rgba(95, 74, 46, 0.06);
+  /* Upward shadow — the mobile bottom nav is the only surface lit from below
+     (mirrors `shadowNav` in apps/app/lib/core/constants/app_colors.dart). */
+  --shadow-nav: 0 -6px 8px rgba(95, 74, 46, 0.05);
 
   /*
    * Breakpoints — spec 3.24: desktop >= 1024, tablet 768–1023, mobile < 768.
@@ -98,7 +106,74 @@
     font-family: var(--font-sans);
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+    /*
+     * Stops the horizontal rubber-band / navigation gesture that the home page's snap-scroll
+     * product rails would otherwise chain into on iOS. Deliberately NOT `overscroll-behavior-y`,
+     * which would also disable pull-to-refresh — a gesture users expect on a mobile site.
+     */
+    overscroll-behavior-x: none;
   }
+}
+
+/*
+ * ===========================================================================================
+ * Mobile app shell (< 1024px) — geometry for the fixed bottom chrome.
+ *
+ * WHY hand-authored CSS rather than Tailwind utilities: this build's compiled stylesheet emits
+ * `@media` blocks in first-usage-in-source order rather than ascending-width order (see the note
+ * in `@theme` above). That makes any responsive UTILITY for these load-bearing offsets a cascade
+ * hazard. A single hand-written media query has one unambiguous position in the file, so the
+ * padding that keeps content clear of the nav bar can never be silently outranked.
+ *
+ * WHY the padding lives on classes applied by the shell rather than on each page: a page that
+ * forgets its own bottom padding hides its last row under the nav bar, and that is invisible on a
+ * desktop monitor. `StorefrontShell` puts these on the scroll container once, for every route.
+ *
+ * `env(safe-area-inset-bottom)` resolves to 0 unless the viewport is declared `viewport-fit=cover`
+ * — that is set by the `viewport` export in `src/app/layout.tsx`. Do not remove one without the
+ * other or the nav bar sits under the iPhone home indicator.
+ * ===========================================================================================
+ */
+:root {
+  /*
+   * The nav bar's FULL rendered height: the 60px tab row (`h-[60px]` on the <ul>) PLUS its 1px top
+   * border. It must be the outer height, not the row height — reserving only 60px leaves the last
+   * pixel of every page tucked under the border, and it is also what `StickyActionBar` offsets
+   * itself by, so a wrong value overlaps the bar and the nav. Keep in step with MobileBottomNav.
+   */
+  --mobile-nav-h: 61px;
+  --sticky-cta-h: 76px;
+  /* Bottom offset a sticky CTA sits at. Overridden to 0 on routes with no nav bar. */
+  --mobile-nav-offset: var(--mobile-nav-h);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+@media (max-width: 1023.98px) {
+  .has-mobile-nav {
+    padding-bottom: calc(var(--mobile-nav-h) + var(--safe-bottom));
+  }
+
+  .has-sticky-cta {
+    padding-bottom: calc(var(--sticky-cta-h) + var(--safe-bottom));
+  }
+
+  .has-mobile-nav.has-sticky-cta {
+    padding-bottom: calc(var(--mobile-nav-h) + var(--sticky-cta-h) + var(--safe-bottom));
+  }
+}
+
+/* Bottom-sheet entrance — slides from the bottom edge, 200ms, the design's standard ease-out.
+   Distinct from `.animate-fade-in` (centred dialogs), which scales rather than travels. */
+@keyframes slide-up {
+  from {
+    transform: translateY(100%);
+  }
+  to {
+    transform: translateY(0);
+  }
+}
+.animate-slide-up {
+  animation: slide-up 200ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 /* Modal/dialog entrance — quiet & quick (design motion: 120–200ms). */

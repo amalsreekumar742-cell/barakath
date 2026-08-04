@@ -8,8 +8,6 @@ import Icon from '@/components/icons/Icon';
 import ConfirmDialog from '@/components/ConfirmDialog';
 import { fetchNotifications } from '../api/fetchNotifications';
 import { deleteNotification } from '../api/deleteNotification';
-import { sendNotificationNow } from '../api/sendNotificationNow';
-import { duplicateNotification } from '../api/duplicateNotification';
 import { statusBadge } from '../utils/notificationDisplay';
 
 /** Audience label shown in the list (design "Audience" column): All users, or the selected-user count. */
@@ -17,9 +15,12 @@ const audienceLabel = (n: NotificationProps) =>
   n.targetType === 'All' ? 'All users' : `${n.targetUserIds.length} users`;
 
 /**
- * NotificationsPage — the push-notification list (spec §1.18 listing). The design is a single table
- * (Title · Audience · Sent · Opened · Status · actions) under the page header + "Create notification"
- * button — no stat cards, no filter pills, no in-body search. Cursor pagination via "View More".
+ * NotificationsPage — the push-notification list (spec §1.18 listing). A single table
+ * (Title · Audience · Sent · Status · delete) under the page header + "Create notification" button —
+ * no stat cards, no filter pills, no in-body search. Cursor pagination via "View More".
+ *
+ * The design's "Opened" column was dropped: open tracking was never implemented (no field on the
+ * notification document), so the column could only ever render an em dash on every row.
  */
 const NotificationsPage: FC = () => {
   const dispatch = useAppDispatch();
@@ -93,7 +94,6 @@ const NotificationsPage: FC = () => {
                 <th className={th}>Title</th>
                 <th className={th}>Audience</th>
                 <th className={th}>Sent</th>
-                <th className={th}>Opened</th>
                 <th className={th}>Status</th>
                 <th className={th} />
               </tr>
@@ -112,8 +112,6 @@ const NotificationsPage: FC = () => {
                     <td className="px-4 py-3 text-[13px] tabular-nums text-muted">
                       {n.isSent ? n.recipientCount.toLocaleString('en-IN') : '—'}
                     </td>
-                    {/* Opens aren't tracked yet (no field on the doc) — shown as — per the design column. */}
-                    <td className="px-4 py-3 text-[13px] tabular-nums text-muted">—</td>
                     <td className="px-4 py-3">
                       <span className={`inline-flex rounded-md px-2.5 py-1 text-[11px] font-bold ${cls}`}>
                         {label}
@@ -151,41 +149,22 @@ const NotificationsPage: FC = () => {
 };
 
 /**
- * RowActions — per the design, each row shows a delete ✕ and a ⋯ menu. The menu holds the remaining
- * actions (Send now for unsent rows, Duplicate). Every action is confirmed/toasted (spec §1.22); a SENT
- * notification is a permanent record and cannot be deleted (toast instead of the confirm dialog).
+ * RowActions — each row shows a delete ✕.
+ *
+ * The ⋯ overflow menu that used to sit beside it (Send now / Duplicate) was removed. A scheduled
+ * notification still goes out on its own schedule, so nothing is stranded; what is gone is sending a
+ * scheduled push EARLY and duplicating one as a draft. Re-add the menu if either is wanted back —
+ * `sendNotificationNow` and `duplicateNotification` are still exported and still wired to the slice.
+ *
+ * Deletion is confirmed/toasted (spec §1.22); a SENT notification is a permanent record and cannot be
+ * deleted (toast instead of the confirm dialog).
  */
 const RowActions: FC<{ notification: NotificationProps }> = ({ notification }) => {
   const dispatch = useAppDispatch();
-  const admin = useAppSelector((s) => s.currentAdmin.admin);
-  const sendLoading = useAppSelector((s) => s.notifications.sendLoading);
   const deleteLoading = useAppSelector((s) => s.notifications.deleteLoading);
-  const duplicateLoading = useAppSelector((s) => s.notifications.duplicateLoading);
-  const [menuOpen, setMenuOpen] = useState(false);
-  const [confirmSend, setConfirmSend] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
 
-  const sending = sendLoading === notification.id;
   const deleting = deleteLoading === notification.id;
-  const duplicating = duplicateLoading === notification.id;
-  const canSend = !notification.isSent;
-
-  const onSend = async () => {
-    const res = await dispatch(sendNotificationNow(notification));
-    setConfirmSend(false);
-    if (sendNotificationNow.fulfilled.match(res)) toast.success('Notification sent');
-    else toast.error((res.payload as string) ?? 'Could not send notification');
-  };
-
-  const onDuplicate = async () => {
-    setMenuOpen(false);
-    if (!admin) return toast.error('Not signed in');
-    const res = await dispatch(
-      duplicateNotification({ source: notification, adminId: admin.id, adminName: admin.fullName }),
-    );
-    if (duplicateNotification.fulfilled.match(res)) toast.success('Duplicated as draft');
-    else toast.error((res.payload as string) ?? 'Could not duplicate notification');
-  };
 
   const onDeleteClick = () => {
     if (notification.isSent) {
@@ -221,64 +200,6 @@ const RowActions: FC<{ notification: NotificationProps }> = ({ notification }) =
           <Icon name="CloseLine" size={18} />
         )}
       </button>
-
-      {/* ⋯ menu */}
-      <div className="relative">
-        <button
-          type="button"
-          onClick={() => setMenuOpen((o) => !o)}
-          aria-label="More actions"
-          className="inline-flex text-muted hover:text-foreground"
-        >
-          {sending || duplicating ? (
-            <Icon name="Loader4Line" size={18} className="animate-spin" />
-          ) : (
-            <Icon name="MenuLine" size={18} />
-          )}
-        </button>
-
-        {menuOpen && (
-          <>
-            <div className="fixed inset-0 z-10" onClick={() => setMenuOpen(false)} />
-            <div className="absolute right-0 z-20 mt-1 w-40 overflow-hidden rounded-lg border border-border bg-surface py-1 shadow-lg">
-              {canSend && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setMenuOpen(false);
-                    setConfirmSend(true);
-                  }}
-                  className="flex w-full items-center gap-2 px-3 py-2 text-left text-[13px] font-medium text-foreground hover:bg-subtle"
-                >
-                  <Icon name="Share2Line" size={15} /> Send now
-                </button>
-              )}
-              <button
-                type="button"
-                onClick={onDuplicate}
-                className="flex w-full items-center gap-2 px-3 py-2 text-left text-[13px] font-medium text-foreground hover:bg-subtle"
-              >
-                <Icon name="BookmarkLine" size={15} /> Duplicate
-              </button>
-            </div>
-          </>
-        )}
-      </div>
-
-      <ConfirmDialog
-        isOpen={confirmSend}
-        title="Send notification now?"
-        message={
-          notification.targetType === 'All'
-            ? 'This sends the push to all users immediately. This cannot be undone.'
-            : `This sends the push to ${notification.targetUserIds.length} selected user(s) immediately. This cannot be undone.`
-        }
-        confirmLabel="Send now"
-        confirmVariant="primary"
-        loading={sending}
-        onConfirm={onSend}
-        onCancel={() => setConfirmSend(false)}
-      />
 
       <ConfirmDialog
         isOpen={confirmDelete}

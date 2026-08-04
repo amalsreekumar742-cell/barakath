@@ -26,6 +26,18 @@ export interface ModalProps {
   maxWidth?: string;
   /** Labels the dialog for screen readers. Point it at the heading's id. */
   labelledBy?: string;
+  /**
+   * 'center' (default) floats the panel in the middle — the desktop dialog.
+   * 'sheet' anchors it to the bottom edge and slides it up — the mobile bottom sheet the Flutter
+   * app uses for filters, sort, coupons and the login prompt.
+   *
+   * WHY a variant here rather than a second overlay component: everything BELOW the panel — the
+   * portal, Escape, background scroll-lock, outside-click discrimination, focus capture and
+   * restore — is identical for a sheet and a dialog, and it is the part that is easy to get subtly
+   * wrong. Only the anchoring and the entrance animation actually differ, so those are all the
+   * variant changes. See `Sheet.tsx` for the panel chrome that goes inside.
+   */
+  variant?: 'center' | 'sheet';
   children: React.ReactNode;
 }
 
@@ -34,6 +46,7 @@ function ModalImpl({
   onClose,
   maxWidth = 'max-w-lg',
   labelledBy,
+  variant = 'center',
   children,
 }: ModalProps) {
   const panelRef = useRef<HTMLDivElement>(null);
@@ -61,9 +74,13 @@ function ModalImpl({
   // business in the server-rendered HTML anyway — it is by definition an interaction.
   if (!isOpen || typeof document === 'undefined') return null;
 
+  const isSheet = variant === 'sheet';
+
   return ReactDOM.createPortal(
     <div
-      className="fixed inset-0 z-[999] flex items-center justify-center bg-black/40 p-4 backdrop-blur-md"
+      className={`fixed inset-0 z-[999] flex justify-center bg-black/40 backdrop-blur-md ${
+        isSheet ? 'items-end' : 'items-center p-4'
+      }`}
       onClick={(e) => {
         e.stopPropagation();
         if (panelRef.current && !panelRef.current.contains(e.target as Node)) onClose();
@@ -75,7 +92,13 @@ function ModalImpl({
         aria-modal="true"
         aria-labelledby={labelledBy}
         tabIndex={-1}
-        className={`w-full ${maxWidth} animate-fade-in outline-none`}
+        className={
+          isSheet
+            ? // A sheet spans the full width on a phone but must not stretch edge-to-edge on a wide
+              // screen, so it keeps the same width cap and simply sits at the bottom.
+              `w-full ${maxWidth} animate-slide-up outline-none`
+            : `w-full ${maxWidth} animate-fade-in outline-none`
+        }
       >
         {children}
       </div>

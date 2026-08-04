@@ -189,7 +189,7 @@ export default function OrderDetailPage() {
                             href={`/account/orders/${order.id}/return?productId=${encodeURIComponent(item.productId)}&variantId=${encodeURIComponent(item.variantId)}`}
                             className="text-xs font-medium text-primary hover:underline"
                           >
-                            Return / Replace
+                            Return
                           </Link>
                         ) : null}
 

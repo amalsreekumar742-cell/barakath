@@ -40,6 +40,16 @@ class FirebaseErrorMessage {
     return switch (e.code) {
       'permission-denied' => 'You do not have access to this.',
       'unauthenticated' => 'Please sign in again to continue.',
+      // Cloud Storage's flavour of permission-denied. Our storage.rules reject an
+      // upload for exactly three reasons: wrong owner, >= 2MB, or not an image.
+      // The path is always the caller's own, and the callers check the type, so
+      // in practice this means SIZE — which the customer can actually act on.
+      // Left generic enough to stay true if it is one of the other two.
+      'unauthorized' =>
+        'That file was rejected. It must be an image under 2MB.',
+      'quota-exceeded' => 'Storage is temporarily full. Please try again later.',
+      'retry-limit-exceeded' =>
+        'The upload timed out. Please check your connection and try again.',
       'unavailable' ||
       'network-request-failed' =>
         'No internet connection. Please check your network.',

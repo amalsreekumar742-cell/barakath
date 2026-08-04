@@ -57,7 +57,16 @@ export function Footer({ settings }: FooterProps) {
   const year = new Date().getFullYear();
 
   return (
-    <footer className="mt-16 bg-primary-dark text-white">
+    // Desktop only. The Flutter app has no footer, and a four-column link block sitting directly
+    // above a fixed bottom tab bar reads as dead space on a phone. Its links are not lost: the
+    // Profile tab (`features/account/components/ProfileScreen.tsx`) carries help, privacy policy and
+    // terms, which is where the app puts them too.
+    //
+    // WHY `hidden lg:block` rather than not rendering it below 1024px: `hidden` is a CSS rule, so the
+    // markup — and every link in it — stays in the server HTML. Google indexes mobile-first, and
+    // conditionally dropping the element would have quietly removed the site's footer links from the
+    // version that actually gets crawled.
+    <footer className="mt-16 hidden bg-primary-dark text-white lg:block">
       {/* `md:`/`lg:` only, never `sm:` mixed in here — see ProductRail.tsx for why mixing them
           silently breaks the cascade in this build's compiled Tailwind stylesheet. */}
       <div className="mx-auto grid w-full max-w-7xl gap-10 px-5 py-12 md:grid-cols-2 lg:grid-cols-4">

@@ -169,7 +169,7 @@ export default function TrackOrderPage() {
               href={returnHref(eligibleItems[0].productId, eligibleItems[0].variantId)}
               className="block w-full rounded-lg border border-border-strong bg-surface py-3 text-center text-sm font-medium text-foreground hover:bg-subtle"
             >
-              Return / Replace product
+              Return product
             </Link>
           ) : (
             <button
@@ -177,7 +177,7 @@ export default function TrackOrderPage() {
               onClick={() => setPickerOpen(true)}
               className="block w-full rounded-lg border border-border-strong bg-surface py-3 text-center text-sm font-medium text-foreground hover:bg-subtle"
             >
-              Return / Replace product
+              Return product
             </button>
           ))}
       </div>

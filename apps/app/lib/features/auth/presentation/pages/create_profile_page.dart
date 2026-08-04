@@ -24,6 +24,19 @@ class CreateProfilePage extends StatefulWidget {
   State<CreateProfilePage> createState() => _CreateProfilePageState();
 }
 
+/// Longest edge of the stored avatar, in pixels.
+///
+/// The Storage rule on `users/{uid}/**` rejects anything >= 2MB, so the upload
+/// MUST be downscaled rather than sent at camera resolution. 1024 is well inside
+/// that budget at JPEG quality 70 and still far above the 100px the avatar is
+/// drawn at.
+const int _maxAvatarPx = 1024;
+
+/// Hard ceiling enforced by `firebase/storage.rules` (`validImage`). Checked
+/// client-side too so an oversized photo is refused with copy the customer can
+/// act on, instead of a `storage/unauthorized` from the rule.
+const int _maxAvatarBytes = 2 * 1024 * 1024;
+
 class _CreateProfilePageState extends State<CreateProfilePage> {
   final _formKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();
@@ -88,6 +101,15 @@ class _CreateProfilePageState extends State<CreateProfilePage> {
         // step is needed. Quality 70 keeps avatar uploads small.
         compressQuality: 70,
         compressFormat: ImageCompressFormat.jpg,
+        // Downscale to at most 1024x1024 BEFORE upload. This is not a nicety: the
+        // Storage rule guarding `users/{uid}/**` rejects anything >= 2MB
+        // (firebase/storage.rules `validImage`), and a square crop of a modern
+        // phone photo at quality 70 clears that comfortably. Verified live: a
+        // 2.5MB upload to this exact path fails with `storage/unauthorized`,
+        // which reached the customer as a bare "Photo upload failed".
+        // The avatar renders at 100px, so 1024 is already generous.
+        maxWidth: _maxAvatarPx,
+        maxHeight: _maxAvatarPx,
         uiSettings: [
           AndroidUiSettings(
             toolbarTitle: 'Crop photo',
@@ -108,6 +130,16 @@ class _CreateProfilePageState extends State<CreateProfilePage> {
 
       final bytes = await cropped.readAsBytes();
 
+      // Backstop for the Storage rule. The downscale above should keep every
+      // photo well under this, so reaching here means something unusual (a huge
+      // PNG-sourced crop, say) — say so plainly rather than letting the rule
+      // reject it as an unexplained "unauthorized".
+      if (bytes.lengthInBytes >= _maxAvatarBytes) {
+        if (!mounted) return;
+        AppToast.error(context, 'That photo is too large. Please pick a smaller one.');
+        return;
+      }
+
       if (!mounted) return;
       setState(() {
         _photoPreview = bytes;
@@ -118,22 +150,41 @@ class _CreateProfilePageState extends State<CreateProfilePage> {
     } catch (e) {
       if (!mounted) return;
       setState(() => _uploadingPhoto = false);
-      AppToast.error(context, 'Could not process the image. Please try again.');
+      // `e` is deliberately included. This catch covers the picker AND the
+      // cropper, and the previous fixed string meant a plugin failure (a missing
+      // uCrop activity, a revoked permission, an unreadable file) was
+      // indistinguishable from any other — on a customer's device, with no logs
+      // to consult. `AppToast.error` truncates, and the prefix keeps the message
+      // recognisable.
+      AppToast.error(context, 'Could not process the image: ${_readable(e)}');
     }
   }
 
   Future<void> _uploadPhoto(Uint8List bytes) async {
-    final url = await context.read<AuthProvider>().uploadProfilePhoto(bytes);
+    final error = await context.read<AuthProvider>().uploadProfilePhoto(bytes);
     if (!mounted) return;
-    if (url == null) {
+    if (error.url == null) {
       setState(() => _uploadingPhoto = false);
-      AppToast.error(context, 'Photo upload failed. You can add it later.');
+      // The provider now carries the datasource's message up (it used to discard
+      // the Failure and return a bare null), so a rules rejection or a dropped
+      // connection each read as themselves instead of one catch-all string.
+      AppToast.error(context, error.message ?? 'Photo upload failed. You can add it later.');
       return;
     }
     setState(() {
-      _photoUrl = url;
+      _photoUrl = error.url;
       _uploadingPhoto = false;
     });
+  }
+
+  /// The useful part of a platform error, without the SDK framing a customer
+  /// cannot act on.
+  String _readable(Object e) {
+    if (e is PlatformException) {
+      final message = e.message?.trim();
+      return (message == null || message.isEmpty) ? e.code : message;
+    }
+    return e.toString();
   }
 
   // --- Validators -----------------------------------------------------------

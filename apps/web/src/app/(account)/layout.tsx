@@ -1,8 +1,5 @@
 import type { Metadata } from 'next';
-import { Header } from '@/components/layout/Header';
-import { Footer } from '@/components/layout/Footer';
-import { getCategories, toNavCategories } from '@/lib/data/catalog';
-import { getGeneralSettings } from '@/lib/data/settings';
+import { StorefrontShell } from '@/components/layout/StorefrontShell';
 import { AccountSidebar } from '@/features/account/components/AccountSidebar';
 
 /**
@@ -30,19 +27,14 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false },
 };
 
-export default async function AccountLayout({ children }: { children: React.ReactNode }) {
-  const [settings, categories] = await Promise.all([getGeneralSettings(), getCategories()]);
-
+export default function AccountLayout({ children }: { children: React.ReactNode }) {
   return (
-    <div className="flex min-h-screen flex-col">
-      <Header settings={settings} categories={toNavCategories(categories)} />
-      <div className="mx-auto w-full max-w-7xl flex-1 px-5 py-6">
-        <div className="lg:grid lg:grid-cols-[260px_1fr] lg:items-start lg:gap-8">
-          <AccountSidebar />
-          <div className="mt-4 min-w-0 lg:mt-0">{children}</div>
-        </div>
+    <StorefrontShell contentClassName="mx-auto w-full max-w-7xl px-4 py-4 lg:px-5 lg:py-6">
+      <div className="lg:grid lg:grid-cols-[260px_1fr] lg:items-start lg:gap-8">
+        {/* Renders nothing below 1024px — see AccountSidebar. */}
+        <AccountSidebar />
+        <div className="min-w-0">{children}</div>
       </div>
-      <Footer settings={settings} />
-    </div>
+    </StorefrontShell>
   );
 }

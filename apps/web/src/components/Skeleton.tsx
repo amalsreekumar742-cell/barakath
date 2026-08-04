@@ -13,6 +13,17 @@
  * WHY `aria-hidden` throughout: a screen reader announcing eight empty boxes is noise. The container
  * that owns the fetch should carry the `aria-busy`.
  */
+
+/**
+ * A single pulsing line of "text".
+ *
+ * WHY a `<span class="block">` and not a `<div>`: this stands in for TEXT, so it gets rendered
+ * wherever text lives — including inside a `<p>` (e.g. `StatCard`'s value, which is a `ReactNode`).
+ * A `<div>` inside a `<p>` is invalid HTML: the browser silently closes the paragraph early, so the
+ * DOM it builds no longer matches the server's markup and React throws a hydration error. A `span`
+ * is phrasing content and is legal in every one of those places, while `block` keeps it laying out
+ * exactly as the div did.
+ */
 export function SkeletonText({
   width = 'w-full',
   className = '',
@@ -21,9 +32,9 @@ export function SkeletonText({
   className?: string;
 }) {
   return (
-    <div
+    <span
       aria-hidden
-      className={`h-3 animate-pulse rounded-xs bg-border ${width} ${className}`}
+      className={`block h-3 animate-pulse rounded-xs bg-border ${width} ${className}`}
     />
   );
 }

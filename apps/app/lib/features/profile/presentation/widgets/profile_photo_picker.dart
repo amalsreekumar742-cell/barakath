@@ -83,6 +83,13 @@ Future<PhotoPickResult> pickProfilePhoto(BuildContext context) async {
       // needed — quality 70 keeps an avatar well under the 2MB cap.
       compressQuality: 70,
       compressFormat: ImageCompressFormat.jpg,
+      // Downscale rather than rely on quality alone: a square crop of a
+      // high-megapixel photo can still clear 2MB at quality 70, and the Storage
+      // rule then rejects it outright. The avatar is drawn at ~100px, so 1024 is
+      // already far more than is needed. Keeps the size guard below unreached
+      // for any realistic photo instead of refusing the customer's picture.
+      maxWidth: 1024,
+      maxHeight: 1024,
       uiSettings: [
         AndroidUiSettings(
           toolbarTitle: 'Crop photo',

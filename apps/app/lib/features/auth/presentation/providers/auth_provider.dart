@@ -21,6 +21,27 @@ import '../../domain/usecases/upload_profile_photo.dart';
 import '../../domain/usecases/verify_otp.dart';
 import '../../domain/usecases/watch_auth_user.dart';
 
+/// Outcome of an avatar upload: the URL on success, or the reason it failed.
+///
+/// WHY a result object rather than a nullable URL: the caller has to TELL the
+/// customer what went wrong, and a `null` cannot. The Storage rule on
+/// `users/{uid}/**` rejects an oversized image with `storage/unauthorized`,
+/// which is a completely different remedy from "you are offline" — both used to
+/// surface as the same fixed sentence.
+class PhotoUploadResult {
+  const PhotoUploadResult._({this.url, this.message});
+
+  const PhotoUploadResult.success(String url) : this._(url: url);
+
+  const PhotoUploadResult.failed(String? message) : this._(message: message);
+
+  /// Non-null only on success.
+  final String? url;
+
+  /// Non-null only on failure; already customer-safe (see [FirebaseErrorMessage]).
+  final String? message;
+}
+
 /// Outcome of an OTP verification: the OTP page needs BOTH whether it succeeded
 /// and (on success) whether this is a brand-new account (→ profile creation).
 class VerifyResult {
@@ -216,10 +237,20 @@ class AuthProvider extends ChangeNotifier {
 
   // --- Profile --------------------------------------------------------------
 
-  /// Upload the avatar bytes; returns the download URL, or `null` on failure.
-  Future<String?> uploadProfilePhoto(Uint8List bytes) async {
+  /// Upload the avatar bytes.
+  ///
+  /// Returns the download URL on success, or the failure's own message on
+  /// error. WHY not a bare `String?` URL as before: `fold((_) => null, ...)`
+  /// threw the Failure away, so every cause — a Storage rule rejection, an
+  /// expired session, no network — arrived at the UI as the same null and was
+  /// reported as one fixed sentence. The customer could not tell a too-large
+  /// photo from a dropped connection, and neither could we.
+  Future<PhotoUploadResult> uploadProfilePhoto(Uint8List bytes) async {
     final result = await _uploadProfilePhoto(UploadProfilePhotoParams(bytes));
-    return result.fold((_) => null, (url) => url);
+    return result.fold(
+      (failure) => PhotoUploadResult.failed(failure.message),
+      PhotoUploadResult.success,
+    );
   }
 
   /// Persist the (optional) profile fields. Returns `null` on success or a

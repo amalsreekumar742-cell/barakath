@@ -101,44 +101,20 @@ export function AccountSidebar() {
         </div>
       </aside>
 
-      {/* Mobile / tablet: compact profile row + horizontal scrolling tab strip. */}
-      <div className="lg:hidden">
-        <div className="flex items-center gap-3 rounded-xl border border-border bg-surface p-3">
-          <Avatar profileImage={user?.profileImage} initial={initial} size={40} />
-          <div className="min-w-0">
-            <p className="truncate text-sm font-semibold text-foreground">{authLoading ? '—' : displayName}</p>
-            {user?.phone && <p className="truncate text-xs text-muted">{user.phone}</p>}
-          </div>
-        </div>
+      {/*
+        There is deliberately NO mobile rendering.
 
-        <nav className="mt-3 flex gap-2 overflow-x-auto pb-1" aria-label="Account sections">
-          {items.map((item) => {
-            const active = isActive(pathname, item.href);
-            return (
-              <Link
-                key={item.href}
-                href={item.href}
-                className={`inline-flex shrink-0 items-center gap-2 rounded-full border px-3.5 py-2 text-xs font-medium whitespace-nowrap ${
-                  active
-                    ? 'border-primary bg-primary-subtle text-primary'
-                    : 'border-border bg-surface text-muted hover:text-foreground'
-                }`}
-              >
-                <item.icon size={14} aria-hidden />
-                {item.label}
-              </Link>
-            );
-          })}
-          <button
-            type="button"
-            onClick={() => setLogoutOpen(true)}
-            className="inline-flex shrink-0 items-center gap-2 rounded-full border border-border px-3.5 py-2 text-xs font-medium whitespace-nowrap text-error hover:bg-error-subtle"
-          >
-            <LogOut size={14} aria-hidden />
-            Logout
-          </button>
-        </nav>
-      </div>
+        This component used to also emit a compact profile row plus a horizontal scrolling pill strip
+        below 1024px. That existed because a phone had no other way to move between account sections.
+        It now duplicates the app shell: Wallet and Profile are bottom-nav tabs, and every remaining
+        destination (orders, wishlist, addresses, notifications, settings, affiliate wallet, logout)
+        is a row on the Profile screen — `features/account/components/ProfileScreen.tsx`, which mirrors
+        `apps/app/lib/features/profile/presentation/pages/profile_page.dart`.
+
+        Keeping both meant every account page opened with a redundant identity card and a strip of
+        chips restating the navigation already pinned to the bottom of the screen. The Flutter app has
+        no such strip, and neither should the mobile web.
+      */}
 
       <LogoutDialog isOpen={logoutOpen} onClose={() => setLogoutOpen(false)} />
     </>

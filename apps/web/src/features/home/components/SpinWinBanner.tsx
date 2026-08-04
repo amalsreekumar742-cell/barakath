@@ -13,7 +13,9 @@ export function SpinWinBanner() {
     <section className="mx-auto w-full max-w-7xl px-4 py-2 lg:px-5">
       <Link
         href="/spin-win"
-        className="group relative flex flex-col items-start gap-6 overflow-hidden rounded-2xl bg-gradient-to-br from-ink via-gold-strong to-gold px-6 py-8 shadow-md transition hover:shadow-lg sm:flex-row sm:items-center sm:px-10 sm:py-9"
+        // `md:` throughout rather than `sm:` — the site standardises on the md/lg/xl ladder because
+        // this build's compiled `@media` blocks are ordered by first use, not width (see globals.css).
+        className="group relative flex flex-col items-start gap-6 overflow-hidden rounded-2xl bg-gradient-to-br from-ink via-gold-strong to-gold px-6 py-8 shadow-md transition hover:shadow-lg md:flex-row md:items-center md:px-10 md:py-9"
       >
         {/* Soft radial glow, matching the design's spin-wheel panel treatment. */}
         <div
@@ -29,7 +31,7 @@ export function SpinWinBanner() {
           <p className="text-xs font-semibold uppercase tracking-[0.18em] text-white/85">
             Spin &amp; Win
           </p>
-          <h2 className="mt-2 font-display text-2xl font-semibold tracking-tight text-white sm:text-[28px]">
+          <h2 className="mt-2 font-display text-2xl font-semibold tracking-tight text-white md:text-[28px]">
             Feeling lucky today?
           </h2>
           <p className="mt-2 max-w-md text-sm text-white/85">
