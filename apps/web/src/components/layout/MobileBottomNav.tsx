@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { House, LayoutGrid, ShoppingBag, Wallet, User } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { useAppDispatch, useAppSelector } from '@/stores/store';
@@ -65,24 +65,31 @@ function isActive(pathname: string, tab: Tab): boolean {
 
 export function MobileBottomNav() {
   const pathname = usePathname();
+  const router = useRouter();
   const dispatch = useAppDispatch();
   const isAuthenticated = useAppSelector((s) => s.auth.isAuthenticated);
   const authLoading = useAppSelector((s) => s.auth.authLoading);
 
   /*
-   * Treat "still resolving" as signed-in for the purpose of the tab guard.
+   * The auth-gated tabs (Wallet, Profile) have THREE states, not two.
    *
-   * WHY: `authLoading` starts true with `isAuthenticated` false, so on EVERY page load there is a
-   * window before Firebase reports back in which a genuinely signed-in customer's Wallet and Profile
-   * tabs would render as guest buttons — and tapping one in that window shows them "Login to
-   * continue" when they are already logged in. That is the worse failure of the two, because it is
-   * wrong and confusing.
+   * `authLoading` starts true with `isAuthenticated` false, so for a few hundred milliseconds after
+   * every load we genuinely do not know who this is. Guessing is wrong either way: guess "guest" and
+   * a signed-in customer is told to log in; guess "signed in" and a real guest gets bounced to
+   * /login by middleware instead of the gentler sheet.
    *
-   * The other direction degrades gracefully: a real guest who taps inside the same window follows the
-   * link, and `middleware.ts` redirects them to `/login?next=…`. That is merely the pre-existing
-   * behaviour, not an error.
+   * So a tap during that window is DEFERRED rather than guessed — `pendingHref` records where the
+   * customer wanted to go, and the effect below acts on it the moment auth resolves. Sub-second in
+   * practice, and correct in both directions instead of intermittently wrong in one.
    */
-  const guestGuard = !isAuthenticated && !authLoading;
+  const [pendingHref, setPendingHref] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!pendingHref || authLoading) return;
+    if (isAuthenticated) router.push(pendingHref);
+    else dispatch(setLoginSheetOpen(true));
+    setPendingHref(null);
+  }, [pendingHref, authLoading, isAuthenticated, router, dispatch]);
 
   /*
    * The bag count is read from a localStorage-persisted slice, so the server always renders 0 while
@@ -143,13 +150,16 @@ export function MobileBottomNav() {
 
           return (
             <li key={tab.href} className="flex-1">
-              {tab.requiresAuth && guestGuard ? (
-                // Guest: prompt rather than navigate. Navigating would hit middleware's
-                // `/login?next=` redirect, which yanks the page out from under a browsing visitor.
+              {tab.requiresAuth && !isAuthenticated ? (
+                // Not (yet) known to be signed in. Prompt rather than navigate — a middleware
+                // redirect to `/login?next=` yanks the page out from under a browsing visitor. If
+                // auth is still resolving, defer the decision instead of guessing (see above).
                 <button
                   type="button"
                   className={className}
-                  onClick={() => dispatch(setLoginSheetOpen(true))}
+                  onClick={() =>
+                    authLoading ? setPendingHref(tab.href) : dispatch(setLoginSheetOpen(true))
+                  }
                 >
                   {inner}
                 </button>

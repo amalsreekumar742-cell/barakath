@@ -142,7 +142,15 @@
    * itself by, so a wrong value overlaps the bar and the nav. Keep in step with MobileBottomNav.
    */
   --mobile-nav-h: 61px;
-  --sticky-cta-h: 76px;
+  /*
+   * The sticky CTA bar's FULL rendered height, measured the same outer-box way as the nav above:
+   * 24px (`py-3`) + its tallest child + 1px top border. The tallest child is the PDP's 54px
+   * wishlist square, not the 52px button, which is what makes this 79 and not 77 — reserving for
+   * the button alone left the last row of content 3px under the bar on exactly the one screen that
+   * uses the `leading` slot. Over-reserving by 2px on the bars WITHOUT that square is invisible;
+   * under-reserving is not. Keep in step with `StickyActionBar` and the PDP's leading control.
+   */
+  --sticky-cta-h: 79px;
   /* Bottom offset a sticky CTA sits at. Overridden to 0 on routes with no nav bar. */
   --mobile-nav-offset: var(--mobile-nav-h);
   --safe-bottom: env(safe-area-inset-bottom, 0px);

@@ -1,5 +1,8 @@
+'use client';
+
 import Link from 'next/link';
 import Image from 'next/image';
+import { usePathname } from 'next/navigation';
 import { Search } from 'lucide-react';
 import { Constants } from '@/config/constants';
 
@@ -19,6 +22,18 @@ import { Constants } from '@/config/constants';
  * home screen specifically; this pill stays as the shared element beneath it.
  */
 export function MobileSearchPill() {
+  const pathname = usePathname();
+
+  // Hidden on two screens, for two different reasons:
+  //  - /search: the pill would link to the page you are already on, and would sit directly above
+  //    that screen's REAL search field — two search affordances, only one of which works. The
+  //    search screen owns its own header (`features/search/results/MobileSearchHeader.tsx`).
+  //  - /product/*: the app treats product detail as a PUSHED screen with no search bar, and its
+  //    gallery runs full-bleed to the top edge with a floating back button over it. Leaving the
+  //    pill there would push the gallery down and duplicate the way back.
+  // `usePathname` is known during the server render in the App Router, so this does not flash.
+  if (pathname === '/search' || pathname.startsWith('/product/')) return null;
+
   return (
     <div className="flex items-center gap-3 bg-app px-4 pb-2 pt-3 lg:hidden">
       {/*

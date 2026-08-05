@@ -9,6 +9,7 @@ import { RatingStars } from '@/components/catalog/RatingStars';
 import { WishlistHeart } from '@/components/catalog/WishlistHeart';
 import { FlashCountdown } from '@/components/catalog/FlashCountdown';
 import { Button } from '@/components/Button';
+import { StickyActionBar } from '@/components/layout/StickyActionBar';
 import { useAppSelector, useAppDispatch } from '@/stores/store';
 import { toastError, toastSuccess } from '@/lib/toast';
 import { useRequireAuth } from '@/hooks/useRequireAuth';
@@ -292,7 +293,8 @@ export function ProductExperience({
         </div>
       )}
 
-      <div className="mt-6 flex items-center gap-3">
+      {/* Desktop: the CTA sits inline at the bottom of the buy box. */}
+      <div className="mt-6 hidden items-center gap-3 lg:flex">
         <Button
           variant="primary"
           size="lg"
@@ -305,6 +307,41 @@ export function ProductExperience({
         </Button>
         <WishlistHeart productId={product.id} className="shrink-0 border border-border-strong" />
       </div>
+
+      {/*
+        Mobile: the CTA is PINNED to the bottom edge, as in
+        `apps/app/lib/features/products/presentation/widgets/product_detail_bottom_bar.dart` — a
+        product page is long (description, specs, reviews, related), and an inline button scrolls out
+        of reach the moment the customer starts reading. The label carries the price the way the app
+        does, so what you are committing to is visible at the moment you commit.
+
+        It lives inside this component rather than the page because the price, the selected variant,
+        the stock state and the add handler are all state THIS component owns; `StickyActionBar` is
+        `position: fixed`, so where it sits in the tree does not affect where it paints.
+      */}
+      <StickyActionBar
+        leading={
+          <WishlistHeart
+            productId={product.id}
+            className="size-[54px] rounded-md border border-border-strong"
+          />
+        }
+      >
+        <Button
+          variant="primary"
+          size="lg"
+          fullWidth
+          loading={adding}
+          disabled={!inStock}
+          onClick={alreadyInBag ? () => router.push('/cart') : onAddToBag}
+        >
+          {!inStock
+            ? 'Out of stock'
+            : alreadyInBag
+              ? 'Go to cart'
+              : `Add to bag · ${formatInr(resolved.displayPrice * quantity)}`}
+        </Button>
+      </StickyActionBar>
     </div>
   );
 }

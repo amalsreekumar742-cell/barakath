@@ -236,6 +236,10 @@ export const approveReplacement = onCall(
         sentBy: 'system',
         sentByName: 'System',
         recipientCount: 1,
+        // Pre-stamped as delivered — `sendFCMToUser` above already pushed this. See the identical
+        // note in `triggers/onOrderStatusUpdate.ts`: without it, `onNotificationSend` would read
+        // this record of a push as a request for one and send a duplicate.
+        fcmDispatchedAt: FieldValue.serverTimestamp(),
         keywords: keywordsBuilder(title),
         createdAt: FieldValue.serverTimestamp(),
         updatedAt: FieldValue.serverTimestamp(),

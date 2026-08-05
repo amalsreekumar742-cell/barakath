@@ -75,13 +75,25 @@ export function Gallery({ images, productName }: GalleryProps) {
         onMouseLeave={() => setZooming(false)}
         onMouseMove={onMouseMove}
       >
+        {/*
+          `object-contain`, NOT cover.
+
+          Product photos in this catalogue are overwhelmingly portrait (~2:3) with the occasional
+          landscape, while this frame is square. `cover` fills the square by cropping roughly a third
+          off a 2:3 photo — on the one screen whose entire job is showing the customer what they are
+          buying. `contain` fits the whole image and lets the `bg-subtle` frame show around it, which
+          is also what the design board does (its gallery sits on a tinted panel, not a bleed).
+
+          Grid THUMBNAILS keep `cover` on purpose: there, identical tile shapes matter more than
+          seeing every pixel, and the customer clicks through for the full view.
+        */}
         <Image
           src={active}
           alt={productName}
           fill
           priority
           sizes="(max-width: 1024px) 100vw, 50vw"
-          className="object-cover"
+          className="object-contain"
         />
         {/* Zoomed layer: `lg:block` keeps it out of the DOM's visible layout below 1024px (spec: hover
             zoom is desktop-only), and it only becomes visible when `zooming` is true — which JS mouse

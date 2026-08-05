@@ -33,6 +33,13 @@ export { onReviewUpdate } from './triggers/onReviewUpdate'; // onDocumentUpdated
 export { onReviewDelete } from './triggers/onReviewDelete'; // onDocumentDeleted reviews/{reviewId}
 export { onProductDelete } from './triggers/onProductDelete'; // onDocumentDeleted products/{productId}
 export { onProductCategoryCount } from './triggers/onProductCategoryCount'; // onDocumentWritten products/{productId}
+export { onNotificationSend } from './triggers/onNotificationSend'; // onDocumentWritten notifications/{notificationId}
+
+// --- Notification fan-out (spec §1.18) ---
+// The admin panel can only RECORD a notification — fanning it out needs every customer's fcmToken,
+// a cross-user read the Security Rules forbid a client. The trigger above delivers a send-now; this
+// scheduler delivers the ones queued for a future time.
+export { dispatchScheduledNotifications } from './notifications/dispatchScheduledNotifications'; // onSchedule (every 5 min)
 
 // --- Growth & Affiliate (spin wheel, replacement, referral, commission clearing, wallet) ---
 export { spinWheel } from './growth/spinWheel'; // onCall

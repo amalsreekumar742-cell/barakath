@@ -8,6 +8,7 @@ import { buildMetadata, productSchema } from '@/lib/seo';
 import { getRelatedProducts } from '@/features/product/data/getRelatedProducts';
 import { getFrequentlyBoughtTogetherItems } from '@/features/product/data/getFrequentlyBoughtTogetherItems';
 import { Gallery } from '@/features/product/components/Gallery';
+import { MobileGallery } from '@/features/product/components/MobileGallery';
 import { YoutubeEmbed } from '@/features/product/components/YoutubeEmbed';
 import { ProductExperience } from '@/features/product/components/ProductExperience';
 import { DescriptionSection } from '@/features/product/components/DescriptionSection';
@@ -115,12 +116,31 @@ export default async function ProductPage({ params }: PageProps) {
   const clientVariants = variants.map(({ createdAt: _variantCreatedAt, ...v }) => v);
 
   return (
-    <main className="mx-auto w-full max-w-[1280px] px-5 pb-16">
-      {/* `Breadcrumb` emits its own BreadcrumbList JSON-LD — no separate `breadcrumbSchema` call needed. */}
-      <Breadcrumb items={crumbs} />
+    // `has-sticky-cta` reserves room for the pinned Add-to-bag bar (globals.css). It stacks with the
+    // shell's `has-mobile-nav` because the two sit on nested elements, so the last review/related row
+    // clears BOTH the CTA and the tab bar. Both are no-ops above 1024px.
+    <main className="has-sticky-cta mx-auto w-full max-w-[1280px] pb-16 lg:px-5">
+      {/*
+        The mobile gallery is FULL-BLEED, as it is in the app — so the page's horizontal padding
+        starts at `lg:` and everything that must stay inset gets `px-4` of its own below. The
+        breadcrumb is desktop-only here: the gallery's floating back button is the mobile way out,
+        and a breadcrumb above a full-bleed image would push it off the top of the screen.
+      */}
+      <div className="hidden lg:block">
+        <Breadcrumb items={crumbs} />
+      </div>
 
-      <div className="grid grid-cols-1 gap-10 lg:grid-cols-2">
-        <div className="flex flex-col gap-4">
+      <MobileGallery
+        images={product.images}
+        productName={product.name}
+        productId={product.id}
+        videoUrl={product.youtubeVideoLink}
+        onSale={product.isFlashSale}
+      />
+
+      <div className="grid grid-cols-1 gap-10 px-4 lg:grid-cols-2 lg:px-0">
+        {/* Desktop keeps the thumbnail-rail gallery and the video as a separate block below it. */}
+        <div className="hidden flex-col gap-4 lg:flex">
           <Gallery images={product.images} productName={product.name} />
           {product.youtubeVideoLink && <YoutubeEmbed url={product.youtubeVideoLink} />}
         </div>
@@ -132,7 +152,8 @@ export default async function ProductPage({ params }: PageProps) {
         />
       </div>
 
-      <div className="mt-14 flex flex-col gap-12">
+      {/* `px-4` here because `main` no longer pads on mobile — the gallery above is full-bleed. */}
+      <div className="mt-14 flex flex-col gap-12 px-4 lg:px-0">
         <DescriptionSection description={product.description} />
         <SpecificationsTable specifications={product.specifications} />
         <ReviewsSection product={product} firstPage={reviewsPage.items} hasMore={reviewsPage.hasMore} />

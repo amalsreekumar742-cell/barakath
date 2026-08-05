@@ -39,8 +39,13 @@ export interface SearchBarProps {
   /** Placeholder mirrors the design's "Search perfumes, books, abayas…". */
   placeholder?: string;
   className?: string;
-  /** Autofocus on mount — the mobile drawer opens straight into the box. */
+  /** Autofocus on mount — the mobile search screen opens straight into the box. */
   autoFocus?: boolean;
+  /**
+   * Seeds the box, so the results screen shows the term that produced it and a visitor can EDIT a
+   * query instead of retyping it. Uncontrolled after mount — this is the initial value only.
+   */
+  defaultValue?: string;
 }
 
 export function SearchBar({
@@ -48,10 +53,11 @@ export function SearchBar({
   placeholder = 'Search perfumes, books, abayas…',
   className = '',
   autoFocus = false,
+  defaultValue = '',
 }: SearchBarProps) {
   const router = useRouter();
   const { recent, add, remove, clear } = useRecentSearches();
-  const [value, setValue] = useState('');
+  const [value, setValue] = useState(defaultValue);
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);

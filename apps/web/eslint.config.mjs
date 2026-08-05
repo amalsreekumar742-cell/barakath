@@ -43,6 +43,29 @@ const config = [
     ignores: ['.next/**', 'node_modules/**', 'next-env.d.ts'],
   },
   {
+    /**
+     * The Playwright E2E suite. Two rules are switched off here and ONLY here — both fire on things
+     * that are correct in a test harness and would be wrong to "fix" in the code.
+     *
+     * `react-hooks/rules-of-hooks`: a Playwright fixture receives a callback conventionally named
+     * `use` (`async ({}, use) => { await use(value) }`). The rule sees a call to `use(...)` outside a
+     * component and reports React's `use` hook. Renaming the parameter is not an option — the name is
+     * positional convention across every Playwright codebase and doc — and the file contains no React.
+     *
+     * `no-explicit-any`: `firebase-admin` is resolved at runtime out of `functions/node_modules`
+     * (see e2e/fixtures/adminSdk.ts for why it is not a dependency of this app), so its types are not
+     * available to the compiler here. Inventing hand-written interfaces for the Admin SDK surface
+     * would be a second, silently-drifting copy of someone else's API.
+     *
+     * This block covers e2e/ only, so application code keeps both rules.
+     */
+    files: ['e2e/**/*.ts', 'playwright.config.ts'],
+    rules: {
+      'react-hooks/rules-of-hooks': 'off',
+      '@typescript-eslint/no-explicit-any': 'off',
+    },
+  },
+  {
     rules: {
       /**
        * WHY `_`-prefixed arguments are exempt from no-unused-vars: a placeholder component that

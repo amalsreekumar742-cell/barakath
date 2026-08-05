@@ -99,6 +99,12 @@ export const onOrderStatusUpdate = onDocumentUpdated('orders/{orderId}', async (
       sentBy: 'system',
       sentByName: 'System',
       recipientCount: 1,
+      // Pre-stamped as delivered because the push above ALREADY went out. Without this the
+      // `onNotificationSend` trigger would see a new doc with isSent:true, treat it as an admin
+      // broadcast awaiting delivery, and send the customer a second identical push. This doc is a
+      // RECORD of a push, not a request for one. Keep in step with dispatchNotification's
+      // DISPATCH_FIELD.
+      fcmDispatchedAt: FieldValue.serverTimestamp(),
       keywords: keywordsBuilder(title),
       createdAt: FieldValue.serverTimestamp(),
       updatedAt: FieldValue.serverTimestamp(),

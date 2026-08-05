@@ -99,6 +99,21 @@ export const createProduct = createAsyncThunk<
       maxPrice: listFields.maxPrice,
       isNewArrival: false,
       isFlashSale: false,
+      /**
+       * Seeded to 0 — NOT left absent.
+       *
+       * `ProductProps` declares both as required, and the storefront ORDERS BY them: "Popularity"
+       * sorts on `totalReviews desc` and "Rating" on `averageRating desc`. Firestore silently omits
+       * any document that LACKS the orderBy field, so a product created without these two vanishes
+       * from those two listings entirely — while the header's `getCountFromServer` (which has no
+       * orderBy) still counts it. That is exactly the "N products but only N-1 shown" mismatch, and
+       * it is invisible under the other three sorts.
+       *
+       * A review write recomputes these; until the first review lands they must still EXIST as 0.
+       * 0 means "unrated", never "rated zero" — the UI gates stars on `totalReviews > 0`.
+       */
+      averageRating: 0,
+      totalReviews: 0,
       keywords: keywordsBuilder(
         `${input.name} ${input.sku} ${input.categoryName} ${input.subCategoryName}`,
       ),

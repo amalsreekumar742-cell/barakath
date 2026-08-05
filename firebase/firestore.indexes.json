@@ -2570,6 +2570,25 @@
           "order": "DESCENDING"
         }
       ]
+    },
+    {
+      "//": "Scheduled-notification dispatch (functions/src/notifications/dispatchScheduledNotifications.ts): isScheduled == true AND isSent == false AND scheduledAt <= now, oldest due first. The existing isScheduled/isSent/createdAt index does NOT serve this — the range and the sort are both on scheduledAt, and Firestore requires the ordered field to be the one the inequality is on.",
+      "collectionGroup": "notifications",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "isScheduled",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "isSent",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "scheduledAt",
+          "order": "ASCENDING"
+        }
+      ]
     }
   ],
   "fieldOverrides": []

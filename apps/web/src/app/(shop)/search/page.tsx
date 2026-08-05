@@ -9,7 +9,9 @@ import {
   searchCategories,
   searchProducts,
   searchSubCategories,
+  toNavCategories,
 } from '@/lib/data/catalog';
+import { MobileSearchHeader } from '@/features/search/results/components/MobileSearchHeader';
 import { Constants } from '@/config/constants';
 import { RecentSearches } from '@/features/search/results/components/RecentSearches';
 import { TaxonomyChips } from '@/features/search/results/components/TaxonomyChips';
@@ -72,8 +74,14 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
   const trailRaw = readParam(params.trail);
   const trail = trailRaw ? trailRaw.split(',').filter(Boolean) : [];
 
+  // Only the mobile header needs these; the desktop header already has its own box.
+  const navCategories = toNavCategories(await getCategories());
+
   return (
     <main className="mx-auto w-full max-w-7xl px-4 pb-16 lg:px-5">
+      {/* The real search field on mobile — the site header that owns one is desktop-only. */}
+      <MobileSearchHeader categories={navCategories} query={q} />
+
       <Breadcrumb items={[{ label: 'Home', href: '/' }, { label: 'Search' }]} />
 
       {!q ? (

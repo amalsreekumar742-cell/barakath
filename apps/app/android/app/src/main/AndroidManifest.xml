@@ -53,6 +53,16 @@
             android:name="com.yalantis.ucrop.UCropActivity"
             android:screenOrientation="portrait"
             android:theme="@style/Theme.AppCompat.Light.NoActionBar" />
+        <!-- FCM fallback channel for notifications delivered while the app is in the BACKGROUND or
+             terminated. Those are rendered by the system, not by PushService, so the channel comes
+             from the message itself or from this meta-data. The server sets channel_id explicitly on
+             every send (functions/src/utils/sendFCM.ts), so this is insurance: without it, a message
+             that ever omits the channel lands on FCM's own "Miscellaneous" fallback channel, which
+             the customer can mute independently and which ignores our importance setting.
+             The id MUST match the channel PushService creates (push_service.dart `_channel`). -->
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_channel_id"
+            android:value="barakath_default" />
         <!-- Don't delete the meta-data below.
              This is used by the Flutter tool to generate GeneratedPluginRegistrant.java -->
         <meta-data

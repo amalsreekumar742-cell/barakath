@@ -1,6 +1,6 @@
 'use client';
 
-import type { MouseEvent } from 'react';
+import { useEffect, useState, type MouseEvent } from 'react';
 import { Heart } from 'lucide-react';
 
 import { useAppDispatch, useAppSelector } from '@/stores/store';
@@ -48,11 +48,35 @@ export interface WishlistHeartProps {
 export function WishlistHeart({ productId, className = '' }: WishlistHeartProps) {
   const dispatch = useAppDispatch();
   const isGuest = useAppSelector((s) => s.auth.isGuest);
+  const authLoading = useAppSelector((s) => s.auth.authLoading);
   const isWishlisted = useAppSelector((s) => s.wishlist.productIds.includes(productId));
+
+  /*
+   * `isGuest` starts TRUE alongside `authLoading` (see authSlice's initial state), so for the few
+   * hundred milliseconds before the auth listener reports in, a signed-in customer is
+   * indistinguishable from a visitor — and reading `isGuest` naively there tells a logged-in
+   * customer to log in, on a card they can see their own saved heart on.
+   *
+   * So a tap during that window records the INTENT and the effect below runs it once auth resolves,
+   * rather than acting on a value that is not yet meaningful. Same three-state guard, and same
+   * reasoning, as the auth-gated tabs in `layout/MobileBottomNav.tsx` — keep the two in step.
+   */
+  const [pendingToggle, setPendingToggle] = useState(false);
+
+  useEffect(() => {
+    if (!pendingToggle || authLoading) return;
+    if (isGuest) dispatch(setLoginSheetOpen(true));
+    else dispatch({ type: WISHLIST_TOGGLE, payload: productId });
+    setPendingToggle(false);
+  }, [pendingToggle, authLoading, isGuest, dispatch, productId]);
 
   function onClick(e: MouseEvent<HTMLButtonElement>) {
     e.preventDefault();
     e.stopPropagation();
+    if (authLoading) {
+      setPendingToggle(true);
+      return;
+    }
     if (isGuest) {
       dispatch(setLoginSheetOpen(true));
       return;
