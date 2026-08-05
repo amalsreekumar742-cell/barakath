@@ -36,7 +36,7 @@ export function OrderSummaryBlock({ totals, couponCode, disabled, loading, onPla
           value={totals.deliveryCharge === 0 ? 'Free' : formatInr(totals.deliveryCharge)}
           valueClassName={totals.deliveryCharge === 0 ? 'text-success' : undefined}
         />
-        <Row label="GST" value={formatInr(totals.gstAmount)} />
+        {/* No GST row — see OrderSummary. Prices include tax; the split is itemised on the invoice. */}
         <div className="my-1 border-t border-border" />
         <Row label="Grand total" value={formatInr(totals.grandTotal)} bold />
         {totals.walletAmountUsed > 0 && (

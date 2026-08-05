@@ -2,7 +2,7 @@ import type { FC } from 'react';
 import toast from 'react-hot-toast';
 import { format } from 'date-fns';
 import type { OrderProps, PaymentProps } from '@barakath/shared/types';
-import { gstBreakdown } from '@barakath/shared/utils/gstBreakdown';
+import { gstBreakdown, gstPresentation } from '@barakath/shared/utils/gstBreakdown';
 import { useAppSelector } from '@/stores/store';
 import Modal from '@/components/Modal';
 import Icon from '@/components/icons/Icon';
@@ -24,9 +24,13 @@ const TaxInvoiceModal: FC<{
   // Read seller details from the Settings slice if it happens to be loaded; else fall back to placeholders.
   const settings = useAppSelector((s) => s.settings.settings);
   const gstin = settings?.delivery.gstin || '32ABCDE1234F1Z5';
-  const gstPct = settings?.delivery.gstPercentage ?? 0;
 
   const gstRows = order ? gstBreakdown(order) : [];
+  // Whether this order's tax sits inside its prices, and the taxable value to print. Shared with the
+  // app's invoice so the two documents can never state a different split for the same order.
+  const tax = order
+    ? gstPresentation(order)
+    : { taxableValue: 0, gstAmount: 0, inclusive: false };
 
   const invoiceNo = order ? `INV-${order.id.slice(0, 8).toUpperCase()}` : 'INV-—';
   const invoiceDate = order?.createdAt ? format(order.createdAt.toDate(), 'dd MMM yyyy') : '—';
@@ -165,7 +169,15 @@ const TaxInvoiceModal: FC<{
           {/* Totals */}
           {order && (
             <div className="ml-auto max-w-xs border-t border-border pt-3">
-              <Row label="Subtotal" value={formatINR(order.subtotal)} />
+              {/* On a GST-INCLUSIVE order the listed price already contains the tax, so the invoice
+                  states the taxable value (subtotal − GST, e.g. ₹800 − ₹72 = ₹728) and the GST rows
+                  below are a breakdown OF that price, not an addition to it. Orders placed before
+                  2026-08-04 had GST added on top and keep the original presentation — an invoice must
+                  not restate what a customer already paid. */}
+              <Row
+                label={tax.inclusive ? 'Taxable value' : 'Subtotal'}
+                value={formatINR(tax.inclusive ? tax.taxableValue : order.subtotal)}
+              />
               {order.couponDiscount > 0 && (
                 <Row
                   label={`Coupon discount${order.couponCode ? ` (${order.couponCode})` : ''}`}
@@ -185,11 +197,14 @@ const TaxInvoiceModal: FC<{
                   <Row
                     key={r.percentage}
                     label={`GST ${r.percentage}% on ${formatINR(r.taxableValue)}`}
-                    value={`+${formatINR(r.gstAmount)}`}
+                    value={`${tax.inclusive ? '' : '+'}${formatINR(r.gstAmount)}`}
                   />
                 ))
               ) : (
-                <Row label={`GST${gstPct ? ` (${gstPct}%)` : ''}`} value={`+${formatINR(order.gstAmount)}`} />
+                <Row label="GST" value={`${tax.inclusive ? '' : '+'}${formatINR(order.gstAmount)}`} />
+              )}
+              {tax.inclusive && (
+                <p className="mt-1 text-[11px] text-muted">Prices are inclusive of GST.</p>
               )}
               <div className="my-2 border-t border-border" />
               <Row label="Grand Total" value={formatINR(order.grandTotal)} strong />

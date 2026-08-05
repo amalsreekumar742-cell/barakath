@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { ChevronRight } from 'lucide-react';
+import { CircleBackButton } from '@/components/CircleBackButton';
 
 /**
  * The breadcrumb trail (spec 3.24) — on nearly every page below the header.
@@ -21,7 +22,21 @@ export interface Crumb {
   href?: string;
 }
 
-export function Breadcrumb({ items }: { items: Crumb[] }) {
+export interface BreadcrumbProps {
+  items: Crumb[];
+  /**
+   * Renders the mobile back button. Defaults to TRUE, because a pushed screen without one strands the
+   * visitor, and that is the mistake this defaults against — a page has to opt OUT deliberately.
+   *
+   * Pass `false` on exactly two kinds of page:
+   *   - a bottom-nav tab root (`/categories`, `/account/wallet`) — a destination, not a step;
+   *   - a page that already draws its own back control (`/product/[id]`'s gallery overlay,
+   *     `/search`'s header), which would otherwise show two.
+   */
+  showBack?: boolean;
+}
+
+export function Breadcrumb({ items, showBack = true }: BreadcrumbProps) {
   if (items.length === 0) return null;
 
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? '';
@@ -37,7 +52,13 @@ export function Breadcrumb({ items }: { items: Crumb[] }) {
   };
 
   return (
-    <nav aria-label="Breadcrumb" className="py-3">
+    <nav aria-label="Breadcrumb" className="flex items-center gap-3 py-3">
+      {/* Mobile back. Hidden from 1024px up, where the trail itself plus the site header already give
+          the visitor a way out and a second control would just be clutter. It sits inside the
+          breadcrumb because that is the one element already at the top of nearly every pushed page —
+          adding the button here reaches them all at once, instead of each page remembering. */}
+      {showBack && <CircleBackButton className="lg:hidden" />}
+
       <ol className="flex flex-wrap items-center gap-1 text-[13px] text-muted">
         {items.map((item, index) => {
           const isLast = index === items.length - 1;

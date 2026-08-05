@@ -88,6 +88,23 @@ class Order extends Equatable {
   final double walletAmountUsed;
   final double deliveryCharge;
   final double gstAmount;
+
+  /// True when [gstAmount] is CONTAINED IN the prices rather than added to them,
+  /// so `grandTotal = subtotal − couponDiscount + deliveryCharge` and the
+  /// invoice's taxable value is `subtotal − gstAmount` (₹800 − ₹72 = ₹728).
+  ///
+  /// False for every order placed before 2026-08-04, when GST was added on top.
+  /// Those invoices must keep stating what the customer actually paid, so a
+  /// missing field parses to false — never assume inclusive.
+  final bool gstInclusive;
+
+  /// The value the tax was charged on, as the invoice should print it.
+  ///
+  /// Inclusive: the listed price already contains the tax, so back it out.
+  /// Exclusive (legacy): the subtotal WAS the pre-tax value.
+  double get taxableValue =>
+      gstInclusive ? subtotal - gstAmount : subtotal;
+
   final double grandTotal;
 
   /// 'Razorpay' | 'Wallet' | 'Both'.
@@ -125,6 +142,7 @@ class Order extends Equatable {
     required this.walletAmountUsed,
     required this.deliveryCharge,
     required this.gstAmount,
+    this.gstInclusive = false,
     required this.grandTotal,
     required this.paymentMethod,
     required this.paymentStatus,
@@ -158,6 +176,7 @@ class Order extends Equatable {
         walletAmountUsed,
         deliveryCharge,
         gstAmount,
+        gstInclusive,
         grandTotal,
         paymentMethod,
         paymentStatus,

@@ -319,6 +319,15 @@ export const createPaymentOrder = onCall(async (request) => {
         walletAmountUsed: totals.walletAmountUsed,
         deliveryCharge: totals.deliveryCharge,
         gstAmount: totals.gstAmount,
+        // Marks this order's money as GST-INCLUSIVE: `gstAmount` is contained in `subtotal`, not added
+        // to it, so an invoice shows  subtotal − gstAmount  as the taxable value.
+        //
+        // WHY a stored flag rather than inferring it from the arithmetic: orders placed before
+        // 2026-08-04 were charged GST ON TOP, and their invoices must keep showing what the customer
+        // actually paid. Inferring the model by testing whether grandTotal ≈ subtotal + gst is
+        // ambiguous the moment gstAmount is 0, and silently mislabels those orders. Absent on every
+        // pre-existing document, which is exactly the "exclusive" reading the display code needs.
+        gstInclusive: true,
         grandTotal: totals.grandTotal,
         paymentMethod,
         paymentStatus,

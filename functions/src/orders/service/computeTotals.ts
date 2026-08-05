@@ -76,7 +76,19 @@ export function computeOrderTotals(
   const deliveryCharge = computeDeliveryCharge(items, subtotal, config);
   const lineGst = computeLineGst(items, subtotal, discount);
   const gstAmount = round2(lineGst.reduce((sum, g) => sum + g, 0));
-  const grandTotal = round2(subtotal - discount + deliveryCharge + gstAmount);
+  // GST IS INCLUDED IN THE LISTED PRICE — it is NOT added on top.
+  //
+  // The catalogue price is what the customer pays; `gstAmount` is the tax already contained in it, so
+  // it is reported for the invoice but must not move the total. Adding it here (as this line did until
+  // 2026-08-04) charged an ₹800 item ₹872.
+  //
+  // Invoices therefore present the line as  price − gstAmount = taxable value  (₹800 − ₹72 = ₹728),
+  // which is the split the business asked for. Note it is not the textbook reverse charge
+  // (price × 100/(100+rate) would give ₹733.94 / ₹66.06): `gstAmount` stays a straight percentage of
+  // the line value, so the stated rate does not re-derive the stated tax from the taxable value.
+  // That was an explicit decision (2026-08-04) — do not "fix" it to the reverse-charge formula without
+  // checking, because it changes every figure on every new tax invoice.
+  const grandTotal = round2(subtotal - discount + deliveryCharge);
   const walletAmountUsed = round2(Math.min(Math.max(walletAmountToUse, 0), grandTotal));
   const razorpayAmount = round2(grandTotal - walletAmountUsed);
   return {

@@ -2,6 +2,7 @@
 
 import { ShieldCheck } from 'lucide-react';
 import { CheckoutSection } from '@/features/checkout/components/CheckoutSection';
+import { CircleBackButton } from '@/components/CircleBackButton';
 
 /**
  * /checkout — the design's standalone "Checkout" screen: `Bag · Checkout · Payment` breadcrumb (this
@@ -33,7 +34,13 @@ export default function CheckoutPage() {
         </span>
       </div>
 
-      <h1 className="mb-5 font-display text-2xl font-semibold tracking-tight text-foreground">Checkout</h1>
+      {/* No Breadcrumb on this page, and the bottom nav is deliberately hidden mid-payment
+          (mobileNavRoutes.NAV_HIDDEN_ON) — so without this the only way out on a phone is the
+          browser's own gesture. */}
+      <div className="mb-5 flex items-center gap-3">
+        <CircleBackButton href="/cart" className="lg:hidden" />
+        <h1 className="font-display text-2xl font-semibold tracking-tight text-foreground">Checkout</h1>
+      </div>
 
       <CheckoutSection />
     </main>

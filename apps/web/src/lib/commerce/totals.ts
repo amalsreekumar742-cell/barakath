@@ -136,9 +136,17 @@ export function computeTotals({
   const deliveryCharge = generalSettings
     ? computeDeliveryCharge(items, subtotal, generalSettings.delivery)
     : 0;
-  const gstPercentage = generalSettings?.delivery.gstPercentage ?? 0;
-  const gstAmount = round2(((subtotal - couponDiscount) * gstPercentage) / 100);
-  const grandTotal = round2(subtotal - couponDiscount + deliveryCharge + gstAmount);
+  // GST is INCLUDED in catalogue prices (2026-08-04), so it is not part of this sum — the customer
+  // pays the listed price. `computeOrderTotals` server-side does the same; if this line added tax the
+  // cart would quote a total higher than the one actually charged.
+  //
+  // `gstAmount` stays 0 in a PRE-ORDER preview rather than being estimated: the real figure is
+  // per-variant (`variants/{id}.gstPercentage`), and a cart line does not carry that rate. The old
+  // code multiplied by a single global rate from settings — a rate that has now been removed, and
+  // which never matched a mixed-rate cart anyway. The itemised split appears on the order and its
+  // invoice, computed from the per-line rates the server snapshotted (see `gstPresentation`).
+  const gstAmount = 0;
+  const grandTotal = round2(subtotal - couponDiscount + deliveryCharge);
 
   // Wallet toggle reads general/config.payment.walletPaymentsEnabled (WEB_BATCH3_NOTES.md §5) — not
   // `general.walletPayments`, which does not exist on the shared type. An OFF toggle or a disabled

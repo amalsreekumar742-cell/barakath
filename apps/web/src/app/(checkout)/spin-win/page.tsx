@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { CircleBackButton } from '@/components/CircleBackButton';
 import { CouponWallet } from '@/features/coupons/CouponWallet';
 import { SpinWinExperience } from '@/features/spinner/components/SpinWinExperience';
 import { useAppSelector } from '@/stores/store';
@@ -41,6 +42,12 @@ export default function SpinWinPage() {
 
   return (
     <main className="mx-auto w-full max-w-6xl px-4 pb-16 pt-6 lg:px-5">
+      {/* No Breadcrumb here, and the wheel fills the phone viewport — without this there is no way
+          back to the storefront short of the bottom nav. */}
+      <div className="mb-4 lg:hidden">
+        <CircleBackButton href="/" />
+      </div>
+
       <div className="grid grid-cols-1 items-start gap-10 lg:grid-cols-[460px_1fr]">
         <SpinWinExperience onWin={() => setCouponRefreshToken((t) => t + 1)} />
 

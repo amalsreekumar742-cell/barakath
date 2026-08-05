@@ -112,8 +112,14 @@ describe('computeTotals — wallet', () => {
   });
 });
 
-describe('computeTotals — GST and grand total order of operations', () => {
-  it('computes GST on (subtotal - discount), then adds delivery on top, matching computeOrderTotals', () => {
+describe('computeTotals — GST is included in prices, never added to the total', () => {
+  /**
+   * The rule this locks down (changed 2026-08-04): catalogue prices CONTAIN GST. A cart preview that
+   * adds tax on top quotes a total higher than `computeOrderTotals` will actually charge, and the
+   * customer sees the number change between the bag and the payment sheet. That is the regression
+   * this test exists to catch.
+   */
+  it('leaves GST out of the grand total, matching computeOrderTotals', () => {
     const items = [item({ unitPrice: 1200, quantity: 1 })]; // subtotal 1200, clears threshold -> delivery 0
     const coupon: AppliedCoupon = {
       code: 'TENOFF', description: '', discountType: 'Fixed', discountValue: 200, maximumDiscount: 0,
@@ -123,13 +129,26 @@ describe('computeTotals — GST and grand total order of operations', () => {
     expect(t.subtotal).toBe(1200);
     expect(t.couponDiscount).toBe(200);
     expect(t.deliveryCharge).toBe(0);
-    // gst = (1200 - 200) * 5% = 50
-    expect(t.gstAmount).toBe(50);
-    // grandTotal = 1200 - 200 + 0 + 50 = 1050
-    expect(t.grandTotal).toBe(1050);
-    expect(t.razorpayAmount).toBe(1050);
+    // A pre-order preview does not itemise the included tax: the real figure is per-variant, and a
+    // cart line carries no rate. The split appears on the order/invoice via `gstPresentation`.
+    expect(t.gstAmount).toBe(0);
+    // grandTotal = 1200 - 200 + 0 = 1000. Note this is the OLD 1050 minus the 50 that used to be
+    // added on top — the customer now pays exactly the listed price.
+    expect(t.grandTotal).toBe(1000);
+    expect(t.razorpayAmount).toBe(1000);
+  });
+
+  it('still adds delivery, which is not part of the tax-inclusive price', () => {
+    // 300 is under the free-delivery threshold, so a delivery fee applies on top of the goods value.
+    const t = computeTotals({
+      items: [item({ unitPrice: 300, quantity: 1 })],
+      coupon: null, walletBalance: 0, walletApplied: false, generalSettings: settings,
+    });
+    expect(t.grandTotal).toBe(round2(300 + t.deliveryCharge));
   });
 });
+
+const round2 = (n: number) => Math.round((n + Number.EPSILON) * 100) / 100;
 
 describe('computeTotals — Category/Product coupon eligibility', () => {
   it('gives no discount preview when a Category coupon matches nothing in the cart', () => {

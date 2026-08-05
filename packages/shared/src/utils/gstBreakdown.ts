@@ -23,6 +23,39 @@ export interface GstBreakdownRow {
 
 const round2 = (n: number) => Math.round((n + Number.EPSILON) * 100) / 100;
 
+/**
+ * Whether this order's GST sits INSIDE its prices (2026-08-04 onward) or was added on top (before).
+ *
+ * WHY absent means "exclusive": that is what every pre-existing order document is. Defaulting the
+ * other way would restate paid invoices — showing ₹728 + ₹72 on an order the customer was charged
+ * ₹872 for.
+ */
+export function isGstInclusive(order: Pick<OrderProps, 'gstInclusive'>): boolean {
+  return order.gstInclusive === true;
+}
+
+/**
+ * The two money lines an order summary shows above delivery, honouring which GST model the order used.
+ *
+ * Inclusive (new): the listed price already contains the tax, so the taxable value is
+ * `subtotal − gstAmount` (₹800 − ₹72 = ₹728) and the total does not move.
+ * Exclusive (old): the price was pre-tax and the GST was added, so the taxable value IS the subtotal.
+ *
+ * Both surfaces call this rather than each subtracting for themselves — the app's invoice, the
+ * website's order detail and the admin's tax invoice must not disagree about an order's tax split.
+ */
+export function gstPresentation(
+  order: Pick<OrderProps, 'subtotal' | 'gstAmount' | 'gstInclusive'>,
+): { taxableValue: number; gstAmount: number; inclusive: boolean } {
+  const gst = order.gstAmount ?? 0;
+  const inclusive = isGstInclusive(order);
+  return {
+    taxableValue: round2(inclusive ? (order.subtotal ?? 0) - gst : (order.subtotal ?? 0)),
+    gstAmount: round2(gst),
+    inclusive,
+  };
+}
+
 /** True when every line carries the per-line tax fields a rate-wise breakup needs. */
 export function hasLineGst(items: readonly OrderItemProps[]): boolean {
   return (

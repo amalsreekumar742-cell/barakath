@@ -43,7 +43,6 @@ class _BagPageState extends State<BagPage> {
     cart.applySettings(
       slabs: settings.deliverySlabs,
       freeDeliveryThreshold: settings.freeDeliveryThreshold,
-      gstPercentage: settings.gstPercentage,
     );
     await cart.validateAndFetchPrices();
     if (!mounted) return;

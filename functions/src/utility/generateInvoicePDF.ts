@@ -51,7 +51,15 @@ function buildPdf(
     const gstRate = Number(config.gstRate) || 0;
     const gstAmount = Number(order.gstAmount) || 0;
     const grandTotal = Number(order.grandTotal) || 0;
-    const taxable = grandTotal - gstAmount;
+    const subtotal = Number(order.subtotal) || 0;
+    // Which GST model this order was placed under decides how the taxable value is derived.
+    //   inclusive (2026-08-04 on): tax sits INSIDE the price → subtotal − gst (₹800 − ₹72 = ₹728),
+    //                              and it does not move the grand total.
+    //   exclusive (before):        tax was added on top      → grandTotal − gst.
+    // The flag is absent on every older document, which is exactly the exclusive case — so a paid
+    // invoice reprinted today still states the figures the customer was actually charged.
+    const gstInclusive = order.gstInclusive === true;
+    const taxable = gstInclusive ? subtotal - gstAmount : grandTotal - gstAmount;
 
     // Header — business name (left) + TAX INVOICE / number (right).
     doc.fontSize(20).text(String(config.businessName ?? 'Barakath'), 50, 50);

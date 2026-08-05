@@ -70,7 +70,8 @@ export default function WalletPage() {
 
   return (
     <div>
-      <Breadcrumb items={[{ label: 'Home', href: '/' }, { label: 'Wallet' }]} />
+      {/* Bottom-nav tab root ("Wallet") — a destination, not a step, so no mobile back button. */}
+      <Breadcrumb items={[{ label: 'Home', href: '/' }, { label: 'Wallet' }]} showBack={false} />
       <AccountPageHeader title="Wallet" subtitle="Your normal wallet balance, rewards and transaction history." />
 
       {/* Main column + 320px sidebar, matching design marker 09's layout. */}

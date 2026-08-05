@@ -22,7 +22,7 @@ export type {
   ReplacementRefundInput,
   ReplacementRefundBreakdown,
 } from './utils/replacementRefund';
-export { gstBreakdown, hasLineGst } from './utils/gstBreakdown';
+export { gstBreakdown, hasLineGst, isGstInclusive, gstPresentation } from './utils/gstBreakdown';
 export type { GstBreakdownRow } from './utils/gstBreakdown';
 export {
   DEFAULT_SPIN_VALIDITY_HOURS,

@@ -60,6 +60,16 @@ export interface OrderProps {
   walletAmountUsed: number;
   deliveryCharge: number;
   gstAmount: number;
+  /**
+   * True when `gstAmount` is CONTAINED IN the prices rather than added to them — so
+   * `grandTotal = subtotal − couponDiscount + deliveryCharge`, and the invoice's taxable value is
+   * `subtotal − gstAmount`.
+   *
+   * ABSENT on every order placed before 2026-08-04, when GST was charged on top
+   * (`grandTotal = … + gstAmount`). Those invoices must keep stating what the customer actually paid,
+   * so absent must be read as `false` — never defaulted to true. Use `isGstInclusive()`.
+   */
+  gstInclusive?: boolean;
   grandTotal: number;
   paymentMethod: 'Razorpay' | 'Wallet' | 'Both';
   paymentStatus: 'Pending' | 'Paid' | 'Failed' | 'Refunded';

@@ -15,7 +15,6 @@ interface Props {
 const toForm = (s: GeneralSettingsProps) => ({
   standardDeliveryFee: String(s.delivery.standardDeliveryFee),
   freeDeliveryThreshold: String(s.delivery.freeDeliveryThreshold),
-  gstPercentage: String(s.delivery.gstPercentage),
   gstin: s.delivery.gstin,
   pricesIncludeTax: s.delivery.pricesIncludeTax,
 });
@@ -39,10 +38,8 @@ const DeliveryTaxTab: FC<Props> = ({ settings, onDirtyChange }) => {
   const requestSave = () => {
     const fee = Number(form.standardDeliveryFee);
     const free = Number(form.freeDeliveryThreshold);
-    const gst = Number(form.gstPercentage);
-    if (![fee, free, gst].every((n) => Number.isFinite(n) && n >= 0))
+    if (![fee, free].every((n) => Number.isFinite(n) && n >= 0))
       return toast.error('Amounts must be zero or more');
-    if (gst > 100) return toast.error('GST rate cannot exceed 100%');
     setConfirmOpen(true);
   };
 
@@ -51,7 +48,6 @@ const DeliveryTaxTab: FC<Props> = ({ settings, onDirtyChange }) => {
       updateDeliveryTax({
         standardDeliveryFee: Number(form.standardDeliveryFee),
         freeDeliveryThreshold: Number(form.freeDeliveryThreshold),
-        gstPercentage: Number(form.gstPercentage),
         gstin: form.gstin.trim(),
         pricesIncludeTax: form.pricesIncludeTax,
       }),
@@ -82,16 +78,10 @@ const DeliveryTaxTab: FC<Props> = ({ settings, onDirtyChange }) => {
             onChange={(e) => set('freeDeliveryThreshold', e.target.value)}
           />
         </Field>
-        <Field label="GST rate (%)">
-          <input
-            type="number"
-            min={0}
-            max={100}
-            className={inputCls}
-            value={form.gstPercentage}
-            onChange={(e) => set('gstPercentage', e.target.value)}
-          />
-        </Field>
+        {/* No "GST rate (%)" field: the rate is per-variant (products/{id}/variants/{id}.gstPercentage),
+            which is what checkout actually charges — a single global rate could not describe a cart
+            holding an 8% and a 9% item, and editing it here implied a control it did not have. GSTIN
+            stays; it is the seller's own registration number and belongs on every invoice. */}
         <Field label="GSTIN number">
           <input
             className={inputCls}

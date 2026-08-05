@@ -69,7 +69,8 @@ export const updateDeliveryTax = createAsyncThunk<
   {
     standardDeliveryFee: number;
     freeDeliveryThreshold: number;
-    gstPercentage: number;
+    // No `gstPercentage`: the rate is per-variant, and this tab no longer edits it. Omitting it from
+    // the merge also leaves any historic stored value untouched rather than rewriting it to 0.
     gstin: string;
     pricesIncludeTax: boolean;
   },

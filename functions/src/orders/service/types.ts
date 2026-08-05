@@ -61,10 +61,14 @@ export interface OrderTotals {
   subtotal: number;
   couponDiscount: number;
   deliveryCharge: number;
+  /**
+   * Tax CONTAINED IN the prices, not charged on top of them. Reported on the invoice; does not move
+   * `grandTotal`. See the note in `computeOrderTotals`.
+   */
   gstAmount: number;
   /** Each line's rupee GST, index-aligned with the items passed in. Sums to `gstAmount`. */
   lineGst: number[];
-  /** Full order value = subtotal − couponDiscount + deliveryCharge + gstAmount. */
+  /** Full order value = subtotal − couponDiscount + deliveryCharge. GST is already inside subtotal. */
   grandTotal: number;
   walletAmountUsed: number;
   /** Amount to collect via Razorpay = grandTotal − walletAmountUsed (≥ 0). */

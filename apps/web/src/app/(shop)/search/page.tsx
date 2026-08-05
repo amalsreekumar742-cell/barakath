@@ -82,7 +82,8 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
       {/* The real search field on mobile — the site header that owns one is desktop-only. */}
       <MobileSearchHeader categories={navCategories} query={q} />
 
-      <Breadcrumb items={[{ label: 'Home', href: '/' }, { label: 'Search' }]} />
+      {/* MobileSearchHeader already draws its own back button. */}
+      <Breadcrumb items={[{ label: 'Home', href: '/' }, { label: 'Search' }]} showBack={false} />
 
       {!q ? (
         <>

@@ -66,7 +66,6 @@ class _CheckoutPageState extends State<CheckoutPage> {
     cart.applySettings(
       slabs: settings.deliverySlabs,
       freeDeliveryThreshold: settings.freeDeliveryThreshold,
-      gstPercentage: settings.gstPercentage,
     );
     // Re-validate on entry: the bag may have been opened minutes ago and stock
     // moves. Placing an order on stale lines just fails server-side anyway.

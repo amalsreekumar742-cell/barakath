@@ -67,8 +67,10 @@ export default function NotificationsPage() {
 
   return (
     <div>
+      {/* showBack: this page has no Breadcrumb, so the header is the only place a mobile back can go. */}
       <AccountPageHeader
         title="Notifications"
+        showBack
         action={
           <Button variant="secondary" size="sm" onClick={handleMarkAllRead} disabled={unreadCount === 0}>
             Mark all read

@@ -85,7 +85,8 @@ export default async function ProductPage({ params }: PageProps) {
   if (variants.length === 0) {
     return (
       <main className="mx-auto w-full max-w-[1280px] px-5 pb-16">
-        <Breadcrumb items={crumbs} />
+        {/* MobileGallery already overlays a back button on the image — a second would double up. */}
+        <Breadcrumb items={crumbs} showBack={false} />
         <EmptyState
           title="This product is currently unavailable."
           subtitle="Please check back soon."
@@ -127,7 +128,8 @@ export default async function ProductPage({ params }: PageProps) {
         and a breadcrumb above a full-bleed image would push it off the top of the screen.
       */}
       <div className="hidden lg:block">
-        <Breadcrumb items={crumbs} />
+        {/* MobileGallery already overlays a back button on the image — a second would double up. */}
+        <Breadcrumb items={crumbs} showBack={false} />
       </div>
 
       <MobileGallery

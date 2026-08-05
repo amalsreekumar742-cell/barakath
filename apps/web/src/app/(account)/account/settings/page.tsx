@@ -25,7 +25,8 @@ export default function SettingsPage() {
 
   return (
     <div>
-      <AccountPageHeader title="Settings" subtitle="Manage your profile and account." />
+      {/* showBack: this page has no Breadcrumb, so the header is the only place a mobile back can go. */}
+      <AccountPageHeader title="Settings" subtitle="Manage your profile and account." showBack />
 
       {!ready ? (
         <SettingsSkeleton />

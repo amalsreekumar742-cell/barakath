@@ -97,6 +97,7 @@ class OrderModel extends Order {
     required super.walletAmountUsed,
     required super.deliveryCharge,
     required super.gstAmount,
+    super.gstInclusive,
     required super.grandTotal,
     required super.paymentMethod,
     required super.paymentStatus,
@@ -131,6 +132,9 @@ class OrderModel extends Order {
       walletAmountUsed: ModelParse.toDouble(data['walletAmountUsed']),
       deliveryCharge: ModelParse.toDouble(data['deliveryCharge']),
       gstAmount: ModelParse.toDouble(data['gstAmount']),
+      // Absent on every order written before 2026-08-04 — those had GST added on
+      // top, so the default of false is the correct reading, not a fallback.
+      gstInclusive: data['gstInclusive'] == true,
       grandTotal: ModelParse.toDouble(data['grandTotal']),
       paymentMethod: ModelParse.toStr(data['paymentMethod']),
       paymentStatus: ModelParse.toStr(data['paymentStatus'], 'Pending'),

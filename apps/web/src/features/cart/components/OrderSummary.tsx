@@ -76,7 +76,8 @@ export function OrderSummary({ totals, loading }: OrderSummaryProps) {
             label="Delivery"
             value={totals.deliveryCharge === 0 ? 'Free' : formatInr(totals.deliveryCharge)}
           />
-          <Row label="GST" value={formatInr(totals.gstAmount)} />
+          {/* No GST row: tax is included in the listed prices, so adding a line here would imply it is
+              about to be added to the total. The itemised split is on the order and its invoice. */}
           <div className="pt-2">
             <Row label="Total" value={formatInr(totals.grandTotal)} emphasis="total" />
           </div>

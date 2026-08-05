@@ -356,12 +356,16 @@ class _InvoicePageState extends State<InvoicePage> {
 
   /// Part 7 "Price Summary".
   Widget _summary(Order order, InvoiceBusiness business) {
-    // Same derivation the deployed `generateInvoicePDF` uses: the order stores
-    // no `taxableValue`, so it is the grand total less the tax already inside it.
-    final taxable = order.grandTotal - order.gstAmount;
-    final gstLabel = business.gstPercentage > 0
-        ? 'GST (${business.gstPercentage.toStringAsFixed(business.gstPercentage % 1 == 0 ? 0 : 1)}%)'
-        : 'GST';
+    // The order stores no `taxableValue`, so it is derived — and HOW depends on
+    // which GST model the order was placed under (see Order.gstInclusive):
+    //   inclusive (2026-08-04 on): the price contains the tax → subtotal − gst
+    //     (₹800 − ₹72 = ₹728), and the total is unaffected by the tax.
+    //   exclusive (before):        the tax was added on top → grandTotal − gst.
+    // Deriving both the same way would restate paid invoices for old orders.
+    final taxable = order.gstInclusive
+        ? order.taxableValue
+        : order.grandTotal - order.gstAmount;
+    const gstLabel = 'GST';
     // Rate-wise breakup when the order carries per-line tax; empty for orders predating it.
     final gstRows = gstBreakdown(order);
     String pct(double v) => v.toStringAsFixed(v % 1 == 0 ? 0 : 1);

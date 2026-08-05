@@ -102,7 +102,10 @@ const ProductFormPage: FC = () => {
   const [images, setImages] = useState<ImageDraft[]>([]);
   const [variants, setVariants] = useState<VariantDraft[]>([]);
   /** Settings › Delivery & Tax rate — the fallback for any variant with no rate of its own. */
-  const globalGstPct = useAppSelector((s) => s.settings.settings?.delivery.gstPercentage ?? 0);
+  // A variant with no rate of its own is 0% — there is no longer a global rate to inherit from
+  // (Settings › Delivery & Tax dropped the field; the rate is per-variant, which is what checkout
+  // actually charges). Named rather than inlined so the intent reads as a decision, not an oversight.
+  const globalGstPct = 0;
   const [specifications, setSpecifications] = useState<SpecificationProps[]>([]);
   const [fbt, setFbt] = useState<FBTItem[]>([]);
 

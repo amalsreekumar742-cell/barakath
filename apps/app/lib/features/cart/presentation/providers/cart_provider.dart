@@ -59,11 +59,12 @@ class CartProvider extends ChangeNotifier {
   Coupon? _appliedCoupon;
   double _couponDiscount = 0;
 
-  /// Delivery/GST come from admin settings; the page injects them before reading
-  /// the money getters so this provider stays free of a settings dependency.
+  /// Delivery config comes from admin settings; the page injects it before
+  /// reading the money getters so this provider stays free of a settings
+  /// dependency. GST is no longer among them — it is included in the price and
+  /// is per-variant, not a single global rate (see [gstAmount]).
   List<DeliverySlab> _deliverySlabs = const [];
   double _freeDeliveryThreshold = 0;
-  double _gstPercentage = 0;
 
   /// The current cart lines (read-only view).
   List<CartItem> get items => List.unmodifiable(_items);
@@ -102,15 +103,13 @@ class CartProvider extends ChangeNotifier {
     return out;
   }
 
-  /// Feed in the admin's delivery/tax config (from GeneralSettingsProvider).
+  /// Feed in the admin's delivery config (from GeneralSettingsProvider).
   void applySettings({
     required List<DeliverySlab> slabs,
     required double freeDeliveryThreshold,
-    required double gstPercentage,
   }) {
     _deliverySlabs = slabs;
     _freeDeliveryThreshold = freeDeliveryThreshold;
-    _gstPercentage = gstPercentage;
   }
 
   // --- Money ----------------------------------------------------------------
@@ -187,15 +186,21 @@ class CartProvider extends ChangeNotifier {
       subtotal >= _freeDeliveryThreshold &&
       baseDeliveryCharge > 0;
 
-  /// GST applies to the discounted goods value, not to delivery.
-  double get gstAmount {
-    final taxable = subtotal - _couponDiscount;
-    if (taxable <= 0 || _gstPercentage <= 0) return 0;
-    return taxable * _gstPercentage / 100;
-  }
+  /// Always 0 in a PRE-ORDER preview: GST is INCLUDED in catalogue prices
+  /// (2026-08-04), so there is nothing to add to the bag total, and the real
+  /// per-line split needs each variant's own `gstPercentage` — which a cart line
+  /// does not carry. The itemised tax appears on the order and its invoice,
+  /// computed server-side from the rates snapshotted at checkout.
+  ///
+  /// Kept as a getter (rather than deleted) because the bag and checkout screens
+  /// pass it to [PriceSummary], which hides the row when it is 0.
+  double get gstAmount => 0;
 
+  /// Mirrors `computeOrderTotals` server-side. GST is deliberately NOT added —
+  /// it is already inside `subtotal`. Adding it here would quote the customer a
+  /// total higher than the one they are actually charged.
   double get grandTotal {
-    final total = subtotal - _couponDiscount + deliveryCharge + gstAmount;
+    final total = subtotal - _couponDiscount + deliveryCharge;
     return total < 0 ? 0 : total;
   }
 

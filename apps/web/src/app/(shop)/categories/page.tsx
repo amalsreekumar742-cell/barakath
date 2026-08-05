@@ -66,7 +66,8 @@ export default async function CategoriesPage() {
 
   return (
     <main className="mx-auto w-full max-w-7xl px-4 pb-16 lg:px-5">
-      <Breadcrumb items={[{ label: 'Home', href: '/' }, { label: 'Categories' }]} />
+      {/* Bottom-nav tab root ("Category") — a destination, not a step, so no mobile back button. */}
+      <Breadcrumb items={[{ label: 'Home', href: '/' }, { label: 'Categories' }]} showBack={false} />
 
       <div className="mb-6">
         <h1 className="font-display text-2xl font-semibold tracking-tight text-foreground">
