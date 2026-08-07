@@ -144,6 +144,8 @@ const ReportsPage: FC = () => {
           value={compactINR(s?.totalRevenue ?? 0)}
           trend={s?.revenueTrend}
           loading={sales.loading}
+          error={sales.error}
+          onRetry={refetch}
           // The deduction is stated, not silent — otherwise this figure looks like a wrong total.
           note={s && s.totalGst > 0 ? `${compactINR(s.totalGst)} GST excluded` : undefined}
         />
@@ -151,15 +153,33 @@ const ReportsPage: FC = () => {
           label="Gross profit"
           value={compactINR(p?.profit ?? 0)}
           loading={profit.loading}
+          error={profit.error}
+          onRetry={refetch}
           note={profitNote}
         />
-        <KpiCard label="Orders" value={(s?.totalOrders ?? 0).toLocaleString('en-IN')} loading={sales.loading} />
+        <KpiCard
+          label="Orders"
+          value={(s?.totalOrders ?? 0).toLocaleString('en-IN')}
+          loading={sales.loading}
+          error={sales.error}
+          onRetry={refetch}
+        />
         <KpiCard
           label="New customers"
           value={(customer.data?.newCustomers ?? 0).toLocaleString('en-IN')}
           loading={customer.loading}
+          error={customer.error}
+          onRetry={refetch}
         />
-        <KpiCard label="Refund rate" value={`${refundRate.toFixed(1)}%`} loading={payment.loading || sales.loading} />
+        {/* Refund rate divides the payment report's refund total by the sales report's revenue, so
+            EITHER failing makes the percentage meaningless — surface whichever broke. */}
+        <KpiCard
+          label="Refund rate"
+          value={`${refundRate.toFixed(1)}%`}
+          loading={payment.loading || sales.loading}
+          error={payment.error ?? sales.error}
+          onRetry={refetch}
+        />
       </div>
 
       {/* Revenue by month + Top products */}
@@ -167,6 +187,10 @@ const ReportsPage: FC = () => {
         <Card title="Revenue by month">
           {sales.loading ? (
             <Skeleton height={200} borderRadius={8} />
+          ) : sales.error ? (
+            /* Checked BEFORE the empty case: a failed query also yields an empty `periods`, and
+               "No revenue in this range" is a factual claim about the business, not about the query. */
+            <SectionError message={sales.error} onRetry={refetch} />
           ) : chartData.length === 0 ? (
             <p className="py-16 text-center text-[13px] text-muted">No revenue in this range</p>
           ) : (
@@ -189,6 +213,8 @@ const ReportsPage: FC = () => {
                 <Skeleton key={i} height={34} borderRadius={8} />
               ))}
             </div>
+          ) : product.error ? (
+            <SectionError message={product.error} onRetry={refetch} />
           ) : topProducts.length === 0 ? (
             <p className="py-10 text-center text-[13px] text-muted">No product sales in this range</p>
           ) : (
@@ -236,17 +262,53 @@ const ReportsPage: FC = () => {
  * `note` for a figure that needs qualifying (what was deducted, what the coverage is). A number that
  * silently excludes something is worse than one that says what it excluded.
  */
+/**
+ * One KPI figure.
+ *
+ * WHY `error` is not optional-and-ignored: when a report query fails, its `data` is null and every
+ * numeric read falls back to 0 — so the card rendered a confident "₹0" / "0" that was indistinguishable
+ * from a genuine zero. That is exactly how a missing composite index presented on 2026-08-04: Revenue
+ * and Orders showed ₹0 while Gross profit beside them said "1 of 16 orders costed", and the figures had
+ * to be caught by eye. A failed query and an empty range are different claims and must not look alike.
+ */
 const KpiCard: FC<{
   label: string;
   value: string;
   trend?: number;
   note?: string;
   loading: boolean;
-}> = ({ label, value, trend, note, loading }) => (
-  <div className="rounded-xl border border-border bg-surface p-4 shadow-sm">
+  error?: string | null;
+  onRetry?: () => void;
+}> = ({ label, value, trend, note, loading, error, onRetry }) => (
+  <div
+    className={`rounded-xl border bg-surface p-4 shadow-sm ${
+      error && !loading ? 'border-error/40' : 'border-border'
+    }`}
+  >
     <p className="text-[12px] font-medium text-faint">{label}</p>
     {loading ? (
       <Skeleton height={28} width={100} className="mt-2" />
+    ) : error ? (
+      <>
+        <p className="mt-2 flex items-center gap-1.5 text-[15px] font-bold leading-none text-error">
+          <Icon name="AlertLine" size={16} />
+          Couldn&apos;t load
+        </p>
+        {/* The raw reason, not a friendly euphemism — an admin needs to know it was a failed query, and
+            a FAILED_PRECONDITION message names the index that is missing. */}
+        <p className="mt-1.5 line-clamp-2 text-[11px] leading-snug text-muted" title={error}>
+          {error}
+        </p>
+        {onRetry && (
+          <button
+            type="button"
+            onClick={onRetry}
+            className="mt-1.5 text-[11px] font-semibold text-primary hover:underline"
+          >
+            Retry
+          </button>
+        )}
+      </>
     ) : (
       <>
         <p className="mt-2 text-[24px] font-extrabold leading-none tracking-tight text-foreground">{value}</p>
@@ -258,6 +320,30 @@ const KpiCard: FC<{
         {note && <p className="mt-2 text-[11px] leading-snug text-faint">{note}</p>}
       </>
     )}
+  </div>
+);
+
+/**
+ * The in-card failure state for a chart or list — the counterpart to KpiCard's error branch.
+ *
+ * Shows the query's own message rather than generic copy: on this page the realistic failure is a
+ * missing Firestore composite index, and that error text names the index (and links to create it).
+ * Hiding it behind "Something went wrong" would throw away the only useful part.
+ */
+const SectionError: FC<{ message: string; onRetry: () => void }> = ({ message, onRetry }) => (
+  <div className="py-10 text-center">
+    <p className="flex items-center justify-center gap-1.5 text-[13px] font-bold text-error">
+      <Icon name="AlertLine" size={16} />
+      Couldn&apos;t load this section
+    </p>
+    <p className="mx-auto mt-1.5 max-w-md break-words text-[11px] leading-snug text-muted">{message}</p>
+    <button
+      type="button"
+      onClick={onRetry}
+      className="mt-3 rounded-md border border-border-strong px-3 py-1.5 text-[12px] font-semibold text-foreground hover:bg-subtle"
+    >
+      Retry
+    </button>
   </div>
 );
 
