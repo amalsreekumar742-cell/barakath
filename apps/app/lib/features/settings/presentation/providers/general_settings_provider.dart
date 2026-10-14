@@ -6,8 +6,8 @@ import '../../domain/entities/general_settings.dart';
 import '../../domain/usecases/get_general_settings.dart';
 
 /// Loads and exposes the single `general/config` settings document (spec §1.21)
-/// so any screen can read checkout math (delivery/GST), help contacts, legal
-/// text and the version gate without re-fetching.
+/// so any screen can read checkout math (delivery/GST), help contacts and the
+/// version gate without re-fetching. (Policies are `PoliciesProvider`.)
 ///
 /// Calls the [GetGeneralSettings] use case — never Firestore directly. On
 /// failure it keeps [GeneralSettings.empty] so convenience getters stay safe.
@@ -32,8 +32,6 @@ class GeneralSettingsProvider extends ChangeNotifier {
   String get helpPhone => _settings.helpPhone;
   String get helpWhatsApp => _settings.helpWhatsApp;
   String get helpEmail => _settings.helpEmail;
-  String get privacyPolicy => _settings.privacyPolicy;
-  String get termsAndConditions => _settings.termsAndConditions;
   String get appMinVersion => _settings.appMinVersion;
 
   /// Fetch (or re-fetch) the settings document.

@@ -23,6 +23,7 @@ import 'features/affiliate/presentation/providers/affiliate_provider.dart';
 import 'features/notifications/presentation/providers/notifications_provider.dart';
 import 'features/orders/presentation/providers/order_detail_provider.dart';
 import 'features/orders/presentation/providers/orders_provider.dart';
+import 'features/policies/presentation/providers/policies_provider.dart';
 import 'features/profile/presentation/providers/profile_provider.dart';
 import 'features/replacement/presentation/providers/replacement_provider.dart';
 import 'features/reviews/presentation/providers/reviews_provider.dart';
@@ -114,6 +115,11 @@ class _BarakathAppState extends State<BarakathApp> {
         ChangeNotifierProvider<NotificationsProvider>(
           create: (_) => sl<NotificationsProvider>(),
         ),
+
+        // Policies list + detail. App-wide so a policy opened from the list
+        // renders from the copy the list already fetched; lazy, so nothing is
+        // read until Settings › Policies is opened.
+        ChangeNotifierProvider<PoliciesProvider>(create: (_) => sl<PoliciesProvider>()),
       ],
       child: MaterialApp.router(
         title: AppDetails.appName,

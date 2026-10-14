@@ -23,28 +23,44 @@ export const SettingsCard: FC<{ title: string; description?: string; children: R
   </section>
 );
 
-/** A labelled field wrapper (label above, input/children below). */
-export const Field: FC<{ label: string; hint?: string; children: ReactNode }> = ({
+/**
+ * A labelled field wrapper (label above, input/children below). An `error` replaces the hint so a
+ * validation message sits exactly where the admin is looking.
+ */
+export const Field: FC<{ label: string; hint?: string; error?: string; children: ReactNode }> = ({
   label,
   hint,
+  error,
   children,
 }) => (
   <label className="block">
     <span className="mb-1.5 block text-[13px] font-semibold text-foreground">{label}</span>
     {children}
-    {hint && <span className="mt-1 block text-[12px] text-faint">{hint}</span>}
+    {error ? (
+      <span className="mt-1 block text-[12px] text-error">{error}</span>
+    ) : (
+      hint && <span className="mt-1 block text-[12px] text-faint">{hint}</span>
+    )}
   </label>
 );
 
-/** Pill toggle switch (matches the product form's Status/Replacement toggles). */
-export const Toggle: FC<{ on: boolean; onChange: (v: boolean) => void; label?: string; disabled?: boolean }> = ({
-  on,
-  onChange,
-  label,
-  disabled,
-}) => (
+/**
+ * Pill toggle switch (matches the product form's Status/Replacement toggles). `role="switch"` +
+ * `aria-checked` so assistive tech announces on/off; `ariaLabel` names a switch that has no visible
+ * label (e.g. the per-row switch on the Policies list).
+ */
+export const Toggle: FC<{
+  on: boolean;
+  onChange: (v: boolean) => void;
+  label?: string;
+  ariaLabel?: string;
+  disabled?: boolean;
+}> = ({ on, onChange, label, ariaLabel, disabled }) => (
   <button
     type="button"
+    role="switch"
+    aria-checked={on}
+    aria-label={ariaLabel}
     onClick={() => !disabled && onChange(!on)}
     disabled={disabled}
     className={`inline-flex items-center gap-2.5 ${disabled ? 'cursor-not-allowed opacity-60' : ''}`}

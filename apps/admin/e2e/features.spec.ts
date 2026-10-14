@@ -196,9 +196,15 @@ test.describe('Admin features — per-feature E2E', () => {
     await waitSettled(page);
     await expect(page.getByRole('heading', { level: 1, name: 'Settings' })).toBeVisible();
 
-    for (const tab of ['Delivery & Tax', 'Payment Gateway', 'Privacy Policy', 'Terms & Conditions', 'Help & Support', 'Variables']) {
+    // Privacy Policy + Terms & Conditions are now entries inside the single Policies tab.
+    for (const tab of ['Delivery & Tax', 'Payment Gateway', 'Policies', 'Help & Support', 'Variables']) {
       await page.getByRole('button', { name: tab, exact: true }).click();
       await expect(page).toHaveURL(/\/settings$/);
+      if (tab === 'Policies') {
+        // Render-only: the list settles (skeleton gone) with its Add action — nothing is toggled or saved.
+        await expect(page.getByRole('button', { name: 'Add policy' })).toBeVisible();
+        await expect(page.getByTestId('policies-skeleton')).toHaveCount(0);
+      }
       await expect(page.getByRole('button', { name: /^retry$/i })).toHaveCount(0);
     }
   });

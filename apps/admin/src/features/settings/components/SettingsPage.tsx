@@ -6,26 +6,19 @@ import { useAppDispatch, useAppSelector } from '@/stores/store';
 import ConfirmDialog from '@/components/ConfirmDialog';
 import { fetchGeneralSettings } from '../api/fetchGeneralSettings';
 import { setActiveTab } from '../stores/settingsSlice';
+import { SETTINGS_TAB_LABELS, SettingsTab } from '../utils/settingsNav';
 import VariablesTab from './VariablesTab';
 import DeliveryTaxTab from './DeliveryTaxTab';
 import PaymentGatewayTab from './PaymentGatewayTab';
-import PrivacyPolicyTab from './PrivacyPolicyTab';
-import TermsConditionsTab from './TermsConditionsTab';
+import PoliciesTab from './PoliciesTab';
 import HelpSupportTab from './HelpSupportTab';
 
-const TABS = [
-  'Variables',
-  'Delivery & Tax',
-  'Payment Gateway',
-  'Privacy Policy',
-  'Terms & Conditions',
-  'Help & Support',
-] as const;
-
 /**
- * SettingsPage — the single `/settings` route with a 6-tab bar (spec §1.21). One `general/config` doc
- * backs every tab; the active tab index lives in Redux so the unsaved-changes guard can intercept a tab
- * switch. Access is gated to admins with the Settings permission (or Super admin).
+ * SettingsPage — the single `/settings` route with a 5-tab bar (spec §1.21). The `general/config` doc
+ * (plus `variables/config`) backs every tab except Policies, which lists `policies/{id}` documents and
+ * opens the policy editor on its own route. The active tab index lives in Redux so the unsaved-changes
+ * guard can intercept a tab switch, and so the policy editor can send the admin back to Policies.
+ * Access is gated to admins with the Settings permission (or Super admin).
  */
 const SettingsPage: FC = () => {
   const dispatch = useAppDispatch();
@@ -49,8 +42,12 @@ const SettingsPage: FC = () => {
     if (!settings) void dispatch(fetchGeneralSettings());
   }, [dispatch, settings]);
 
+  // WHY clamp: an index from before the tab list shrank (Privacy + Terms → Policies) must not leave the
+  // page with no tab selected and an empty body.
+  const currentTab = activeTab >= 0 && activeTab < SETTINGS_TAB_LABELS.length ? activeTab : SettingsTab.VARIABLES;
+
   const requestTab = (i: number) => {
-    if (i === activeTab) return;
+    if (i === currentTab) return;
     if (dirty) {
       setPendingTab(i);
       return;
@@ -70,38 +67,38 @@ const SettingsPage: FC = () => {
   const renderTab = () => {
     if (!settings) return null;
     const props = { settings, onDirtyChange: setDirty };
-    switch (activeTab) {
-      case 0:
+    switch (currentTab) {
+      case SettingsTab.VARIABLES:
         return <VariablesTab {...props} />;
-      case 1:
+      case SettingsTab.DELIVERY_TAX:
         return <DeliveryTaxTab {...props} />;
-      case 2:
+      case SettingsTab.PAYMENT_GATEWAY:
         return <PaymentGatewayTab {...props} />;
-      case 3:
-        return <PrivacyPolicyTab {...props} />;
-      case 4:
-        return <TermsConditionsTab {...props} />;
-      case 5:
+      case SettingsTab.HELP_SUPPORT:
         return <HelpSupportTab {...props} />;
       default:
         return null;
     }
   };
 
+  // WHY Policies bypasses the config doc's loading/error states: it reads its own collection with its
+  // own skeleton and retry, so a slow or failed `general/config` read must not block it (or vice versa).
+  const isPolicies = currentTab === SettingsTab.POLICIES;
+
   return (
     <div className="p-6">
       <h1 className="text-[22px] font-bold tracking-tight text-foreground">Settings</h1>
-      <p className="mt-1 text-[14px] text-muted">Business, tax, gateway &amp; variables.</p>
+      <p className="mt-1 text-[14px] text-muted">Business, tax, gateway, policies &amp; variables.</p>
 
       {/* Sub-tab bar — chips (design: brand-solid active, neutral-outline rest). */}
       <div className="mt-5 flex flex-wrap gap-2">
-        {TABS.map((label, i) => (
+        {SETTINGS_TAB_LABELS.map((label, i) => (
           <button
             key={label}
             type="button"
             onClick={() => requestTab(i)}
             className={`shrink-0 whitespace-nowrap rounded-pill px-3.5 py-1.5 text-[13px] font-semibold transition-colors ${
-              i === activeTab
+              i === currentTab
                 ? 'bg-primary text-white'
                 : 'border border-border-strong text-muted hover:bg-subtle hover:text-foreground'
             }`}
@@ -112,8 +109,10 @@ const SettingsPage: FC = () => {
       </div>
 
       {/* Body */}
-      <div className={`mt-6 ${activeTab === 0 ? 'max-w-5xl' : 'max-w-3xl'}`}>
-        {loading && (
+      <div className={`mt-6 ${currentTab === SettingsTab.VARIABLES ? 'max-w-5xl' : 'max-w-3xl'}`}>
+        {isPolicies && <PoliciesTab />}
+
+        {!isPolicies && loading && (
           <div className="rounded-xl border border-border bg-surface p-6">
             <Skeleton height={22} width={180} />
             <div className="mt-5 space-y-4">
@@ -124,7 +123,7 @@ const SettingsPage: FC = () => {
           </div>
         )}
 
-        {!loading && error && (
+        {!isPolicies && !loading && error && (
           <div className="rounded-xl border border-border bg-surface p-8 text-center">
             <p className="text-[14px] text-error">{error}</p>
             <button
@@ -137,7 +136,7 @@ const SettingsPage: FC = () => {
           </div>
         )}
 
-        {!loading && !error && renderTab()}
+        {!isPolicies && !loading && !error && renderTab()}
       </div>
 
       <ConfirmDialog

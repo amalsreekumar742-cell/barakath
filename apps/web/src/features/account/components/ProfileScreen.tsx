@@ -6,7 +6,6 @@ import Image from 'next/image';
 import {
   Bell,
   ChevronRight,
-  FileText,
   HandCoins,
   Heart,
   LifeBuoy,
@@ -29,10 +28,10 @@ import { LogoutDialog } from './LogoutDialog';
  * Layout follows the app: an avatar/name header, then grouped menu cards with hairline dividers,
  * then a red log-out row.
  *
- * WHY the legal links are here rather than only in the footer: the site footer is desktop-only now
- * (the Flutter app has no footer, and keeping one under a bottom tab bar reads as dead space), so
- * privacy policy and terms would otherwise be unreachable on a phone. The app puts them under
- * Profile for the same reason, so this is the arrangement customers of both surfaces already know.
+ * WHY the Policies link is here rather than only in the footer: the site footer is desktop-only now
+ * (the Flutter app has no footer, and keeping one under a bottom tab bar reads as dead space), so the
+ * store's policies would otherwise be unreachable on a phone. The app puts them under Profile for the
+ * same reason, so this is the arrangement customers of both surfaces already know.
  *
  * WHY the affiliate entry is gated on a non-empty `affiliateCode`: `UserProps` has no `isAffiliate`
  * field — the Flutter entity derives it as `affiliateCode.trim().isNotEmpty`, and `AccountSidebar`
@@ -59,8 +58,9 @@ const PRIMARY_LINKS: MenuLink[] = [
 const SECONDARY_LINKS: MenuLink[] = [
   { href: '/account/notifications', label: 'Notifications', icon: Bell },
   { href: '/account/settings', label: 'Settings', icon: Settings },
-  { href: '/privacy-policy', label: 'Privacy policy', icon: Shield },
-  { href: '/terms', label: 'Terms & conditions', icon: FileText },
+  // One row for every policy rather than a row each: the admin can publish any number of them
+  // (Settings › Policies), and /policies lists whatever is currently enabled.
+  { href: '/policies', label: 'Policies', icon: Shield },
 ];
 
 function MenuCard({ links }: { links: MenuLink[] }) {

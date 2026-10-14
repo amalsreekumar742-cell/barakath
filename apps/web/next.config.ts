@@ -12,18 +12,35 @@ import type { NextConfig } from 'next';
  *   The pattern is deliberately narrow — a wildcard host would let anyone with write access to a
  *   Firestore image field turn this site's image optimiser into an open proxy for arbitrary URLs.
  *
- * WHY serverExternalPackages lists isomorphic-dompurify: the legal pages (/privacy-policy, /terms)
- *   sanitize admin-authored HTML on the SERVER, and isomorphic-dompurify pulls in jsdom, which loads
+ * WHY serverExternalPackages lists isomorphic-dompurify: the policy pages (/policies/[policyId]) and
+ *   product descriptions sanitize admin-authored HTML on the SERVER, and isomorphic-dompurify pulls in jsdom, which loads
  *   `default-stylesheet.css` by a path relative to its own package directory. When Next bundles it
  *   into the server chunk that relative path breaks — the build fails with
  *   `ENOENT … browser/default-stylesheet.css`. Marking it external makes Next `require()` it from
  *   node_modules at runtime, where jsdom's own files resolve correctly. (Sanitisation stays on — this
  *   only changes HOW the package is loaded, not whether it runs.)
+ *
+ * WHY redirects() carries the two legacy legal URLs: /privacy-policy and /terms were given to Razorpay
+ *   and are indexed by search engines, but policies now live at /policies/{id} (Settings › Policies).
+ *   The two migrated policies keep fixed ids, so each old URL maps to exactly one document. It is a
+ *   config redirect, not `redirect()` inside a page, because `(shop)/loading.tsx` wraps every (shop)
+ *   page in a Suspense boundary: a redirect thrown there is streamed as a 200 with a client-side meta
+ *   refresh, which crawlers and Razorpay's site check do not treat as a redirect. A config redirect is
+ *   a real 308 sent before anything renders. Permanent because the target ids are a fixed contract.
+ *   The ids are literals rather than an import of LEGACY_POLICY_IDS
+ *   (packages/shared/src/config/policies.ts — keep the two in step) because this file is loaded by
+ *   Next's config loader, which does not run `transpilePackages` over workspace TS source.
  */
 const nextConfig: NextConfig = {
   reactStrictMode: true,
   transpilePackages: ['@barakath/shared'],
   serverExternalPackages: ['isomorphic-dompurify'],
+  async redirects() {
+    return [
+      { source: '/privacy-policy', destination: '/policies/privacy-policy', permanent: true },
+      { source: '/terms', destination: '/policies/terms-and-conditions', permanent: true },
+    ];
+  },
   typescript: {
     // TEMPORARY — @types/react's ReactNode/ReactPortal definitions are structurally
     // self-inconsistent under this project's strict tsconfig for every React 19.x /

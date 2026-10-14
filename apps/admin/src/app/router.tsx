@@ -75,6 +75,7 @@ const CreateSubAdminPage = lazy(
 );
 const EditSubAdminPage = lazy(() => import('@/features/subAdmin/components/EditSubAdminPage'));
 const SettingsPage = lazy(() => import('@/features/settings/components/SettingsPage'));
+const PolicyEditorPage = lazy(() => import('@/features/settings/components/PolicyEditorPage'));
 
 // Real element per built path; everything else falls back to the "Coming soon" placeholder.
 const BUILT: Record<string, ReactNode> = {
@@ -166,6 +167,10 @@ const protectedChildren = [
   { path: 'sub-admin/:id/edit', element: <EditSubAdminPage /> },
   // Adjust stock (not a sidebar item).
   { path: 'inventory/adjust', element: <AdjustStockPage /> },
+  // Settings › Policies add/edit (not sidebar items; guarded by the Settings module via the `/settings`
+  // prefix). Static 'new' outranks the dynamic ':policyId'.
+  { path: 'settings/policies/new', element: <PolicyEditorPage /> },
+  { path: 'settings/policies/:policyId', element: <PolicyEditorPage /> },
 ];
 
 const router = createBrowserRouter([

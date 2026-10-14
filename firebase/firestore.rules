@@ -376,6 +376,52 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
+    // --- Policies (Settings › Policies) — one doc per customer-facing policy (Privacy, Terms, Refund…),
+    // replacing `general/config.privacy` / `.terms`. ---
+    match /policies/{policyId} {
+      // The full document shape. WHY an allow-list + type checks (unlike most admin-CRUD collections
+      // here): this doc is rendered straight to every customer — the website footer and policy pages,
+      // the app's policy screens — so a malformed write (a numeric name, a stray field, an `order`
+      // string that breaks orderBy) breaks a public page, not just an admin screen.
+      // 80 mirrors POLICY_NAME_MAX in packages/shared/src/config/policies.ts (rules can't import it).
+      function isValidPolicy(d) {
+        return d.keys().hasOnly(['id', 'name', 'content', 'status', 'order', 'createdAt', 'updatedAt', 'updatedBy'])
+          && d.keys().hasAll(['id', 'name', 'content', 'status', 'order', 'createdAt', 'updatedAt', 'updatedBy'])
+          && d.id == policyId
+          && d.name is string && d.name.size() > 0 && d.name.size() <= 80
+          && d.content is string
+          && d.status in ['enabled', 'disabled']
+          && d.order is int && d.order >= 1
+          && d.createdAt is timestamp
+          && d.updatedAt is timestamp
+          && d.updatedBy is string;
+      }
+
+      // Public read ONLY while enabled: the storefront and app render policies before sign-in, but a
+      // disabled policy is "hidden, kept in admin" and must not be readable by URL. Customer list
+      // queries must therefore filter `status == 'enabled'` (rules are checked against the query).
+      allow read: if resource.data.status == 'enabled' || isAdmin();
+
+      // Stamps are server time and the author is the caller — a client can't backdate or impersonate.
+      allow create: if isAdmin()
+        && isValidPolicy(request.resource.data)
+        && request.resource.data.createdAt == request.time
+        && request.resource.data.updatedAt == request.time
+        && request.resource.data.updatedBy == request.auth.uid;
+
+      // `createdAt` is immutable. `updatedBy` may stay as it was (a ▲/▼ reorder writes only `order`, so
+      // customers' "last updated" date doesn't move) but if it changes it must be the caller.
+      allow update: if isAdmin()
+        && isValidPolicy(request.resource.data)
+        && request.resource.data.createdAt == resource.data.createdAt
+        && (request.resource.data.updatedBy == resource.data.updatedBy
+          || request.resource.data.updatedBy == request.auth.uid);
+
+      // Never deleted, by anyone: policy URLs are linked from outside (payment gateway review, search
+      // engines, old app builds). Disabling is the way to take one down.
+      allow delete: if false;
+    }
+
     // --- Variables (spec §1.21) — colour swatches + variant groups feeding the product form. Its own
     // collection (not `general/config`) so catalogue master data is isolated from store config. Admin
     // CRUD; opened to public read later when storefronts need variant options. ---

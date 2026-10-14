@@ -6,6 +6,7 @@ import { MobileSearchPill } from './MobileSearchPill';
 import { LoginSheet } from './LoginSheet';
 import { getCategories, toNavCategories } from '@/lib/data/catalog';
 import { getGeneralSettings } from '@/lib/data/settings';
+import { getEnabledPolicies } from '@/lib/data/policies';
 
 /**
  * The storefront chrome, shared by the (shop), (checkout) and (account) route groups.
@@ -16,7 +17,7 @@ import { getGeneralSettings } from '@/lib/data/settings';
  * and fifth thing to keep in step. One component means a route group opts into the whole shell,
  * mobile chrome included, by rendering it.
  *
- * WHY it stays a Server Component: it does the settings and category reads, and the header's
+ * WHY it stays a Server Component: it does the settings, category and policy reads, and the header's
  * category links are exactly the navigation crawlers follow. Only the genuinely interactive pieces
  * inside it — the bottom nav, the login sheet — are client islands.
  *
@@ -44,7 +45,13 @@ export async function StorefrontShell({
   contentClassName,
   mobileSearch = false,
 }: StorefrontShellProps) {
-  const [settings, categories] = await Promise.all([getGeneralSettings(), getCategories()]);
+  // `getEnabledPolicies` never throws (it logs and returns []), so a policies failure costs the footer
+  // its policy links rather than failing the shell — and with it every storefront page.
+  const [settings, categories, policies] = await Promise.all([
+    getGeneralSettings(),
+    getCategories(),
+    getEnabledPolicies(),
+  ]);
 
   return (
     <div className="flex min-h-screen flex-col">
@@ -53,7 +60,7 @@ export async function StorefrontShell({
 
       <div className={`has-mobile-nav flex-1 ${contentClassName ?? ''}`}>{children}</div>
 
-      <Footer settings={settings} />
+      <Footer settings={settings} policies={policies} />
 
       {/* Mobile-only chrome. Both render nothing above 1024px. */}
       <MobileBottomNav />

@@ -15,7 +15,7 @@ import '../widgets/profile_app_bar.dart';
 import '../widgets/profile_menu_card.dart';
 
 /// Settings (frame `37 · Settings & personal info`): the editable identity
-/// block, the two legal documents, and account deletion.
+/// block, the store's policies, and account deletion.
 class SettingsPage extends StatefulWidget {
   const SettingsPage({super.key});
 
@@ -97,17 +97,15 @@ class _SettingsPageState extends State<SettingsPage> {
                 const SizedBox(height: AppDimens.gapSections),
                 const _SectionLabel('Legal'),
                 const SizedBox(height: AppDimens.space12),
+                // One row for every policy rather than a row each: the admin
+                // can publish any number of them (Settings › Policies), and the
+                // Policies page lists whatever is currently enabled.
                 ProfileMenuCard(
                   entries: [
                     ProfileMenuEntry(
-                      icon: Icons.privacy_tip_outlined,
-                      label: 'Privacy policy',
-                      onTap: () => context.push('/profile/privacy'),
-                    ),
-                    ProfileMenuEntry(
-                      icon: Icons.gavel_rounded,
-                      label: 'Terms & conditions',
-                      onTap: () => context.push('/profile/terms'),
+                      icon: Icons.policy_outlined,
+                      label: 'Policies',
+                      onTap: () => context.push('/profile/policies'),
                     ),
                   ],
                 ),

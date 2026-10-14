@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../constants/app_details.dart';
+import '../constants/firebase_collections.dart';
 import '../../features/auth/presentation/pages/splash_page.dart';
 import '../../features/auth/presentation/pages/onboarding_page.dart';
 import '../../features/auth/presentation/pages/login_page.dart';
@@ -34,11 +35,11 @@ import '../../features/orders/presentation/pages/invoice_page.dart';
 import '../../features/orders/presentation/pages/my_orders_page.dart';
 import '../../features/orders/presentation/pages/order_detail_page.dart';
 import '../../features/orders/presentation/pages/order_tracking_page.dart';
+import '../../features/policies/presentation/pages/policies_page.dart';
+import '../../features/policies/presentation/pages/policy_detail_page.dart';
 import '../../features/profile/presentation/pages/edit_profile_page.dart';
 import '../../features/profile/presentation/pages/help_centre_page.dart';
-import '../../features/profile/presentation/pages/privacy_policy_page.dart';
 import '../../features/profile/presentation/pages/settings_page.dart';
-import '../../features/profile/presentation/pages/terms_page.dart';
 import '../../features/replacement/presentation/pages/request_replacement_page.dart';
 import '../../features/reviews/presentation/pages/write_review_page.dart';
 import '../../features/spinner/presentation/pages/my_coupons_page.dart';
@@ -269,15 +270,39 @@ class AppRouter {
           parentNavigatorKey: _rootKey,
           builder: (c, s) => const HelpCentrePage(),
         ),
+        // Policies (admin Settings › Policies). `:policyId` is the Firestore
+        // document id.
+        GoRoute(
+          path: '/profile/policies',
+          parentNavigatorKey: _rootKey,
+          builder: (c, s) => const PoliciesPage(),
+          routes: [
+            GoRoute(
+              path: ':policyId',
+              parentNavigatorKey: _rootKey,
+              builder: (c, s) =>
+                  PolicyDetailPage(policyId: s.pathParameters['policyId'] ?? ''),
+            ),
+          ],
+        ),
+        // The pre-Policies legal routes, kept so any existing push or deep link
+        // still lands on the right document: the two policies migrated from
+        // `general/config` keep these fixed ids.
         GoRoute(
           path: '/profile/privacy',
           parentNavigatorKey: _rootKey,
-          builder: (c, s) => const PrivacyPolicyPage(),
+          builder: (c, s) => const PolicyDetailPage(
+            policyId: FirebaseCollections.privacyPolicyId,
+            fallbackTitle: 'Privacy policy',
+          ),
         ),
         GoRoute(
           path: '/profile/terms',
           parentNavigatorKey: _rootKey,
-          builder: (c, s) => const TermsPage(),
+          builder: (c, s) => const PolicyDetailPage(
+            policyId: FirebaseCollections.termsAndConditionsId,
+            fallbackTitle: 'Terms & conditions',
+          ),
         ),
 
         GoRoute(

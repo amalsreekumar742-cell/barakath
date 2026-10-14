@@ -5,8 +5,9 @@ import '../../domain/entities/general_settings.dart';
 
 /// Data model for the `general/config` document — extends the [GeneralSettings]
 /// entity and adds Firestore deserialization. Each admin tab writes its own
-/// nested map (`delivery`, `payment`, `privacy`, `terms`, `contactus`); this
-/// reads the slices the app needs.
+/// nested map (`delivery`, `payment`, `contactus`, …); this reads the slices
+/// the app needs. The legacy `privacy`/`terms` maps are deliberately ignored —
+/// policies are read from the `policies` collection now.
 class GeneralSettingsModel extends GeneralSettings {
   const GeneralSettingsModel({
     required super.standardDeliveryFee,
@@ -17,10 +18,6 @@ class GeneralSettingsModel extends GeneralSettings {
     required super.razorpayKeyId,
     required super.razorpayConnected,
     required super.walletPaymentsEnabled,
-    required super.privacyPolicy,
-    required super.termsAndConditions,
-    required super.privacyPolicyUpdatedAt,
-    required super.termsUpdatedAt,
     required super.helpPhone,
     required super.helpWhatsApp,
     required super.helpEmail,
@@ -37,8 +34,6 @@ class GeneralSettingsModel extends GeneralSettings {
   factory GeneralSettingsModel.fromMap(Map<String, dynamic> data) {
     final delivery = ModelParse.map(data['delivery']);
     final payment = ModelParse.map(data['payment']);
-    final privacy = ModelParse.map(data['privacy']);
-    final terms = ModelParse.map(data['terms']);
     final contact = ModelParse.map(data['contactus']);
 
     return GeneralSettingsModel(
@@ -50,10 +45,6 @@ class GeneralSettingsModel extends GeneralSettings {
       razorpayKeyId: ModelParse.toStr(payment['razorpayKeyId']),
       razorpayConnected: ModelParse.toBool(payment['razorpayConnected']),
       walletPaymentsEnabled: ModelParse.toBool(payment['walletPaymentsEnabled']),
-      privacyPolicy: ModelParse.toStr(privacy['privacyPolicy']),
-      termsAndConditions: ModelParse.toStr(terms['termsAndConditions']),
-      privacyPolicyUpdatedAt: ModelParse.dateTime(privacy['privacyPolicyUpdatedAt']),
-      termsUpdatedAt: ModelParse.dateTime(terms['termsUpdatedAt']),
       helpPhone: ModelParse.toStr(contact['helpPhone']),
       helpWhatsApp: ModelParse.toStr(contact['helpWhatsApp']),
       helpEmail: ModelParse.toStr(contact['helpEmail']),
