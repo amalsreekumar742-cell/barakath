@@ -3,6 +3,7 @@ import { NavLink } from 'react-router-dom';
 import { navGroups } from '@/config/navigation';
 import { useAppSelector } from '@/stores/store';
 import Icon from '@/components/icons/Icon';
+import { Constants } from '@/config/constants';
 import logo from '@/assets/logo.png';
 
 /**
@@ -27,6 +28,10 @@ const Sidebar: FC = () => {
         <img src={logo} alt="Barakath" className="h-8 w-auto object-contain" />
         <span className="rounded-sm bg-primary-subtle px-1.5 py-0.5 text-[11px] font-bold uppercase tracking-wide text-primary">
           Admin
+        </span>
+        {/* The running bundle's version, so "which build is this?" is answerable at a glance. */}
+        <span className="text-[11px] font-semibold text-faint" title="Admin panel version">
+          v{Constants.WEB_VERSION}
         </span>
       </div>
 

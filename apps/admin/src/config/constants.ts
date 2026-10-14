@@ -7,5 +7,5 @@ export const Constants = {
   APP_NAME: 'Barakath Admin',
   PAGE_SIZE: 12, // default cursor page size for paginated lists
   DEFAULT_COUNTRY_CODE: '+91',
-  WEB_VERSION: '1.0.0', // bump each deploy; drives the version-update notifier
+  WEB_VERSION: '1.0.1', // bump each deploy; shown in the sidebar; drives the version-update notifier
 } as const;
