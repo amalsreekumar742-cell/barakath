@@ -1,8 +1,10 @@
 import { createSlice } from '@reduxjs/toolkit';
 import type { PayloadAction } from '@reduxjs/toolkit';
-import type { UserProps, AffiliateWithdrawalProps } from '@barakath/shared/types';
+import type { UserProps, AffiliateWithdrawalProps, AffiliateTransactionProps } from '@barakath/shared/types';
 import { fetchAffiliateStats } from '../api/fetchAffiliateStats';
 import { fetchAffiliateUsers } from '../api/fetchAffiliateUsers';
+import { fetchAffiliateDetail } from '../api/fetchAffiliateDetail';
+import { fetchAffiliateTransactions } from '../api/fetchAffiliateTransactions';
 import { searchAllocatableUsers } from '../api/searchAllocatableUsers';
 import { allocateAffiliate } from '../api/allocateAffiliate';
 import { fetchWithdrawals } from '../api/fetchWithdrawals';
@@ -46,6 +48,17 @@ interface AffiliateState {
   allocateSearchLoading: boolean;
   allocateLoading: boolean;
 
+  // --- Affiliate detail (one affiliate + their ledger) ---
+  affiliateDetail: UserProps | null;
+  affiliateDetailLoading: boolean;
+  affiliateDetailError: string | null;
+  ledger: AffiliateTransactionProps[];
+  ledgerLastVisible: any;
+  ledgerHasMore: boolean;
+  ledgerLoading: boolean;
+  ledgerLoadingMore: boolean;
+  ledgerError: string | null;
+
   // --- Withdrawals tab ---
   withdrawals: AffiliateWithdrawalProps[];
   withdrawalsLastVisible: any;
@@ -83,6 +96,15 @@ const initialState: AffiliateState = {
   allocateSearchResults: [],
   allocateSearchLoading: false,
   allocateLoading: false,
+  affiliateDetail: null,
+  affiliateDetailLoading: false,
+  affiliateDetailError: null,
+  ledger: [],
+  ledgerLastVisible: null,
+  ledgerHasMore: false,
+  ledgerLoading: false,
+  ledgerLoadingMore: false,
+  ledgerError: null,
   withdrawals: [],
   withdrawalsLastVisible: null,
   withdrawalsHasMore: false,
@@ -138,6 +160,15 @@ const affiliateSlice = createSlice({
       s.allocateSearchResults = [];
       s.allocateSearchLoading = false;
     },
+    /** Leaving the detail page drops it, so the next affiliate never flashes the previous one's ledger. */
+    resetAffiliateDetail(s) {
+      s.affiliateDetail = null;
+      s.affiliateDetailError = null;
+      s.ledger = [];
+      s.ledgerLastVisible = null;
+      s.ledgerHasMore = false;
+      s.ledgerError = null;
+    },
   },
   extraReducers: (builder) => {
     builder
@@ -173,6 +204,42 @@ const affiliateSlice = createSlice({
         s.affiliatesLoading = false;
         s.affiliatesLoadingMore = false;
         s.affiliatesError = a.payload ?? 'Failed to load affiliates';
+      })
+
+      // --- affiliate detail ---
+      .addCase(fetchAffiliateDetail.pending, (s) => {
+        s.affiliateDetailLoading = true;
+        s.affiliateDetailError = null;
+      })
+      .addCase(fetchAffiliateDetail.fulfilled, (s, a) => {
+        s.affiliateDetailLoading = false;
+        s.affiliateDetail = a.payload;
+      })
+      .addCase(fetchAffiliateDetail.rejected, (s, a) => {
+        s.affiliateDetailLoading = false;
+        s.affiliateDetailError = a.payload ?? 'Failed to load affiliate';
+      })
+
+      // --- affiliate ledger ---
+      .addCase(fetchAffiliateTransactions.pending, (s, a) => {
+        if (a.meta.arg.cursor) s.ledgerLoadingMore = true;
+        else {
+          s.ledgerLoading = true;
+          s.ledgerError = null;
+        }
+      })
+      .addCase(fetchAffiliateTransactions.fulfilled, (s, a) => {
+        const isFirst = !a.meta.arg.cursor;
+        s.ledgerLoading = false;
+        s.ledgerLoadingMore = false;
+        s.ledger = isFirst ? a.payload.items : appendDedup(s.ledger, a.payload.items);
+        s.ledgerLastVisible = a.payload.lastVisible;
+        s.ledgerHasMore = a.payload.hasMore;
+      })
+      .addCase(fetchAffiliateTransactions.rejected, (s, a) => {
+        s.ledgerLoading = false;
+        s.ledgerLoadingMore = false;
+        s.ledgerError = a.payload ?? 'Failed to load transactions';
       })
 
       // --- allocate modal search ---
@@ -327,5 +394,6 @@ export const {
   setWithdrawalStatusFilter,
   setCommissionSearch,
   clearAllocateSearch,
+  resetAffiliateDetail,
 } = affiliateSlice.actions;
 export default affiliateSlice.reducer;

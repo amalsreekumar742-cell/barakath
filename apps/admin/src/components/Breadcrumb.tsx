@@ -20,6 +20,8 @@ const Breadcrumb: FC = () => {
   const segments = pathname.split('/').filter(Boolean);
   // Customer detail (/customers/:id): once loaded, show the real name instead of the raw id fallback.
   const customerDetail = useAppSelector((s) => s.customers.customerDetail);
+  // Same for the affiliate detail page (/affiliate/affiliates/:userId).
+  const affiliateDetail = useAppSelector((s) => s.affiliate.affiliateDetail);
 
   // Root ("/") is the Dashboard — show a single, non-clickable crumb.
   const crumbs =
@@ -29,6 +31,9 @@ const Breadcrumb: FC = () => {
           const to = '/' + segments.slice(0, i + 1).join('/');
           if (segments[0] === 'customers' && i === 1 && customerDetail?.id === seg) {
             return { label: customerDetail.fullName, to };
+          }
+          if (segments[0] === 'affiliate' && i === 2 && affiliateDetail?.id === seg) {
+            return { label: affiliateDetail.fullName || seg, to };
           }
           return { label: segmentToLabel(seg), to };
         });

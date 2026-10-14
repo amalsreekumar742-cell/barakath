@@ -90,6 +90,32 @@ export const CopyableCode: FC<{ code: string }> = ({ code }) => {
   );
 };
 
+/** Affiliate ledger status pill: Cleared (green), Pending (amber, inside the hold window), Withdrawn (gray). */
+export const LedgerStatusBadge: FC<{ status: string }> = ({ status }) => {
+  const tone =
+    status === 'Cleared'
+      ? 'bg-success-subtle text-success'
+      : status === 'Pending'
+        ? 'bg-warning-subtle text-warning'
+        : 'bg-subtle text-muted';
+  return (
+    <span className={`inline-flex items-center rounded-sm px-2 py-0.5 text-[11px] font-bold ${tone}`}>
+      {status}
+    </span>
+  );
+};
+
+/** Ledger Credit / Debit with a direction arrow, green for credit and red for debit. */
+export const LedgerTypeCell: FC<{ type: string }> = ({ type }) => {
+  const credit = type === 'Credit';
+  return (
+    <span className={`inline-flex items-center gap-1 text-[13px] font-semibold ${credit ? 'text-success' : 'text-error'}`}>
+      <Icon name={credit ? 'ArrowUpLine' : 'ArrowDownLine'} size={13} />
+      {type}
+    </span>
+  );
+};
+
 /** Mask a bank account number to its last 4 digits — e.g. "•••• 4321" (spec §1.14 withdrawals table). */
 export const maskAccount = (account: string): string => {
   const digits = (account || '').replace(/\s+/g, '');
