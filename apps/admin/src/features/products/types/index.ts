@@ -1,4 +1,5 @@
 import type { StockStatus } from '@barakath/shared/config/enums';
+import type { VariantOption } from '@barakath/shared/types';
 
 /**
  * Active list filters (spec §1.5 Filters Panel). All optional; an unset filter is not applied.
@@ -34,7 +35,17 @@ export interface ImageDraft {
 export interface VariantDraft {
   id: string;
   isNew: boolean;
+  /**
+   * Display label of the non-colour part. For a new row it is `variantLabel(options)` ("57 · Layer 2");
+   * an existing row keeps the name it was saved with.
+   */
   name: string;
+  /**
+   * One unit per Settings › Variables group, in group order — see `VariantProps.options`. Set on every
+   * row added from the picker (even a Size-only one); absent on legacy variants loaded without it, which
+   * the save then leaves without it.
+   */
+  options?: VariantOption[];
   color: string;
   colorCode: string;
   /**

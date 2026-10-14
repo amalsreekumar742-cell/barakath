@@ -107,9 +107,9 @@ class _ProductDetailViewState extends State<_ProductDetailView> {
     );
   }
 
-  /// Reports a colour/size tap that landed on a sold-out variant. Null means the
-  /// product carries no variant for that value at all, which the selector cannot
-  /// produce — it only ever offers values read off the variants themselves.
+  /// Reports a variant-chip tap that landed on a sold-out variant. Null means
+  /// the product has no variants at all, which the selector cannot produce — it
+  /// is only rendered over a non-empty variant list.
   void _warnIfSoldOut(Variant? variant) {
     if (variant == null || variant.stock > 0) return;
     AppToast.error(context, 'This option is out of stock');
@@ -318,14 +318,17 @@ class _ProductDetailViewState extends State<_ProductDetailView> {
           if (detail.variants.isNotEmpty) ...[
             ProductDetailVariantSelector(
               colorOptions: detail.colorOptions,
-              sizeOptions: detail.sizeOptions,
               selectedColor: detail.selectedColor,
-              selectedSize: detail.selectedSize,
+              axes: detail.axes,
+              selectedValue: detail.selectedValue,
+              isAvailable: detail.isAvailable,
+              isSoldOut: detail.isSoldOut,
               // A tap always lands on a real variant, but that variant may be
               // sold out — say so rather than leaving the shopper to notice the
               // disabled Add-to-bag button on their own.
               onSelectColor: (color) => _warnIfSoldOut(detail.selectColor(color)),
-              onSelectSize: (size) => _warnIfSoldOut(detail.selectSize(size)),
+              onSelectAxis: (axis, value) =>
+                  _warnIfSoldOut(detail.selectAxis(axis, value)),
             ),
             const SizedBox(height: 20),
           ],

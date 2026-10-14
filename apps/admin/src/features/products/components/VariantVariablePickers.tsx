@@ -4,13 +4,17 @@ import toast from 'react-hot-toast';
 import { useAppDispatch, useAppSelector } from '@/stores/store';
 import Icon from '@/components/icons/Icon';
 import { updateVariables } from '@/features/settings/api/updateSettings';
+import type { VariantOption } from '@barakath/shared/types';
+import { variantLabel } from '@barakath/shared/utils/variantOptions';
+import { selectedUnit, setGroupOption, toggleGroupOption } from '../utils/variantPick';
 
 /**
  * VariantColorPicker / VariantUnitPicker — the product form's variant Color and Variant fields, sourced
  * from Settings → Variables (spec §1.21: the colours + variant-group units defined in Settings feed the
  * product add form, and new ones can be created on the fly). Selecting fills the inline "new variant"
  * row; creating a new colour/unit writes it back to `general/config` via `updateVariables` (so it's then
- * available to every product). The product still stores color/colorCode/name on the variant as before.
+ * available to every product). The variant stores color/colorCode, plus — from the unit picker — one
+ * unit per group as `options` with `name` derived from them (`variantLabel`).
  */
 
 const norm = (s: string) => s.trim().toLowerCase();
@@ -177,9 +181,18 @@ export const VariantColorPicker: FC<{
 
 // ---------------------------------------------------------------------------------------------------
 
-export const VariantUnitPicker: FC<{ value: string; onSelect: (name: string) => void }> = ({
+/**
+ * The Variant field: ONE unit per Settings group — Size 57 + Layer 2 for a cap — rather than one unit
+ * overall, so a product can vary on several axes besides colour. `value` is the row's picks in Settings
+ * group order (see `utils/variantPick`); the trigger shows their `variantLabel` ("57 · Layer 2").
+ *
+ * WHY the dropdown stays open on a pick: a multi-axis variant needs a pick in several groups, and
+ * closing after each one would mean reopening it per group. It closes on Done, an outside click or
+ * Escape. Clicking a group's selected unit again — or the × beside the group name — clears that group.
+ */
+export const VariantUnitPicker: FC<{ value: VariantOption[]; onChange: (options: VariantOption[]) => void }> = ({
   value,
-  onSelect,
+  onChange,
 }) => {
   const dispatch = useAppDispatch();
   const colors = useAppSelector((s) => s.settings.settings?.variables.colors ?? []);
@@ -191,6 +204,9 @@ export const VariantUnitPicker: FC<{ value: string; onSelect: (name: string) => 
   const [creating, setCreating] = useState(false);
   const [newUnit, setNewUnit] = useState('');
   const [groupName, setGroupName] = useState('');
+
+  const groupOrder = groups.map((g) => g.name);
+  const label = variantLabel(value);
 
   const openCreate = () => {
     setGroupName(groups[0]?.name ?? 'Size');
@@ -208,10 +224,12 @@ export const VariantUnitPicker: FC<{ value: string; onSelect: (name: string) => 
       : [...groups, { name: target, units: [unit] }];
     const res = await dispatch(updateVariables({ colors, variantGroups: nextGroups }));
     if (updateVariables.fulfilled.match(res)) {
-      onSelect(unit);
+      // Fills the new unit's OWN group slot, under the group's Settings spelling (the admin may have
+      // typed "size"), and keeps the other groups' picks. Ordered by `nextGroups`, since a brand-new
+      // group is not in the store's copy yet. The dropdown stays open for the remaining groups.
+      onChange(setGroupOption(value, nextGroups.map((g) => g.name), exists?.name ?? target, unit));
       setCreating(false);
       setNewUnit('');
-      setOpen(false);
       toast.success('Unit added');
     } else toast.error('Could not add unit');
   };
@@ -220,8 +238,14 @@ export const VariantUnitPicker: FC<{ value: string; onSelect: (name: string) => 
 
   return (
     <>
-      <button ref={anchorRef} type="button" onClick={() => setOpen((v) => !v)} className={triggerCls}>
-        <span className="truncate">{value || <span className="text-faint">Variant</span>}</span>
+      <button
+        ref={anchorRef}
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        title={label || undefined}
+        className={triggerCls}
+      >
+        <span className="truncate">{label || <span className="text-faint">Variant</span>}</span>
         <Icon name="ArrowDownLine" size={14} className="shrink-0 text-faint" />
       </button>
 
@@ -230,26 +254,44 @@ export const VariantUnitPicker: FC<{ value: string; onSelect: (name: string) => 
           {!hasUnits && !creating && (
             <p className="px-2 py-2 text-[12px] text-muted">No variant units yet. Add one below.</p>
           )}
-          {groups.map((g) =>
-            g.units.length === 0 ? null : (
+          {groups.map((g) => {
+            if (g.units.length === 0) return null;
+            const picked = selectedUnit(value, g.name);
+            return (
               <div key={g.name} className="mb-1">
-                <p className="px-2 py-1 text-[10px] font-bold uppercase tracking-wide text-faint">{g.name}</p>
-                {g.units.map((u) => (
-                  <button
-                    key={u}
-                    type="button"
-                    onClick={() => {
-                      onSelect(u);
-                      setOpen(false);
-                    }}
-                    className="w-full rounded-md px-2 py-1.5 text-left text-[13px] hover:bg-subtle"
-                  >
-                    {u}
-                  </button>
-                ))}
+                <div className="flex items-center justify-between gap-1 px-2 py-1">
+                  <p className="text-[10px] font-bold uppercase tracking-wide text-faint">{g.name}</p>
+                  {picked !== undefined && (
+                    <button
+                      type="button"
+                      onClick={() => onChange(setGroupOption(value, groupOrder, g.name, null))}
+                      className="rounded p-0.5 text-faint hover:bg-subtle hover:text-foreground"
+                      aria-label={`Clear ${g.name}`}
+                    >
+                      <Icon name="CloseLine" size={12} />
+                    </button>
+                  )}
+                </div>
+                {g.units.map((u) => {
+                  const on = picked !== undefined && norm(picked) === norm(u);
+                  return (
+                    <button
+                      key={u}
+                      type="button"
+                      aria-pressed={on}
+                      onClick={() => onChange(toggleGroupOption(value, groupOrder, g.name, u))}
+                      className={`flex w-full items-center justify-between gap-2 rounded-md px-2 py-1.5 text-left text-[13px] ${
+                        on ? 'bg-primary-subtle font-semibold text-primary' : 'hover:bg-subtle'
+                      }`}
+                    >
+                      {u}
+                      {on && <Icon name="CheckLine" size={14} className="shrink-0" />}
+                    </button>
+                  );
+                })}
               </div>
-            ),
-          )}
+            );
+          })}
 
           <div className="my-1 border-t border-border" />
           {creating ? (
@@ -284,9 +326,14 @@ export const VariantUnitPicker: FC<{ value: string; onSelect: (name: string) => 
               </div>
             </div>
           ) : (
-            <button type="button" onClick={openCreate} className="flex w-full items-center gap-1.5 rounded-md px-2 py-1.5 text-left text-[13px] font-semibold text-primary hover:bg-primary-subtle">
-              <Icon name="AddLine" size={14} /> New unit
-            </button>
+            <div className="flex items-center gap-1.5">
+              <button type="button" onClick={openCreate} className="flex flex-1 items-center gap-1.5 rounded-md px-2 py-1.5 text-left text-[13px] font-semibold text-primary hover:bg-primary-subtle">
+                <Icon name="AddLine" size={14} /> New unit
+              </button>
+              <button type="button" onClick={() => setOpen(false)} className="rounded-md bg-primary px-2.5 py-1 text-[12px] font-semibold text-white hover:bg-primary-dark">
+                Done
+              </button>
+            </div>
           )}
         </Dropdown>
       )}

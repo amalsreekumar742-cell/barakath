@@ -22,7 +22,9 @@ export const Constants = {
    */
   MAX_CATEGORIES: 60,
   MAX_SUBCATEGORIES: 40,
-  MAX_VARIANTS: 40,
+  /** Multi-axis variants multiply: 13 sizes × 3 layers × 2 colours is already 78 documents. A cut-off
+   *  here silently drops real combinations from the chip rows, so the cap sits well above that. */
+  MAX_VARIANTS: 120,
   MAX_BANNERS: 12,
 
   /** The sitemap is the one place that legitimately wants the whole catalogue. */

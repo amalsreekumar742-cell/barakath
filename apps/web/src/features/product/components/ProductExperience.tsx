@@ -1,8 +1,9 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import type { ProductProps, VariantProps } from '@barakath/shared';
+import { axisValues, resolveVariant } from '@barakath/shared/utils/variantOptions';
 import { resolvePrice } from '@/lib/pricing';
 import { formatInr } from '@/components/catalog/PriceBlock';
 import { RatingStars } from '@/components/catalog/RatingStars';
@@ -13,6 +14,7 @@ import { StickyActionBar } from '@/components/layout/StickyActionBar';
 import { useAppSelector, useAppDispatch } from '@/stores/store';
 import { toastError, toastSuccess } from '@/lib/toast';
 import { useRequireAuth } from '@/hooks/useRequireAuth';
+import { VariantSelector } from './VariantSelector';
 
 /** `ProductProps`/`VariantProps` minus their Firestore `Timestamp` fields — a `Timestamp` class instance
  *  is not a plain object, so React rejects it crossing the Server → Client boundary as a prop (the same
@@ -25,7 +27,7 @@ type ClientVariant = Omit<VariantProps, 'createdAt'>;
 export interface ProductExperienceProps {
   product: ClientProduct;
   /** All variants in the admin's display order (`getVariants` sorts by `sortOrder` — index 0 is the
-   *  default). Colour/size chips follow this order, so a reorder in the admin reorders them here. */
+   *  default). Every chip row follows this order, so a reorder in the admin reorders them here. */
   variants: ClientVariant[];
   /** The live flash sale's end, as millis — null when no sale is running. See `FlashCountdown` note on
    *  why millis crosses the Server→Client boundary cleanly while a raw `Timestamp` does not. */
@@ -40,12 +42,13 @@ export interface ProductExperienceProps {
  * would mean lifting the same `selectedVariant` state back up anyway — one client component is the
  * honest shape, not a compromise.
  *
- * WHY variant selection is a two-dimensional match (color × name) rather than one flat list: a
- * `VariantProps` carries both `color`/`colorCode` and `name` (the admin's size/label field) on the SAME
- * document — there is no separate "option group" schema. Showing a color row and a size row only when
- * more than one distinct value exists, then resolving the pair back to the one matching variant, is the
- * closest honest reading of that shape; a combination the catalogue never created is treated the same
- * as an out-of-stock one — greyed and unselectable, per spec, rather than silently falling back.
+ * WHY variant selection is a per-axis match rather than one flat list: a variant is one point in a
+ * Colour × Size × Layer … grid — `color` plus its `options` (or, on a single-axis variant, its `name`
+ * as the lone "Size" axis). The selection is a map of axis → value, one chip row per axis (see
+ * `VariantSelector`), and it is ALWAYS a real variant's values: a tap goes through the shared
+ * `resolveVariant`, then the whole selection snaps to whatever it landed on. So the highlighted chips
+ * and the price/stock shown can never disagree, and the website picks the same variant for the same
+ * taps as the app, which mirrors those rules.
  */
 export function ProductExperience({
   product,
@@ -60,23 +63,14 @@ export function ProductExperience({
 
   // The page never renders this component when `variants` is empty (see page.tsx's guard).
   const first = variants[0]!;
-  const [selectedColor, setSelectedColor] = useState(first.color);
-  const [selectedName, setSelectedName] = useState(first.name);
+  // Axis name → value, colour included (`COLOUR_AXIS`). Seeded from the default variant.
+  const [selection, setSelection] = useState<Record<string, string>>(() => axisValues(first));
   const [quantity, setQuantity] = useState(1);
   const [adding, setAdding] = useState(false);
 
-  const colors = useMemo(
-    () => Array.from(new Map(variants.map((v) => [v.color, v.colorCode])).entries()),
-    [variants],
-  );
-  const names = useMemo(() => Array.from(new Set(variants.map((v) => v.name))), [variants]);
-
-  // The variant matching the current (color, name) pair, or the closest honest fallback.
-  const currentVariant: ClientVariant =
-    variants.find((v) => v.color === selectedColor && v.name === selectedName) ??
-    variants.find((v) => v.color === selectedColor) ??
-    variants.find((v) => v.name === selectedName) ??
-    first;
+  // `selection` is always some variant's own values (see `onSelectVariant`), so this is an exact match;
+  // the shared resolver's fallbacks only matter if that invariant is ever broken.
+  const currentVariant: ClientVariant = resolveVariant(variants, selection) ?? first;
 
   const resolved = resolvePrice(product, currentVariant);
   const inStock = currentVariant.stock > 0;
@@ -88,37 +82,13 @@ export function ProductExperience({
   const maxQty = Math.max(1, Math.min(currentVariant.stock, 10));
   const isAffiliate = isAuthenticated && (user?.affiliateCode?.trim().length ?? 0) > 0;
 
-  /** Whether picking `color`/`name` (holding the other axis at its current value) lands on real stock. */
-  function comboInStock(axis: 'color' | 'name', value: string): boolean {
-    const match =
-      axis === 'color'
-        ? variants.find((v) => v.color === value && v.name === selectedName) ??
-          variants.find((v) => v.color === value)
-        : variants.find((v) => v.name === value && v.color === selectedColor) ??
-          variants.find((v) => v.name === value);
-    return Boolean(match && match.stock > 0);
-  }
-
-  /** Picking one axis can land on a (color, name) pair no variant actually has — the previous version
-   *  left the other axis untouched and let `currentVariant`'s fallback silently resolve to a DIFFERENT
-   *  variant, so the highlighted color/size and the shown price/stock disagreed. Snapping the other
-   *  axis to a value that actually combines with the new pick keeps the two in sync. */
-  function onSelectVariantAxis(axis: 'color' | 'name', value: string) {
-    if (axis === 'color') {
-      setSelectedColor(value);
-      const stillValid = variants.some((v) => v.color === value && v.name === selectedName);
-      if (!stillValid) {
-        const fallback = variants.find((v) => v.color === value);
-        if (fallback) setSelectedName(fallback.name);
-      }
-    } else {
-      setSelectedName(value);
-      const stillValid = variants.some((v) => v.color === selectedColor && v.name === value);
-      if (!stillValid) {
-        const fallback = variants.find((v) => v.name === value);
-        if (fallback) setSelectedColor(fallback.color);
-      }
-    }
+  /** Picking one axis can point at a combination no variant has (Size 55 while on Layer 3, when 55
+   *  only comes in Layer 2). Leaving the other axes untouched would let the highlighted chips and the
+   *  shown price/stock disagree — so `resolveVariant` picks the closest real variant WITH the tapped
+   *  value, and the whole selection snaps to that variant's values. */
+  function onSelectVariant(axis: string, value: string) {
+    const next = resolveVariant(variants, { ...selection, [axis]: value }, axis) ?? first;
+    setSelection(axisValues(next));
     setQuantity(1); // a new variant has its own stock cap — start from 1 rather than carry over.
   }
 
@@ -205,60 +175,7 @@ export function ProductExperience({
         </div>
       )}
 
-      {colors.length > 1 && (
-        <div className="mt-6">
-          <p className="text-xs font-semibold uppercase tracking-wide text-muted">Color</p>
-          <div className="mt-2 flex flex-wrap gap-2.5">
-            {colors.map(([color, colorCode]) => {
-              const disabled = !comboInStock('color', color);
-              const selected = color === selectedColor;
-              return (
-                <button
-                  key={color}
-                  type="button"
-                  disabled={disabled}
-                  onClick={() => onSelectVariantAxis('color', color)}
-                  aria-pressed={selected}
-                  aria-label={color}
-                  title={disabled ? `${color} — out of stock` : color}
-                  className={`relative size-9 rounded-full border-2 transition disabled:cursor-not-allowed disabled:opacity-35 ${
-                    selected ? 'border-primary' : 'border-border-strong'
-                  }`}
-                  style={{ backgroundColor: colorCode || '#ccc' }}
-                />
-              );
-            })}
-          </div>
-        </div>
-      )}
-
-      {names.length > 1 && (
-        <div className="mt-5">
-          <p className="text-xs font-semibold uppercase tracking-wide text-muted">Size</p>
-          <div className="mt-2 flex flex-wrap gap-2">
-            {names.map((name) => {
-              const disabled = !comboInStock('name', name);
-              const selected = name === selectedName;
-              return (
-                <button
-                  key={name}
-                  type="button"
-                  disabled={disabled}
-                  onClick={() => onSelectVariantAxis('name', name)}
-                  aria-pressed={selected}
-                  className={`h-10 rounded-md border px-4 text-sm font-medium transition disabled:cursor-not-allowed disabled:opacity-35 disabled:line-through ${
-                    selected
-                      ? 'border-primary bg-primary-subtle text-primary'
-                      : 'border-border-strong text-foreground hover:bg-subtle'
-                  }`}
-                >
-                  {name}
-                </button>
-              );
-            })}
-          </div>
-        </div>
-      )}
+      <VariantSelector variants={variants} selection={selection} onSelect={onSelectVariant} />
 
       <p className={`mt-5 text-sm font-medium ${inStock ? 'text-success' : 'text-error'}`}>
         {inStock

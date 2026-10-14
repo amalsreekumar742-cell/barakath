@@ -3,7 +3,7 @@ import { collection, doc, getDoc, writeBatch, serverTimestamp } from 'firebase/f
 import { FirestoreCollections } from '@barakath/shared/config/collections';
 import { ProductStatus } from '@barakath/shared/config/enums';
 import keywordsBuilder from '@barakath/shared/utils/keywordsBuilder';
-import type { ProductProps, SpecificationProps } from '@barakath/shared/types';
+import type { ProductProps, SpecificationProps, VariantOption } from '@barakath/shared/types';
 import { db } from '@/lib/firebaseConfig';
 import { uploadImage } from '@/utils/imageUpload';
 import { isSkuTaken } from './checkSku';
@@ -47,6 +47,19 @@ export async function resolveProductImages(
       urls.push(await uploadImage(img.blob, `products/${productId}/images/${i}`, 0.5, 1000));
   }
   return urls;
+}
+
+/**
+ * The variant doc's `options` field, spread into the write — or nothing.
+ *
+ * WHY omitted rather than written empty/undefined: Firestore rejects `undefined`, and `options` must
+ * stay ABSENT on single-axis legacy variants (readers fold "absent" into the legacy Size axis via
+ * `variantAxes`). An existing variant's options are written back unchanged — its colour and variant
+ * are read-only in the form — so this never strips or rewrites one.
+ */
+export function variantOptionsField(v: Pick<VariantToSave, 'options'>): { options?: VariantOption[] } {
+  if (!v.options?.length) return {};
+  return { options: v.options.map((o) => ({ group: o.group.trim(), value: o.value.trim() })) };
 }
 
 /**
@@ -125,7 +138,10 @@ export const createProduct = createAsyncThunk<
         collection(db, FirestoreCollections.products, productRef.id, FirestoreCollections.variants),
       );
       batch.set(variantRef, {
+        // The label every name-only surface prints (cart, invoice, inventory); derived from
+        // `options` by the form for multi-axis rows.
         name: v.name.trim(),
+        ...variantOptionsField(v),
         color: v.color.trim(),
         colorCode: v.colorCode,
         mrp: v.mrp,

@@ -41,10 +41,11 @@ class ProductDetailRemoteDataSourceImpl implements ProductDetailRemoteDataSource
 
   final FirebaseFirestore _firestore;
 
-  /// A product can realistically carry a few dozen variants; the cap keeps the
-  /// read bounded (no unbounded `.get()` — skill rule) without paginating a
-  /// selector the user expects to see in full.
-  static const int _variantLimit = 50;
+  /// A multi-axis product multiplies out (10 sizes × 3 layers × a few colours
+  /// is already 90+ variants); the cap keeps the read bounded (no unbounded
+  /// `.get()` — skill rule) without paginating a selector the user expects to
+  /// see in full.
+  static const int _variantLimit = 120;
 
   /// Firestore's `whereIn` accepts at most 30 values; the spec caps the bundle
   /// strip at 5 anyway.

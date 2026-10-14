@@ -7,7 +7,7 @@ import { sortVariants } from '@barakath/shared/utils/sortVariants';
 import type { ProductProps, VariantProps, SpecificationProps } from '@barakath/shared/types';
 import { db } from '@/lib/firebaseConfig';
 import { isSkuTaken } from './checkSku';
-import { resolveProductImages } from './createProduct';
+import { resolveProductImages, variantOptionsField } from './createProduct';
 import { queueVariantCost, queueVariantCostDelete } from './variantCosts';
 import { deriveStockStatus, deriveListFields } from '../utils/stock';
 import { planVariantStock } from '../utils/planVariantStock';
@@ -117,6 +117,9 @@ export const updateProduct = createAsyncThunk<
       const ref = v.isNew ? doc(varCol) : doc(varCol, v.id);
       const base = {
         name: v.name.trim(),
+        // Present only when the row carries options; a legacy variant's update simply never touches
+        // the field, so it stays single-axis.
+        ...variantOptionsField(v),
         color: v.color.trim(),
         colorCode: v.colorCode,
         mrp: v.mrp,
@@ -142,7 +145,8 @@ export const updateProduct = createAsyncThunk<
         productId: input.id,
         productName: input.name.trim(),
         variantId: c.variantId,
-        // Size name only — the same value Inventory writes into this field.
+        // The variant's name (its display label, e.g. "57" or "57 · Layer 2") — the same value
+        // Inventory writes into this field.
         variantName: byId.get(c.variantId)?.name.trim() ?? '',
         previousStock: c.previousStock,
         newStock: c.newStock,

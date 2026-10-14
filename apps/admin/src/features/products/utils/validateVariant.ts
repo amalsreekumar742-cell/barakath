@@ -1,3 +1,5 @@
+import type { VariantOption } from '@barakath/shared/types';
+
 /**
  * Variant row validation for the product form (spec §1.5: Actual ≥ Selling ≥ Ref buying ≥ Commission).
  *
@@ -10,7 +12,13 @@
  */
 export interface VariantFieldsInput {
   color: string;
+  /**
+   * Display label of the non-colour part. The add row passes `variantLabel(options)`, so it is blank
+   * exactly when no unit has been picked; the edit row passes the variant's stored name.
+   */
   name: string;
+  /** One picked unit per Settings group. Absent on a legacy (single-axis) row being edited. */
+  options?: VariantOption[];
   purchasePrice: string;
   mrp: string;
   offerPrice: string;
@@ -31,6 +39,7 @@ export interface ParsedVariantFields {
 }
 
 const num = (raw: string) => Number(raw.trim() || 0);
+const norm = (s: string) => s.trim().toLowerCase();
 
 export function parseVariantFields(input: VariantFieldsInput): ParsedVariantFields {
   return {
@@ -44,16 +53,54 @@ export function parseVariantFields(input: VariantFieldsInput): ParsedVariantFiel
   };
 }
 
+/** What identifies a variant row within its product: colour + the non-colour axes. */
+export interface VariantIdentity {
+  color: string;
+  name: string;
+  options?: VariantOption[];
+}
+
+/** Order-insensitive key of a set of options, e.g. "layer=2|size=57". */
+const optionsKey = (options: VariantOption[]) =>
+  options
+    .map((o) => `${norm(o.group)}=${norm(o.value)}`)
+    .sort()
+    .join('|');
+
+/**
+ * Whether two rows describe the same variant — same colour and the same unit in every group.
+ *
+ * WHY fall back to `name` when either side lacks `options`: a legacy variant's `name` IS its only
+ * axis, and a new single-group row's `name` is its one unit, so White + Size 57 picked today must
+ * collide with a legacy White / "57" row. When both carry options they are compared by group AND
+ * value, so rows whose labels merely read alike but sit in different groups are not confused.
+ * Case-insensitive, like Settings' own colour/unit dedupe.
+ */
+export function isSameVariant(a: VariantIdentity, b: VariantIdentity): boolean {
+  if (norm(a.color) !== norm(b.color)) return false;
+  if (a.options?.length && b.options?.length) return optionsKey(a.options) === optionsKey(b.options);
+  return norm(a.name) === norm(b.name);
+}
+
 /**
  * The first rule the row breaks, as a user-facing message — or null when the row is valid.
+ *
+ * `existing` are the product's other rows. A row matching one of them (`isSameVariant`) is refused:
+ * two identical variants would split one item's stock, and the storefront's chips could only ever
+ * reach the first. The edit row passes none — its colour and variant are pinned, so it cannot turn
+ * into a duplicate.
  *
  * Comparisons are written as `!(a <= b)` rather than `a > b` on purpose: the negated form also fails
  * on NaN, so an unparseable value can never slip through a check by comparing false both ways.
  */
-export function validateVariant(input: VariantFieldsInput): string | null {
+export function validateVariant(
+  input: VariantFieldsInput,
+  existing: readonly VariantIdentity[] = [],
+): string | null {
   const { purchasePrice, mrp, offerPrice, referralPrice, commission, gstPercentage, stock } =
     parseVariantFields(input);
   if (!input.color.trim() || !input.name.trim()) return 'Color and variant are required';
+  if (existing.some((v) => isSameVariant(input, v))) return 'This colour and variant already exist';
   if (!(mrp > 0) || !(offerPrice > 0)) return 'Enter actual and selling price';
   if (!(offerPrice <= mrp)) return 'Selling price must be ≤ Actual';
   if (!(referralPrice <= offerPrice)) return 'Ref buying price must be ≤ Selling price';

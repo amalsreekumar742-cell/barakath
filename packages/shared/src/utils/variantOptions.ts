@@ -113,10 +113,45 @@ export function resolveVariant<T extends VariantAxesSource>(
   return best?.v ?? variants[0];
 }
 
+/** How a chip renders: normal, greyed-but-tappable, or disabled. */
+export type ChipState = 'available' | 'elsewhere' | 'soldOut';
+
+/**
+ * The display state of one chip — THE rule both storefronts use for greying.
+ *
+ * A row is judged only against the rows ABOVE it (Colour, then the unit axes in `variantAxisList` order):
+ * Colour shows whether that colour has stock at all; Size whether it is in stock in the chosen colour;
+ * Layer whether it is in stock in the chosen colour AND size. WHY not "every other pick" (as
+ * `isComboAvailable` checks): on a sparse product (Red has S/M, Blue only L) the colour swatches would
+ * dim because of the size the shopper happens to be on, and every row would grey out the moment one
+ * pick changes. Top-down mirrors how shoppers choose — colour first, then size, then layer.
+ *
+ * - `available` — an in-stock variant has this value and matches every row above.
+ * - `elsewhere` — the value is in stock, just not with the rows above; greyed but tappable
+ *                 (`resolveVariant` then moves the other rows to a real combination).
+ * - `soldOut`   — no in-stock variant has this value at all; disabled.
+ */
+export function chipState(
+  variants: VariantAxesSource[],
+  selection: Record<string, string>,
+  axis: string,
+  value: string,
+): ChipState {
+  const order = [COLOUR_AXIS, ...variantAxisList(variants).map((r) => r.axis)];
+  const above = order.slice(0, Math.max(0, order.indexOf(axis)));
+  const withValue = variants.filter((v) => v.stock > 0 && (axisValues(v)[axis] ?? '') === value);
+  if (withValue.length === 0) return 'soldOut';
+  const fits = withValue.some((v) => {
+    const values = axisValues(v);
+    return above.every((a) => (values[a] ?? '') === (selection[a] ?? ''));
+  });
+  return fits ? 'available' : 'elsewhere';
+}
+
 /**
  * Whether tapping `value` on `axis` would land on an in-stock variant that keeps every OTHER current
- * selection — drives the greyed-out chip state. A greyed chip stays tappable; `resolveVariant` then
- * moves the other axes to a combination that exists.
+ * selection. Stricter than `chipState` (which the storefronts use for greying) — kept for callers that
+ * need the exact "same everything else" answer.
  */
 export function isComboAvailable(
   variants: VariantAxesSource[],

@@ -126,9 +126,46 @@ Variant? resolveVariant(
   return ranked.first.v;
 }
 
+/// How a chip renders: normal, greyed-but-tappable, or disabled.
+enum ChipState { available, elsewhere, soldOut }
+
+/// The display state of one chip — THE rule both storefronts use for greying
+/// (mirrors `chipState` in variantOptions.ts).
+///
+/// A row is judged only against the rows ABOVE it (Colour, then the unit axes
+/// in [variantAxisList] order): Colour shows whether it has stock at all; Size
+/// whether it is in stock in the chosen colour; Layer whether it is in stock in
+/// the chosen colour AND size. Judging against every other pick would dim the
+/// colour swatches because of the size the shopper happens to be on.
+///
+/// - [ChipState.available]: an in-stock variant has this value and matches
+///   every row above.
+/// - [ChipState.elsewhere]: in stock, just not with the rows above — greyed but
+///   tappable ([resolveVariant] then moves the other rows).
+/// - [ChipState.soldOut]: no in-stock variant has this value at all.
+ChipState chipState(
+  List<Variant> variants,
+  Map<String, String> selection,
+  String axis,
+  String value,
+) {
+  final order = [colourAxis, for (final r in variantAxisList(variants)) r.axis];
+  final index = order.indexOf(axis);
+  final above = order.sublist(0, index < 0 ? 0 : index);
+  final withValue = variants
+      .where((v) => v.stock > 0 && (axisValues(v)[axis] ?? '') == value)
+      .toList();
+  if (withValue.isEmpty) return ChipState.soldOut;
+  final fits = withValue.any((v) {
+    final values = axisValues(v);
+    return above.every((a) => (values[a] ?? '') == (selection[a] ?? ''));
+  });
+  return fits ? ChipState.available : ChipState.elsewhere;
+}
+
 /// Whether tapping [value] on [axis] lands on an in-stock variant that keeps
-/// every OTHER current selection — drives the greyed-out chip state. A greyed
-/// chip stays tappable; [resolveVariant] then moves the other axes.
+/// every OTHER current selection. Stricter than [chipState] (which the
+/// storefronts use for greying).
 bool isComboAvailable(
   List<Variant> variants,
   Map<String, String> selection,

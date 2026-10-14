@@ -7,7 +7,8 @@ import { v4 as uuid } from 'uuid';
 import toast from 'react-hot-toast';
 import Skeleton from 'react-loading-skeleton';
 import { ProductStatus } from '@barakath/shared/config/enums';
-import type { SpecificationProps } from '@barakath/shared/types';
+import type { SpecificationProps, VariantOption } from '@barakath/shared/types';
+import { variantLabel } from '@barakath/shared/utils/variantOptions';
 import { useAppDispatch, useAppSelector } from '@/stores/store';
 import Icon from '@/components/icons/Icon';
 import SearchSelect from '@/components/SearchSelect';
@@ -28,11 +29,26 @@ import { fetchVariantCosts } from '../api/variantCosts';
 import { validateVariant, parseVariantFields, type VariantFieldsInput } from '../utils/validateVariant';
 import type { VariantDraft, ImageDraft, FBTItem } from '../types';
 
-const EMPTY_NV = { color: '', colorCode: '#0f7a5a', name: '', purchasePrice: '', mrp: '', offerPrice: '', referralPrice: '', commission: '', gstPercentage: '', stock: '' };
+/**
+ * The add row's inputs. `options` holds one picked unit per Settings group (VariantUnitPicker); the
+ * variant's `name` is derived from them on add, so it is not an input of its own.
+ */
+const EMPTY_NV = {
+  color: '',
+  colorCode: '#0f7a5a',
+  options: [] as VariantOption[],
+  purchasePrice: '',
+  mrp: '',
+  offerPrice: '',
+  referralPrice: '',
+  commission: '',
+  gstPercentage: '',
+  stock: '',
+};
 
-/** The in-place edit row's inputs. Colour and size are NOT here: they identify the variant, so a
+/** The in-place edit row's inputs. Colour and variant are NOT here: they identify the variant, so a
  *  "different colour" is a different variant (delete + add), not an edit of this one. */
-type EditFields = Omit<VariantFieldsInput, 'color' | 'name'>;
+type EditFields = Omit<VariantFieldsInput, 'color' | 'name' | 'options'>;
 
 /** Edit-row inputs, in table column order. */
 const EDIT_COLUMNS: readonly { key: keyof EditFields; placeholder: string; label: string }[] = [
@@ -179,6 +195,9 @@ const ProductFormPage: FC = () => {
         id: v.id,
         isNew: false,
         name: v.name,
+        // Carried so the save writes them back unchanged and the duplicate check compares by axis.
+        // A legacy variant has none and stays that way.
+        ...(v.options?.length ? { options: v.options } : {}),
         color: v.color,
         colorCode: v.colorCode,
         // Filled in by the variantCosts read below — it is a separate, admin-only document.
@@ -260,11 +279,22 @@ const ProductFormPage: FC = () => {
 
   // Inline "Add variant" row (spec §1.5 / design 04 — variants added inline, not in a modal).
   const addInlineVariant = () => {
-    const error = validateVariant(nv);
+    // `name` is DERIVED from the picks ("57 · Layer 2") so every surface that only prints a name keeps
+    // working; `options` is stored even for a single pick, so the storefront knows its group.
+    const input = { ...nv, name: variantLabel(nv.options) };
+    const error = validateVariant(input, variants);
     if (error) return toast.error(error);
     setVariants((prev) => [
       ...prev,
-      { id: uuid(), isNew: true, name: nv.name.trim(), color: nv.color.trim(), colorCode: nv.colorCode, ...parseVariantFields(nv) },
+      {
+        id: uuid(),
+        isNew: true,
+        name: input.name,
+        options: nv.options,
+        color: nv.color.trim(),
+        colorCode: nv.colorCode,
+        ...parseVariantFields(input),
+      },
     ]);
     // Keep the pricing fields for the next row (see CARRY_OVER) — the common case is several sizes
     // of one product sharing everything but colour and size. Clearing all of it forced a full retype
@@ -308,7 +338,7 @@ const ProductFormPage: FC = () => {
     if (!editing) return;
     const v = variants.find((x) => x.id === editing.id);
     if (!v) return setEditing(null);
-    const input = { ...editing.fields, color: v.color, name: v.name };
+    const input = { ...editing.fields, color: v.color, name: v.name, options: v.options };
     const error = validateVariant(input);
     if (error) return toast.error(error);
     const parsed = parseVariantFields(input);
@@ -553,6 +583,10 @@ const ProductFormPage: FC = () => {
                 )}
               </div>
               <p className="text-[12px] text-faint">
+                Variant takes one unit per group — e.g. Size 57 + Layer 2. Leave a group blank when it
+                doesn&apos;t apply to the product.
+              </p>
+              <p className="text-[12px] text-faint">
                 Price varies per variant — set purchase payment, actual, selling, ref buying, commission
                 &amp; GST for each (Actual ≥ Selling ≥ Ref buying ≥ Commission). Purchase payment is
                 internal: it drives the profit report and is never shown to customers.
@@ -611,7 +645,25 @@ const ProductFormPage: FC = () => {
                             {v.color}
                           </span>
                         </td>
-                        <td className="px-3 py-2 text-muted">{v.name}</td>
+                        <td className="px-3 py-2 text-muted">
+                          {/* One pill per picked unit, labelled with its group, so Size 57 and Layer 2
+                              read as two axes. A legacy row has only its name. */}
+                          {v.options?.length ? (
+                            <span className="flex flex-wrap gap-1" title={v.name}>
+                              {v.options.map((o) => (
+                                <span
+                                  key={o.group}
+                                  className="inline-flex items-center gap-1 whitespace-nowrap rounded-pill border border-border bg-subtle px-1.5 py-0.5 text-[11px] font-semibold text-foreground"
+                                >
+                                  <span className="font-normal text-faint">{o.group}</span>
+                                  {o.value}
+                                </span>
+                              ))}
+                            </span>
+                          ) : (
+                            v.name
+                          )}
+                        </td>
                         {edit ? (
                           EDIT_COLUMNS.map((c) => (
                             <td key={c.key} className="px-2 py-2">
@@ -688,7 +740,7 @@ const ProductFormPage: FC = () => {
                       />
                     </td>
                     <td className="px-2 py-2">
-                      <VariantUnitPicker value={nv.name} onSelect={(name) => setNv((s) => ({ ...s, name }))} />
+                      <VariantUnitPicker value={nv.options} onChange={(options) => setNv((s) => ({ ...s, options }))} />
                     </td>
                     <td className="px-2 py-2"><input type="number" value={nv.purchasePrice} onChange={(e) => setNv((s) => ({ ...s, purchasePrice: e.target.value }))} placeholder="₹ Purchase" className={cellCls} /></td>
                     <td className="px-2 py-2"><input type="number" value={nv.mrp} onChange={(e) => setNv((s) => ({ ...s, mrp: e.target.value }))} placeholder="₹ Actual" className={cellCls} /></td>

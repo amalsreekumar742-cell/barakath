@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { validateVariant, parseVariantFields, type VariantFieldsInput } from './validateVariant';
+import { validateVariant, parseVariantFields, isSameVariant, type VariantFieldsInput } from './validateVariant';
 
 const valid: VariantFieldsInput = {
   color: 'Black',
@@ -67,6 +67,74 @@ describe('validateVariant', () => {
   it('fails an unparseable value instead of letting it slip past a comparison', () => {
     expect(withField({ referralPrice: 'abc' })).toBe('Ref buying price must be ≤ Selling price');
     expect(withField({ stock: 'abc' })).toBe('Stock must be a whole number (0 or more)');
+  });
+});
+
+describe('validateVariant — duplicates', () => {
+  const DUP = 'This colour and variant already exist';
+  const size = (value: string) => ({ group: 'Size', value });
+  const layer = (value: string) => ({ group: 'Layer', value });
+  const multi = (color: string, s: string, l: string) => ({
+    color,
+    name: `${s} · Layer ${l}`,
+    options: [size(s), layer(l)],
+  });
+
+  it('refuses a row matching an existing multi-axis variant', () => {
+    const row = { ...valid, ...multi('White', '57', '2') };
+    expect(validateVariant(row, [multi('White', '57', '2')])).toBe(DUP);
+  });
+
+  it('accepts the same colour with a different unit in any group', () => {
+    const existing = [multi('White', '57', '2')];
+    expect(validateVariant({ ...valid, ...multi('White', '57', '1') }, existing)).toBeNull();
+    expect(validateVariant({ ...valid, ...multi('White', '55', '2') }, existing)).toBeNull();
+    expect(validateVariant({ ...valid, ...multi('Black', '57', '2') }, existing)).toBeNull();
+  });
+
+  it('collides a new single-group row with a legacy name-only row of the same unit', () => {
+    const row = { ...valid, color: 'White', name: '57', options: [size('57')] };
+    expect(validateVariant(row, [{ color: 'white', name: '57' }])).toBe(DUP);
+  });
+
+  it('compares legacy rows by colour + name, case-insensitively', () => {
+    expect(validateVariant(valid, [{ color: 'black', name: '100ML' }])).toBe(DUP);
+    expect(validateVariant(valid, [{ color: 'Black', name: '200ml' }])).toBeNull();
+  });
+
+  it('checks duplicates only after the required fields', () => {
+    expect(validateVariant({ ...valid, name: '' }, [{ color: 'Black', name: '' }])).toBe(
+      'Color and variant are required',
+    );
+  });
+});
+
+describe('isSameVariant', () => {
+  it('ignores option order and case', () => {
+    expect(
+      isSameVariant(
+        { color: 'White', name: '57 · Layer 2', options: [{ group: 'Size', value: '57' }, { group: 'Layer', value: '2' }] },
+        { color: 'WHITE', name: 'x', options: [{ group: 'layer', value: '2' }, { group: 'size', value: '57' }] },
+      ),
+    ).toBe(true);
+  });
+
+  it('tells apart rows whose labels read alike but sit in different groups', () => {
+    expect(
+      isSameVariant(
+        { color: 'White', name: '57', options: [{ group: 'Size', value: '57' }] },
+        { color: 'White', name: '57', options: [{ group: 'Length', value: '57' }] },
+      ),
+    ).toBe(false);
+  });
+
+  it('a multi-axis row is not the same as a legacy row with only its first unit', () => {
+    expect(
+      isSameVariant(
+        { color: 'White', name: '57 · Layer 2', options: [{ group: 'Size', value: '57' }, { group: 'Layer', value: '2' }] },
+        { color: 'White', name: '57' },
+      ),
+    ).toBe(false);
   });
 });
 

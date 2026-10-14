@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
   COLOUR_AXIS,
   LEGACY_AXIS,
+  chipState,
   isComboAvailable,
   resolveVariant,
   variantAxisList,
@@ -71,6 +72,31 @@ describe('resolveVariant', () => {
 
   it('returns undefined only for an empty list', () => {
     expect(resolveVariant([], { [COLOUR_AXIS]: 'White' })).toBeUndefined();
+  });
+});
+
+describe('chipState (each row judged against the rows above it)', () => {
+  const variants = [
+    v('w57-1', 'White', '57', '1'),
+    v('w55-2', 'White', '55', '2'),
+    v('b58-1', 'Black', '58', '1'),
+    v('w56-3', 'White', '56', '3', 0),
+  ];
+  const sel = { [COLOUR_AXIS]: 'White', Size: '57', Layer: '1' };
+
+  it('never dims a colour because of the size or layer the shopper is on', () => {
+    expect(chipState(variants, sel, COLOUR_AXIS, 'Black')).toBe('available');
+  });
+
+  it('judges Size against the chosen colour only', () => {
+    expect(chipState(variants, sel, 'Size', '55')).toBe('available'); // White 55 exists, any layer
+    expect(chipState(variants, sel, 'Size', '58')).toBe('elsewhere'); // only in Black
+    expect(chipState(variants, sel, 'Size', '56')).toBe('soldOut'); // no stock anywhere
+  });
+
+  it('judges Layer against colour and size', () => {
+    expect(chipState(variants, sel, 'Layer', '1')).toBe('available');
+    expect(chipState(variants, sel, 'Layer', '2')).toBe('elsewhere'); // White 57 has no Layer 2
   });
 });
 
