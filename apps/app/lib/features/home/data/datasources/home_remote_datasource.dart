@@ -107,7 +107,10 @@ class HomeRemoteDataSourceImpl implements HomeRemoteDataSource {
   @override
   Future<List<ProductModel>> getFlashSaleProducts({int limit = 6}) =>
       _products(
-        _activeProducts.where('isFlashSale', isEqualTo: true).limit(limit),
+        _activeProducts
+            .where('isFlashSale', isEqualTo: true)
+            .orderBy('createdAt', descending: true)
+            .limit(limit),
         'Could not load the flash sale.',
       );
 

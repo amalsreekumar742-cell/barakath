@@ -61,10 +61,11 @@ export function parseListingParams(sp: RawSearchParams): ParsedListingParams {
   const saleFilter: 'all' | 'onSale' = first(sp.sale) === 'onSale' ? 'onSale' : 'all';
   const isNewArrival = first(sp.new) === 'true';
 
+  // No `?sort=` → newest first (`createdAt desc`), the same default the app's listing uses.
   const sortRaw = first(sp.sort);
   const sort: ProductSort = (SORT_VALUES as string[]).includes(sortRaw ?? '')
     ? (sortRaw as ProductSort)
-    : 'popularity';
+    : 'newest';
 
   const after = first(sp.after) || undefined;
   const before = first(sp.before) || undefined;
