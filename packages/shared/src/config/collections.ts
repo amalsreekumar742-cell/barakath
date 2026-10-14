@@ -96,6 +96,11 @@ export const FirestoreCollections = {
   flashSales: 'flashSales',
   /** Push/broadcast notifications composed in admin, sent via FCM (spec §1.18). */
   notifications: 'notifications',
+  /**
+   * Customer-facing policies (Privacy, Terms, Refund…), one doc each — Settings › Policies. Public read
+   * when `status == 'enabled'`; admin write; never deleted. Replaces `general/config.privacy`/`.terms`.
+   */
+  policies: 'policies',
 } as const;
 
 export type FirestoreCollectionName =

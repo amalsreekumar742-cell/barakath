@@ -63,4 +63,15 @@ class FirebaseCollections {
 
   /// The single settings document id under `general`.
   static const String configDoc = 'config';
+
+  /// Customer-facing policies (Privacy, Terms, Refund…), one doc each, managed
+  /// from admin Settings › Policies. Readable only while `status == 'enabled'`.
+  /// Replaces the old `general/config.privacy` / `.terms` HTML fields.
+  static const String policies = 'policies';
+
+  /// Fixed ids of the two policies migrated from `general/config`, so the old
+  /// `/profile/privacy` and `/profile/terms` routes can open them directly.
+  /// Must match `LEGACY_POLICY_IDS` in packages/shared/src/config/policies.ts.
+  static const String privacyPolicyId = 'privacy-policy';
+  static const String termsAndConditionsId = 'terms-and-conditions';
 }

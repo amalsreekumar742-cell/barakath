@@ -11,11 +11,13 @@
     "./config/collections": "./src/config/collections.ts",
     "./config/enums": "./src/config/enums.ts",
     "./config/orderTimeout": "./src/config/orderTimeout.ts",
+    "./config/policies": "./src/config/policies.ts",
     "./types": "./src/types/index.ts",
     "./utils/keywordsBuilder": "./src/utils/keywordsBuilder.ts",
     "./utils/replacementRefund": "./src/utils/replacementRefund.ts",
     "./utils/gstBreakdown": "./src/utils/gstBreakdown.ts",
-    "./utils/spinValidity": "./src/utils/spinValidity.ts"
+    "./utils/spinValidity": "./src/utils/spinValidity.ts",
+    "./utils/sortVariants": "./src/utils/sortVariants.ts"
   },
   "scripts": {
     "build": "tsc --noEmit",

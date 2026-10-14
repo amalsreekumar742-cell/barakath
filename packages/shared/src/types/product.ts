@@ -37,6 +37,16 @@ export interface VariantProps {
    * checking `isFlashSale`, and never treat its absence as ₹0.
    */
   flashSalePrice?: number;
+  /**
+   * Display position within the product, 0-based — set by the admin's ▲/▼ variant reorder. Variant 0
+   * is the product's default / "first" variant on every surface (card price, PDP pre-selection).
+   *
+   * ABSENT on variants written before reordering existed. Readers must never drop such a variant:
+   * sort with `sortVariants` (missing → after the ordered ones, `createdAt` order kept), and a
+   * `orderBy('sortOrder')` query needs a `createdAt` fallback because Firestore silently excludes
+   * documents lacking the orderBy field.
+   */
+  sortOrder?: number;
   createdAt: Timestamp;
 }
 

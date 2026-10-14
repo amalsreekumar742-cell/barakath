@@ -42,3 +42,4 @@ export type { BannerProps } from './banner';
 export type { FlashSaleProps, FlashSaleVariantPrice, FlashSaleProduct } from './flashSale';
 export type { AffiliateProductCommission } from './affiliateConfig';
 export type { NotificationProps } from './notification';
+export type { PolicyProps } from './policy';
