@@ -114,7 +114,13 @@ function buildPdf(
       doc.fontSize(8);
       doc.text(String(i + 1), cols.idx, y);
       doc.text(String(it.productName ?? ''), cols.product, y, { width: 160 });
-      doc.text(`${it.variantName ?? ''} ${it.variantColor ?? ''}`.trim(), cols.variant, y, { width: 95 });
+      // "Red · M" — colour first, as the apps show it. A bare space ran the two together ("M Red"),
+      // and an empty part must not leave a dangling separator.
+      const variantLabel = [it.variantColor, it.variantName]
+        .map((part) => String(part ?? '').trim())
+        .filter(Boolean)
+        .join(' · ');
+      doc.text(variantLabel, cols.variant, y, { width: 95 });
       doc.text(String(it.quantity ?? 0), cols.qty, y);
       doc.text(rupee(it.mrp), cols.mrp, y);
       doc.text(rupee(it.offerPrice), cols.offer, y);

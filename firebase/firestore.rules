@@ -270,14 +270,31 @@ service cloud.firestore {
         || (isSignedIn() && resource.data.userId == request.auth.uid);
       allow update: if isAdmin();
 
+      // The order a new request points at (`orderId` on the incoming document).
+      function requestedOrder() {
+        return get(/databases/$(database)/documents/orders/$(request.resource.data.orderId)).data;
+      }
+
       // Batch 4: the customer raises the request from Order Detail. Status is
       // pinned to Pending and the admin's resolution fields must start empty, so
       // a request cannot arrive pre-approved.
+      //
+      // The referenced order must also exist, be the caller's OWN, and be
+      // Delivered. Without this a customer could raise a return against someone
+      // else's order id, or an order still in transit — the apps only offer the
+      // action on their own Delivered orders, but rules are what a crafted
+      // request meets. (approveReplacement re-checks Delivered before any money
+      // moves; this keeps such requests out of the admin queue in the first place.)
       allow create: if isSignedIn()
         && request.resource.data.userId == request.auth.uid
         && request.resource.data.status == 'Pending'
         && request.resource.data.adminNote == ''
-        && request.resource.data.replacementOrderId == '';
+        && request.resource.data.replacementOrderId == ''
+        && request.resource.data.orderId is string
+        && request.resource.data.orderId.size() > 0
+        && exists(/databases/$(database)/documents/orders/$(request.resource.data.orderId))
+        && requestedOrder().userId == request.auth.uid
+        && requestedOrder().status == 'Delivered';
 
       allow delete: if false;
     }

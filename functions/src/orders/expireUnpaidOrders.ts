@@ -50,8 +50,9 @@ interface ExpiryItem {
  *   of stock" after its stock came back. `writeStockDelta` recomputes those denormalized fields, the
  *   same way cancelOrder and the payment-failed webhook already do.
  *
- * WHY per-order transactions: one bad order (deleted product, missing variant) must not abort the
- *   whole sweep, and each order's reversal has to be atomic in itself.
+ * WHY per-order transactions: one bad order must not abort the whole sweep, and each order's reversal
+ *   has to be atomic in itself. (A deleted product or variant no longer counts as "bad": restore skips
+ *   it — see `ReadProductStockOptions.skipMissing` — so the wallet/coupon reversal still lands.)
  */
 export const expireUnpaidOrders = onSchedule(
   { schedule: 'every 5 minutes', timeZone: 'Asia/Kolkata' },
@@ -99,7 +100,11 @@ export const expireUnpaidOrders = onSchedule(
           // have paid in the seconds since. Cancelling a paid order would be catastrophic.
           if (fresh.get('status') !== 'Pending' || fresh.get('paymentStatus') !== 'Pending') return;
 
-          const stockMap = stockLines.length ? await readProductStock(tx, productIds) : null;
+          // skipMissing: a deleted product used to throw here and strand this draft's wallet/coupon
+          // reversal on every sweep, forever. Its stock is simply skipped now.
+          const stockMap = stockLines.length
+            ? await readProductStock(tx, productIds, { skipMissing: true })
+            : null;
           let currentBalance = 0;
           const userRef = userId ? db.collection(Collections.users).doc(userId) : null;
           if (userRef && walletUsed > 0) {

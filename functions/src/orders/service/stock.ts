@@ -5,6 +5,7 @@ import {
   type DocumentReference,
 } from 'firebase-admin/firestore';
 import { HttpsError } from 'firebase-functions/v2/https';
+import { logger } from 'firebase-functions';
 import { Collections } from '../../config/collections';
 
 /**
@@ -47,10 +48,27 @@ interface ProductStock {
   variants: Map<string, VariantStock>;
 }
 
+export interface ReadProductStockOptions {
+  /**
+   * Skip (with a warning) a product that no longer exists instead of throwing. Pass this from every
+   * RESTORE caller, never from a reserve.
+   *
+   * WHY: a reversal (cancelOrder, the payment.failed webhook, expireUnpaidOrders, discardOrderDraft)
+   *   hands back stock AND the wallet amount AND the coupon slot in one transaction. When a product has
+   *   been deleted since the order was placed, a throw here aborted the whole reversal — forever, since
+   *   the product never comes back — so the customer's wallet money and coupon slot were never returned
+   *   (and cancelOrder had already refunded Razorpay before its transaction). There is no stock to put
+   *   back on a product that is gone; the money must still move.
+   * WHY reserve keeps throwing: a checkout against a deleted product must fail loudly.
+   */
+  skipMissing?: boolean;
+}
+
 /** READ phase: load each product + all its variant docs inside the transaction. */
 export async function readProductStock(
   tx: Transaction,
   productIds: string[],
+  options: ReadProductStockOptions = {},
 ): Promise<Map<string, ProductStock>> {
   const db = getFirestore();
   const result = new Map<string, ProductStock>();
@@ -59,6 +77,12 @@ export async function readProductStock(
     const productRef = db.collection(Collections.products).doc(productId);
     const productSnap = await tx.get(productRef);
     if (!productSnap.exists) {
+      if (options.skipMissing) {
+        logger.warn('readProductStock: product no longer exists — its stock is not restored', {
+          productId,
+        });
+        continue;
+      }
       throw new HttpsError('not-found', `Product ${productId} no longer exists`);
     }
     const pdata = productSnap.data() ?? {};
@@ -80,7 +104,10 @@ export async function readProductStock(
 /**
  * WRITE phase: apply the stock deltas.
  * - `direction: 'reserve'` decrements and THROWS if any variant would go negative (final oversell guard).
- * - `direction: 'restore'` increments (payment failure / cancellation).
+ * - `direction: 'restore'` increments (payment failure / cancellation). A product or variant deleted
+ *   since the order was placed is SKIPPED with a warning instead of thrown on — a reversal must never
+ *   be blocked by it (see `ReadProductStockOptions.skipMissing`). A product absent from `stockMap` is
+ *   exactly what `readProductStock(..., { skipMissing: true })` leaves out.
  * After adjusting variants, each affected product's `totalStock`/`stockStatus` are recomputed from the
  * (now-updated) variant map so the denormalized product fields stay correct.
  */
@@ -102,11 +129,25 @@ export function writeStockDelta(
 
   for (const [productId, byVariant] of perProduct) {
     const product = stockMap.get(productId);
-    if (!product) throw new HttpsError('not-found', `Product ${productId} was not loaded`);
+    if (!product) {
+      if (direction === 'restore') {
+        logger.warn('writeStockDelta: product missing on restore — skipped', { productId });
+        continue;
+      }
+      throw new HttpsError('not-found', `Product ${productId} was not loaded`);
+    }
 
     for (const [variantId, qty] of byVariant) {
       const variant = product.variants.get(variantId);
       if (!variant) {
+        if (direction === 'restore') {
+          logger.warn('writeStockDelta: variant missing on restore — skipped', {
+            productId,
+            variantId,
+            quantity: qty,
+          });
+          continue;
+        }
         throw new HttpsError('not-found', `Variant ${variantId} no longer exists`);
       }
       const newStock = variant.stock + sign * qty;
