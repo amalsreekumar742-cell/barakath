@@ -42,9 +42,26 @@ class VariantAxis extends Equatable {
   List<Object?> get props => [axis, values];
 }
 
-/// The non-colour axes of one variant, in order.
+/// The canonical form of a group name — trimmed, each word capitalised
+/// ("size" → "Size", "LAYER" → "Layer"). Settings group names are typed
+/// freely and copied onto each variant, while legacy variants are filed under
+/// [legacyAxis]; without one form a product mixing old and new rows would show
+/// two size rows. Mirrors `axisLabel` in variantOptions.ts.
+String axisLabel(String group) => group
+    .trim()
+    .toLowerCase()
+    .replaceAllMapped(
+      RegExp(r'(^|\s)\S'),
+      (m) => m.group(0)!.toUpperCase(),
+    );
+
+/// The non-colour axes of one variant, in order, with canonical group names
+/// ([axisLabel]). A legacy variant's `name` is its single "Size" axis.
 List<VariantOption> variantAxes(Variant v) => v.options.isNotEmpty
-    ? v.options
+    ? [
+        for (final o in v.options)
+          VariantOption(group: axisLabel(o.group), value: o.value),
+      ]
     : [VariantOption(group: legacyAxis, value: v.name)];
 
 /// Every axis value of a variant, colour included, keyed by axis name.

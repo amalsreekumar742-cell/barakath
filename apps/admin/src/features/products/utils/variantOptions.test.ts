@@ -27,6 +27,21 @@ describe('variantLabel', () => {
   });
 });
 
+describe('group name casing', () => {
+  it('canonicalises free-typed Settings group names in labels and axes', () => {
+    expect(variantLabel([{ group: 'size', value: '57' }, { group: 'LAYER', value: '2' }])).toBe('57 · Layer 2');
+    // A new row filed under "size" and a legacy row (implicitly "Size") share ONE row.
+    const rows = variantAxisList([
+      { name: '57', color: 'White', stock: 1, options: [{ group: 'size', value: '57' }, { group: 'LAYER', value: '2' }] },
+      { name: '51', color: 'White', stock: 1 },
+    ]);
+    expect(rows).toEqual([
+      { axis: 'Size', values: ['57', '51'] },
+      { axis: 'Layer', values: ['2'] },
+    ]);
+  });
+});
+
 describe('variantAxisList', () => {
   it('lists axes and values in first-seen order', () => {
     const rows = variantAxisList([v('a', 'White', '57', '2'), v('b', 'White', '55', '1'), v('c', 'White', '57', '1')]);

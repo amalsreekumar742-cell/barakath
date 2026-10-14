@@ -25,6 +25,20 @@ export interface VariantAxesSource {
 }
 
 /**
+ * The canonical form of a group name — trimmed, each word capitalised: "size" → "Size", "LAYER" →
+ * "Layer". WHY: Settings › Variables group names are typed freely ("size", "LAYER") and copied onto
+ * each variant, while legacy variants are filed under `LEGACY_AXIS` ("Size"). Without one canonical
+ * form a product mixing old and new rows would show two separate size rows ("Size" and "size"), and
+ * shoppers would see "LAYER" as a label.
+ */
+export function axisLabel(group: string): string {
+  return group
+    .trim()
+    .toLowerCase()
+    .replace(/(^|\s)\S/g, (c) => c.toUpperCase());
+}
+
+/**
  * The display label for a set of options — first value bare, the rest prefixed with their group:
  * `[Size 57, Layer 2]` → `"57 · Layer 2"`. The first axis is the primary one (Size), which shoppers
  * already read without a prefix; a second axis needs its name or "57 · 2" is ambiguous.
@@ -32,13 +46,18 @@ export interface VariantAxesSource {
 export function variantLabel(options: VariantOption[]): string {
   return options
     .filter((o) => o.value.trim())
-    .map((o, i) => (i === 0 ? o.value.trim() : `${o.group.trim()} ${o.value.trim()}`))
+    .map((o, i) => (i === 0 ? o.value.trim() : `${axisLabel(o.group)} ${o.value.trim()}`))
     .join(' · ');
 }
 
-/** The non-colour axes of one variant, in order. A legacy variant's `name` is its single "Size" axis. */
+/**
+ * The non-colour axes of one variant, in order, with canonical group names (`axisLabel`). A legacy
+ * variant's `name` is its single "Size" axis.
+ */
 export function variantAxes(v: Pick<VariantAxesSource, 'name' | 'options'>): VariantOption[] {
-  return v.options && v.options.length > 0 ? v.options : [{ group: LEGACY_AXIS, value: v.name }];
+  return v.options && v.options.length > 0
+    ? v.options.map((o) => ({ group: axisLabel(o.group), value: o.value }))
+    : [{ group: LEGACY_AXIS, value: v.name }];
 }
 
 /** Every axis value of a variant, colour included, keyed by axis name. */
