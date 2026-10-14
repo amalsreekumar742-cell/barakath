@@ -25,6 +25,12 @@ abstract class ProductDetailRemoteDataSource {
   /// detail screen, and the same variant every product card prices from.
   Future<List<VariantModel>> getVariants(String productId);
 
+  /// `products/{productId}/variants/{variantId}` — ONE doc by id, or null when
+  /// it no longer exists. For looking up a variant already known by id (buy
+  /// again): searching [getVariants] instead misses one past its cap or
+  /// without `createdAt` (an `orderBy` skips docs missing the field).
+  Future<VariantModel?> getVariant(String productId, String variantId);
+
   /// The bundle / "frequently bought together" products for [productIds]
   /// (capped at 5) paired with each one's first variant for price display.
   Future<List<(ProductModel, VariantModel?)>> getBundleProducts(
@@ -80,6 +86,19 @@ class ProductDetailRemoteDataSourceImpl implements ProductDetailRemoteDataSource
       return VariantOrder.sort(snap.docs.map(VariantModel.fromFirestore).toList());
     } on FirebaseException catch (e) {
       throw ServerException(FirebaseErrorMessage.of(e) ?? 'Could not load variants.', e.code);
+    }
+  }
+
+  @override
+  Future<VariantModel?> getVariant(String productId, String variantId) async {
+    // An empty id would make `.doc('')` throw an ArgumentError, not a
+    // FirebaseException — and it can't name a real variant anyway.
+    if (productId.isEmpty || variantId.isEmpty) return null;
+    try {
+      final doc = await _variantsOf(productId).doc(variantId).get();
+      return doc.exists ? VariantModel.fromFirestore(doc) : null;
+    } on FirebaseException catch (e) {
+      throw ServerException(FirebaseErrorMessage.of(e) ?? 'Could not load this variant.', e.code);
     }
   }
 

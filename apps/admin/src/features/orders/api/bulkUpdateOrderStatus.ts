@@ -21,11 +21,13 @@ export interface BulkUpdateOrderStatusResult {
  *
  * WHY it runs `updateOrderStatus` per order instead of writing its own batch: that thunk is the single
  * place that validates a transition (next step only, paid-only advance, cancel only at Pending) and
- * restores stock on cancel. Reusing it means a bulk action can never do anything a single update can't.
+ * routes a cancel through the `cancelOrder` callable (refund, wallet, coupon, stock). Reusing it means a
+ * bulk action can never do anything a single update can't.
  *
- * WHY sequential, not Promise.all: a cancel restores stock by READING each variant and then writing the
- * new total. Two cancels touching the same product in parallel would both read the old stock and the
- * second write would erase the first's increment. One at a time keeps every restore exact.
+ * WHY sequential, not Promise.all: every cancel issues a real Razorpay refund, and cancels touching the
+ * same product would only contend on its stock transaction anyway. One at a time keeps the gateway
+ * load and the progress bar (which counts each settled update) predictable, and a failure on one order
+ * can't race the next.
  *
  * Never rejects as a whole — each order succeeds or fails on its own, and the caller reports both lists
  * (e.g. unpaid orders are skipped with the reason `updateOrderStatus` gives).

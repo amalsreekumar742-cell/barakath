@@ -11,6 +11,7 @@ class CartLineTile extends StatelessWidget {
     super.key,
     required this.item,
     required this.variant,
+    required this.unitPrice,
     required this.onIncrement,
     required this.onDecrement,
     required this.onDelete,
@@ -22,11 +23,16 @@ class CartLineTile extends StatelessWidget {
   /// price rather than showing the stale one it was added at.
   final Variant? variant;
 
+  /// `CartProvider.unitPriceFor` — passed in rather than derived from
+  /// [variant] because whether the flash price applies depends on the
+  /// PRODUCT's sale flag, which this row doesn't hold. Null with [variant].
+  final double? unitPrice;
+
   final VoidCallback onIncrement;
   final VoidCallback onDecrement;
   final VoidCallback onDelete;
 
-  double? get _unitPrice => variant?.effectivePrice;
+  double? get _unitPrice => variant == null ? null : unitPrice;
 
   @override
   Widget build(BuildContext context) {

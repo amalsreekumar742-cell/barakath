@@ -104,9 +104,14 @@ class ProductDetailProvider extends ChangeNotifier {
     return thumbnail.isEmpty ? const [] : [thumbnail];
   }
 
-  /// What the customer pays for the selected variant: flash price when live.
+  /// What the customer pays for the selected variant: the flash price only
+  /// when it genuinely applies (see [Variant.flashPrice]) — the same figure
+  /// the bag and checkout will charge.
   double get effectivePrice =>
-      _selectedVariant?.flashSalePrice ?? _selectedVariant?.offerPrice ?? 0;
+      _selectedVariant?.effectivePrice(
+        productInFlashSale: _product?.isFlashSale ?? false,
+      ) ??
+      0;
 
   double get mrp => _selectedVariant?.mrp ?? 0;
 

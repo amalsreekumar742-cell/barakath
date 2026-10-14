@@ -21,6 +21,7 @@ import {
   isStepComplete,
   isOrderPaid,
   unpaidAdvanceReason,
+  firstEntryByStatus,
 } from '../utils/orderFlow';
 import { PaymentMethodBadge, PaymentStatusBadge } from './PaymentBadges';
 // Shipment details (tracking ID + courier) are switched off for now — Ship is a plain confirm like
@@ -127,16 +128,15 @@ const OrderDetailPage: FC = () => {
   }
 
   const action = nextActionLabel(order.status);
-  // Stock is reserved at checkout, before payment, and only dailyCleanup (which matches orders still
-  // at status 'Pending') gives it back. Advancing an unpaid order strands that stock for good and
-  // ships goods nobody paid for — so the advance button is disabled with the reason spelled out.
-  // Cancel stays enabled: it is the correct way to release an abandoned checkout.
+  // Unpaid checkouts live in `orderDrafts` until paid, so an unpaid order here is a legacy or
+  // Failed/Refunded document. Advancing it would ship goods nobody paid for — so the advance button is
+  // disabled with the reason spelled out. Cancel stays enabled: it is the correct way to clear one.
   const paid = isOrderPaid(order.paymentStatus);
   const blockedReason = paid ? null : unpaidAdvanceReason(order.paymentStatus);
   const shippedOrLater = flowIndex(order.status) >= flowIndex(OrderStatus.SHIPPED);
-  const timelineByStatus = new Map<string, OrderStatusTimelineEntry>(
-    (order.statusTimeline ?? []).map((e) => [e.status, e]),
-  );
+  // First entry per status: a later same-status entry (e.g. a return refund note) must not overwrite
+  // when the step actually happened — see firstEntryByStatus.
+  const timelineByStatus = firstEntryByStatus<OrderStatusTimelineEntry>(order.statusTimeline);
   const isCancelled = order.status === OrderStatus.CANCELLED;
   const cancelledEntry = timelineByStatus.get(OrderStatus.CANCELLED);
 
@@ -278,13 +278,11 @@ const OrderDetailPage: FC = () => {
                   </div>
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-[13px] font-semibold text-foreground">{it.productName}</p>
-                    <div className="mt-0.5 flex items-center gap-1.5 text-[12px] text-muted">
-                      <span
-                        className="h-3 w-3 rounded-full border border-border"
-                        style={{ backgroundColor: it.variantColor }}
-                      />
-                      {it.variantColor} · {it.variantName}
-                    </div>
+                    {/* No swatch: order lines snapshot the colour NAME ("WHITE & GREY"), not its code,
+                        and a name is not a CSS colour — the dot rendered empty. */}
+                    <p className="mt-0.5 text-[12px] text-muted">
+                      {[it.variantColor, it.variantName].filter(Boolean).join(' · ') || '—'}
+                    </p>
                   </div>
                   <div className="text-right">
                     <p className="text-[13px] text-foreground">
@@ -384,6 +382,7 @@ const OrderDetailPage: FC = () => {
         isOpen={cancelOpen}
         orderId={order.id}
         paymentStatus={order.paymentStatus}
+        walletAmountUsed={order.walletAmountUsed}
         onClose={() => setCancelOpen(false)}
         onCancelled={() => setCancelOpen(false)}
       />

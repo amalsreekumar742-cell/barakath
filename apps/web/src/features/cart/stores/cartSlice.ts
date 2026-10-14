@@ -57,6 +57,28 @@ const initialState: CartState = {
   isHydrating: true,
 };
 
+/**
+ * What `useLiveStock` read back for one line from the LIVE product + variant docs — everything the
+ * server will re-derive at checkout that the bag otherwise only holds as an add-time snapshot.
+ *
+ * WHY the product-level fields (`categoryId`, `isCombo`, `comboDeliveryCharge`) ride along with the
+ * variant price: `createPaymentOrder` reads them from the live product too (Category coupons match on
+ * `categoryId`; the combo charge replaces the delivery fee), so a stale copy of any of them moves the
+ * server's total away from the one on screen exactly like a stale price does.
+ */
+export interface LiveLinePatch {
+  productId: string;
+  variantId: string;
+  /** Live variant stock. 0 is reported but never applied to quantity — see `syncLiveLines`. */
+  stock: number;
+  unitPrice: number;
+  mrp: number;
+  variantDetails: string;
+  categoryId: string;
+  isCombo: boolean;
+  comboDeliveryCharge: number;
+}
+
 /** A line is identified by product AND variant — the same perfume in 30ml and 100ml is two lines. */
 const sameLine = (a: CartItem, productId: string, variantId: string) =>
   a.productId === productId && a.variantId === variantId;
@@ -95,6 +117,39 @@ const cartSlice = createSlice({
       if (!line) return;
       line.quantity = clampQty(quantity, line.stockAtAdd);
     },
+    /**
+     * Overwrite each line's add-time snapshot with what the catalogue says NOW (`useLiveStock`).
+     *
+     * WHY: the admin edits a variant in place — price, MRP, stock, even its colour/size label — and
+     * the variant keeps its id, so the bag line still points at it but quotes the old figures.
+     * `createPaymentOrder` always re-prices from the live doc, so a stale `unitPrice` made checkout's
+     * "amount changed" prompt fire on every attempt until the line was removed and re-added.
+     *
+     * WHY quantity is clamped only when live stock is above 0: a sold-out line keeps its quantity so
+     * the bag can grey it out (spec 2.11 — never auto-removed) and come back intact on a restock. A
+     * line with SOME stock left is trimmed to it — otherwise checkout is a guaranteed "Only N left"
+     * rejection the customer can only fix by hand. `stockAtAdd` takes the live figure for the same
+     * reason it exists at all: it is the ceiling `clampQty` holds the stepper to, and the fresher
+     * number is the honest one (it may also have gone UP since the line was added).
+     *
+     * Patches for lines no longer in the bag (removed while the reads were in flight) are ignored.
+     */
+    syncLiveLines(state, action: PayloadAction<LiveLinePatch[]>) {
+      for (const patch of action.payload) {
+        const line = state.items.find((i) => sameLine(i, patch.productId, patch.variantId));
+        if (!line) continue;
+        line.unitPrice = patch.unitPrice;
+        line.mrp = patch.mrp;
+        line.variantDetails = patch.variantDetails;
+        line.categoryId = patch.categoryId;
+        line.isCombo = patch.isCombo;
+        line.comboDeliveryCharge = patch.comboDeliveryCharge;
+        if (patch.stock > 0) {
+          line.stockAtAdd = patch.stock;
+          if (line.quantity > patch.stock) line.quantity = patch.stock;
+        }
+      }
+    },
     removeItem(state, action: PayloadAction<{ productId: string; variantId: string }>) {
       state.items = state.items.filter(
         (i) => !sameLine(i, action.payload.productId, action.payload.variantId),
@@ -132,6 +187,7 @@ const cartSlice = createSlice({
 export const {
   addItem,
   updateQuantity,
+  syncLiveLines,
   removeItem,
   clearCart,
   applyCoupon,

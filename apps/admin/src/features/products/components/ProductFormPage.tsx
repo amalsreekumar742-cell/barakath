@@ -13,6 +13,7 @@ import { useAppDispatch, useAppSelector } from '@/stores/store';
 import Icon from '@/components/icons/Icon';
 import SearchSelect from '@/components/SearchSelect';
 import ImageCropperModal from '@/components/ImageCropperModal';
+import ConfirmDialog from '@/components/ConfirmDialog';
 import { formatINR } from '@/utils/format';
 import { fetchCategoriesForFilter } from '../api/fetchCategoriesForFilter';
 import { fetchProductDetail } from '../api/fetchProductDetail';
@@ -26,7 +27,12 @@ import { fetchGeneralSettings } from '@/features/settings/api/fetchGeneralSettin
 import ProductPicker from './ProductPicker';
 import { VariantColorPicker, VariantUnitPicker } from './VariantVariablePickers';
 import { fetchVariantCosts } from '../api/variantCosts';
-import { validateVariant, parseVariantFields, type VariantFieldsInput } from '../utils/validateVariant';
+import {
+  validateVariant,
+  parseVariantFields,
+  isVariantRepurpose,
+  type VariantFieldsInput,
+} from '../utils/validateVariant';
 import type { VariantDraft, ImageDraft, FBTItem } from '../types';
 
 /**
@@ -159,6 +165,8 @@ const ProductFormPage: FC = () => {
   const [nv, setNv] = useState(EMPTY_NV); // inline "new variant" row
   /** The one variant row open for in-place editing, with its raw input values. */
   const [editing, setEditing] = useState<EditState | null>(null);
+  /** Open while ✓ waits on "change this saved variant's colour/size?" — see applyEdit. */
+  const [confirmRepurpose, setConfirmRepurpose] = useState(false);
   /**
    * False until the edit page's purchase-price read settles. Editing is held until then: the edit row
    * copies the draft's purchase price when it opens, so opening it early would capture the 0
@@ -342,7 +350,8 @@ const ProductFormPage: FC = () => {
 
   // In-place edit of a variant — prices, stock, colour and variant (Size / Layer…). Editing (rather
   // than delete + re-add) keeps the variant's id, which saved carts, flash sales and the stock history
-  // reference; past orders are unaffected because they snapshot the label at checkout.
+  // reference. Past orders keep the label they snapshotted at checkout, but anything still LIVE follows
+  // the id — so changing a saved variant's colour/units asks first (see isVariantRepurpose).
   const startEdit = (v: VariantDraft) => {
     if (editing) return; // one row at a time — the other rows' edit buttons are disabled too
     setEditing({
@@ -361,7 +370,13 @@ const ProductFormPage: FC = () => {
       },
     });
   };
-  const applyEdit = () => {
+  /**
+   * ✓ on the edit row. `confirmed` is true only from the repurpose dialog: an already-SAVED variant whose
+   * colour or units change keeps its id, so shoppers' bags and open orders for it would silently follow
+   * the change — the admin confirms that first. Rows added in this session (`isNew`) have no such
+   * history, and price/stock-only edits never prompt.
+   */
+  const applyEdit = (confirmed = false) => {
     if (!editing) return;
     const v = variants.find((x) => x.id === editing.id);
     if (!v) return setEditing(null);
@@ -372,6 +387,7 @@ const ProductFormPage: FC = () => {
     // Against the OTHER rows only — the row is allowed to equal its own previous self.
     const error = validateVariant(input, variants.filter((x) => x.id !== v.id));
     if (error) return toast.error(error);
+    if (!confirmed && !v.isNew && isVariantRepurpose(v, input)) return setConfirmRepurpose(true);
     const parsed = parseVariantFields(input);
     // A legacy variant's GST left blank stays "shop default" (null) instead of being pinned to 0 —
     // the same distinction VariantDraft.gstPercentage draws.
@@ -754,7 +770,7 @@ const ProductFormPage: FC = () => {
                         {edit ? (
                           <td className="sticky right-0 z-10 border-l border-border bg-subtle px-2 py-2 text-right">
                             <div className="flex items-center justify-end gap-0.5">
-                              <button type="button" onClick={applyEdit} className="rounded-md p-1.5 text-primary hover:bg-primary-subtle" aria-label="Apply variant changes">
+                              <button type="button" onClick={() => applyEdit()} className="rounded-md p-1.5 text-primary hover:bg-primary-subtle" aria-label="Apply variant changes">
                                 <Icon name="CheckLine" size={16} />
                               </button>
                               <button type="button" onClick={() => setEditing(null)} className="rounded-md p-1.5 text-muted hover:bg-surface hover:text-foreground" aria-label="Discard variant changes">
@@ -893,6 +909,18 @@ const ProductFormPage: FC = () => {
       {cropperSrc && (
         <ImageCropperModal isOpen={!!cropperSrc} src={cropperSrc} aspectRatio={1} onCancel={() => setCropperSrc(null)} onCropped={onImageCropped} />
       )}
+      {/* Cancel keeps the edit row open, so the admin can revert the pick or add a new row instead. */}
+      <ConfirmDialog
+        isOpen={confirmRepurpose}
+        title="Change this variant's colour/size?"
+        message="Shoppers' bags and open orders for it will follow the change. To sell it as a new item instead, add a new row."
+        confirmLabel="Change variant"
+        onConfirm={() => {
+          setConfirmRepurpose(false);
+          applyEdit(true);
+        }}
+        onCancel={() => setConfirmRepurpose(false)}
+      />
     </form>
   );
 };

@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { OrderStatus } from '@barakath/shared/config/enums';
-import { bulkActionLabel, isBulkActionable, isBulkSelectable } from './orderFlow';
+import { bulkActionLabel, isBulkActionable, isBulkSelectable, firstEntryByStatus } from './orderFlow';
 
 describe('bulkActionLabel', () => {
   it('labels every advanceable status in the plural', () => {
@@ -35,5 +35,23 @@ describe('isBulkSelectable', () => {
   it('locks the selection to the first selected status', () => {
     expect(isBulkSelectable(OrderStatus.PENDING, OrderStatus.PENDING)).toBe(true);
     expect(isBulkSelectable(OrderStatus.ACCEPTED, OrderStatus.PENDING)).toBe(false);
+  });
+});
+
+describe('firstEntryByStatus', () => {
+  it('keeps the first entry when a status recurs (a return refund note after Delivered)', () => {
+    const map = firstEntryByStatus([
+      { status: OrderStatus.PENDING, note: 'placed' },
+      { status: OrderStatus.DELIVERED, note: 'handed over' },
+      { status: OrderStatus.DELIVERED, note: 'Return approved — ₹500 refunded to wallet' },
+    ]);
+    expect(map.get(OrderStatus.DELIVERED)?.note).toBe('handed over');
+    expect(map.get(OrderStatus.PENDING)?.note).toBe('placed');
+    expect(map.size).toBe(2);
+  });
+
+  it('is empty for a missing timeline', () => {
+    expect(firstEntryByStatus(undefined).size).toBe(0);
+    expect(firstEntryByStatus(null).size).toBe(0);
   });
 });

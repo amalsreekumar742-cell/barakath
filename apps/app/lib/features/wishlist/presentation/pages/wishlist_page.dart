@@ -289,14 +289,19 @@ class _WishlistRow extends StatelessWidget {
 
   Product get _product => entry.product;
 
-  double get _price => entry.variant?.effectivePrice ?? _product.minPrice;
+  double get _price =>
+      entry.variant?.effectivePrice(productInFlashSale: _product.isFlashSale) ??
+      _product.minPrice;
 
-  /// The struck-through comparison price, or null when nothing is off.
+  /// The struck-through comparison price, or null when nothing is off. A live
+  /// flash price (see [Variant.flashPrice]) is compared with the offer price.
   double? get _mrp {
     final v = entry.variant;
     if (v == null) return null;
-    final original = v.flashSalePrice != null ? v.offerPrice : v.mrp;
-    return original > v.effectivePrice ? original : null;
+    final isFlash =
+        v.flashPrice(productInFlashSale: _product.isFlashSale) != null;
+    final original = isFlash ? v.offerPrice : v.mrp;
+    return original > _price ? original : null;
   }
 
   String get _thumbnail {

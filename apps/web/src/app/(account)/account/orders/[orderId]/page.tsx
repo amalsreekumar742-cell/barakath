@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { ChevronRight, PackageX } from 'lucide-react';
 import { OrderStatus } from '@barakath/shared';
+import { gstPresentation } from '@barakath/shared/utils/gstBreakdown';
 import { Breadcrumb } from '@/components/Breadcrumb';
 import { Button } from '@/components/Button';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
@@ -39,12 +40,15 @@ import {
  * value, CGST, SGST, Total) does not match the stored `OrderProps` 1:1 — the document has one
  * `gstAmount`, no `taxableValue`/`cgst`/`sgst` columns (verified against `packages/shared/src/types/
  * order.ts`). The Flutter app's own Order Detail renders a single "GST" line for exactly this reason.
- * This page instead derives Taxable value / CGST / SGST the SAME way the deployed `generateInvoicePDF`
- * Cloud Function already does for the PDF (`taxable = grandTotal - gstAmount`, `CGST = SGST =
- * gstAmount / 2`, an intra-state assumption since no place-of-supply field exists) — chosen over
- * Flutter's simpler single line so this screen and the Invoice screen (which must show the split to
- * match the downloaded PDF) never disagree with each other for the same order. Never recomputed from
- * catalogue prices — always derived from the order's own stored `gstAmount`/`grandTotal`.
+ * This page instead derives Taxable value / CGST / SGST — chosen over Flutter's simpler single line so
+ * this screen and the Invoice screen (which must show the split) never disagree with each other for
+ * the same order. The taxable value comes from the shared `gstPresentation`, the helper the app's
+ * invoice and the admin's tax invoice also use: `subtotal − gstAmount` when the order's GST sat INSIDE
+ * its prices (`gstInclusive`, every order since 2026-08-04), the plain `subtotal` for the older
+ * tax-on-top orders. The previous `grandTotal − gstAmount` ignored that flag, so a gst-inclusive order
+ * with a coupon or a delivery fee stated a taxable value no other surface agreed with. `CGST = SGST =
+ * gstAmount / 2` is an intra-state assumption, since no place-of-supply field exists. Never recomputed
+ * from catalogue prices — always derived from the order's own stored figures.
  */
 export default function OrderDetailPage() {
   const router = useRouter();
@@ -106,9 +110,10 @@ export default function OrderDetailPage() {
   const eta = estimatedDelivery(order);
   const method = paymentMethodLabel(order);
   const saved = savings(order);
-  const taxable = order.grandTotal - (order.gstAmount || 0);
-  const cgst = (order.gstAmount || 0) / 2;
-  const sgst = (order.gstAmount || 0) / 2;
+  const tax = gstPresentation(order);
+  const taxable = tax.taxableValue;
+  const cgst = tax.gstAmount / 2;
+  const sgst = tax.gstAmount / 2;
 
   return (
     <div>

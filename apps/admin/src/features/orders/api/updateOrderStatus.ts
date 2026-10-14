@@ -1,19 +1,12 @@
 import { createAsyncThunk } from '@reduxjs/toolkit';
-import {
-  collection,
-  doc,
-  getDoc,
-  getDocs,
-  writeBatch,
-  serverTimestamp,
-  Timestamp,
-} from 'firebase/firestore';
+import { doc, getDoc, writeBatch, serverTimestamp, Timestamp } from 'firebase/firestore';
+import { httpsCallable } from 'firebase/functions';
 import { FirestoreCollections } from '@barakath/shared/config/collections';
-import { OrderStatus, PaymentStatus } from '@barakath/shared/config/enums';
-import type { OrderProps, VariantProps } from '@barakath/shared/types';
-import { db } from '@/lib/firebaseConfig';
-import { sumStock, deriveStockStatus } from '@/features/products/utils/stock';
+import { OrderStatus } from '@barakath/shared/config/enums';
+import type { OrderProps } from '@barakath/shared/types';
+import { db, functions } from '@/lib/firebaseConfig';
 import { nextStatus, canCancel, isOrderPaid, unpaidAdvanceReason } from '../utils/orderFlow';
+import { callableErrorMessage } from '../utils/callableError';
 
 export interface UpdateOrderStatusInput {
   orderId: string;
@@ -34,16 +27,22 @@ export interface UpdateOrderStatusResult {
  *
  * WHY the transition is validated here (server-trust boundary, skill): the UI only ever offers the
  * single next step, but the thunk still re-checks that `newStatus` is exactly `nextStatus(current)` —
- * or, for a cancel, that the order is still Pending — so no out-of-order write can slip through. Cancel
- * requires a reason (Shipped's tracking + courier requirement is switched off for now). On cancel we also refund-mark a paid order and
- * RESTORE stock (increment each item's variant + re-derive the product totals), all in one atomic batch
- * so status, timeline, refund flag and stock never diverge.
+ * or, for a cancel, that the order is still Pending — so no out-of-order write can slip through.
+ * Cancel requires a reason (Shipped's tracking + courier requirement is switched off for now).
  *
- * WHY an unpaid order cannot be advanced: `createPaymentOrder` reserves stock BEFORE the customer pays,
- * and the only things that give that stock back are the `payment.failed` webhook and `dailyCleanup` —
- * and `dailyCleanup` only matches orders still at `status == 'Pending'`. Moving an unpaid order to
- * Accepted therefore strands its stock permanently AND ships goods that were never paid for. Cancelling
- * stays allowed at any payment status: that is the correct way to clear an abandoned checkout.
+ * WHY a cancel goes through the `cancelOrder` callable instead of a client batch: cancelling moves
+ * money and cross-user inventory. The callable (functions/src/orders/cancelOrder.ts) does the whole
+ * reversal in one server transaction — Razorpay refund, wallet credit, coupon release, stock restore,
+ * the payment doc and the timeline. The client batch this replaced only flipped `paymentStatus` to
+ * Refunded (no money actually moved; the payment doc stayed Paid) and restored stock by reading each
+ * variant and writing an absolute value, which raced any concurrent checkout. The client must never
+ * restore stock as well: the callable already did, and a second restore would double it.
+ *
+ * WHY an unpaid order cannot be advanced: an unpaid checkout lives in `orderDrafts` and only becomes an
+ * order once paid (functions/src/orders/service/promoteDraft.ts), so a non-Paid order here is a legacy
+ * document from before that split, or a Failed/Refunded one. Advancing it would ship goods nobody paid
+ * for. Cancelling stays allowed at any payment status — the callable skips the reversal for a Failed
+ * payment, which the payment-failed webhook already reversed.
  *
  * WHY a client `Timestamp.now()` in the timeline (not serverTimestamp): Firestore forbids the
  * serverTimestamp sentinel inside an array element, so each timeline entry stamps the client time.
@@ -53,6 +52,7 @@ export const updateOrderStatus = createAsyncThunk<
   UpdateOrderStatusInput,
   { rejectValue: string }
 >('orders/updateStatus', async (input, { rejectWithValue }) => {
+  const isCancel = input.newStatus === OrderStatus.CANCELLED;
   try {
     const orderRef = doc(db, FirestoreCollections.orders, input.orderId);
     const snap = await getDoc(orderRef);
@@ -60,64 +60,33 @@ export const updateOrderStatus = createAsyncThunk<
     const order = { ...snap.data(), id: snap.id } as OrderProps;
     const current = order.status;
 
-    const isCancel = input.newStatus === OrderStatus.CANCELLED;
-
-    // --- Validate the transition ---
     if (isCancel) {
       if (!canCancel(current)) return rejectWithValue('Order can only be cancelled while Pending');
-      if (!input.cancelReason?.trim()) return rejectWithValue('Cancel reason is required');
-    } else {
-      if (!isOrderPaid(order.paymentStatus))
-        return rejectWithValue(unpaidAdvanceReason(order.paymentStatus));
-      if (input.newStatus !== nextStatus(current))
-        return rejectWithValue(`Cannot move from "${current}" to "${input.newStatus}"`);
-      // Shipment details are switched off for now (the shipment form is commented out), so Ship no
-      // longer requires them. Re-enable together with ShipmentModal.
-      // if (input.newStatus === OrderStatus.SHIPPED && (!input.trackingId?.trim() || !input.courierName?.trim()))
-      //   return rejectWithValue('Tracking ID and courier name are required to ship');
+      const cancelReason = input.cancelReason?.trim();
+      if (!cancelReason) return rejectWithValue('Cancel reason is required');
+
+      // The server re-checks Pending inside its own read, so a status change between our read and
+      // this call is refused there rather than double-cancelled.
+      const call = httpsCallable<{ orderId: string; cancelReason: string }, { success: boolean }>(
+        functions,
+        'cancelOrder',
+      );
+      await call({ orderId: input.orderId, cancelReason });
+
+      // Re-read so the slice gets the server-written status, payment status and timeline.
+      const cancelled = await getDoc(orderRef);
+      return { order: { ...cancelled.data(), id: cancelled.id } as OrderProps, previousStatus: current };
     }
 
-    // --- Pre-read everything needed for a stock restore (cancel only), before the batch ---
-    type ProductRestore = {
-      productId: string;
-      totalStock: number;
-      stockStatus: ReturnType<typeof deriveStockStatus>;
-      variantDeltas: { variantId: string; newStock: number }[];
-    };
-    const restores: ProductRestore[] = [];
-    if (isCancel) {
-      const byProduct = new Map<string, Map<string, number>>();
-      for (const it of order.items) {
-        if (!byProduct.has(it.productId)) byProduct.set(it.productId, new Map());
-        const m = byProduct.get(it.productId)!;
-        m.set(it.variantId, (m.get(it.variantId) ?? 0) + it.quantity);
-      }
-      for (const [productId, additions] of byProduct) {
-        const pRef = doc(db, FirestoreCollections.products, productId);
-        const pSnap = await getDoc(pRef);
-        if (!pSnap.exists()) continue; // product deleted — skip its restore
-        const threshold = (pSnap.data().lowStockThreshold as number) ?? 0;
-        const varCol = collection(db, FirestoreCollections.products, productId, FirestoreCollections.variants);
-        const varSnap = await getDocs(varCol);
-        const variantDeltas: { variantId: string; newStock: number }[] = [];
-        const stocks = varSnap.docs.map((d) => {
-          const v = d.data() as VariantProps;
-          const add = additions.get(d.id) ?? 0;
-          const newStock = v.stock + add;
-          if (add > 0) variantDeltas.push({ variantId: d.id, newStock });
-          return newStock;
-        });
-        const totalStock = sumStock(stocks);
-        restores.push({
-          productId,
-          totalStock,
-          stockStatus: deriveStockStatus(totalStock, threshold),
-          variantDeltas,
-        });
-      }
-    }
+    // --- Advance: validate the transition ---
+    if (!isOrderPaid(order.paymentStatus)) return rejectWithValue(unpaidAdvanceReason(order.paymentStatus));
+    if (input.newStatus !== nextStatus(current))
+      return rejectWithValue(`Cannot move from "${current}" to "${input.newStatus}"`);
+    // Shipment details are switched off for now (the shipment form is commented out), so Ship no
+    // longer requires them. Re-enable together with ShipmentModal.
+    // if (input.newStatus === OrderStatus.SHIPPED && (!input.trackingId?.trim() || !input.courierName?.trim()))
+    //   return rejectWithValue('Tracking ID and courier name are required to ship');
 
-    // --- Build the atomic batch ---
     const batch = writeBatch(db);
     const timelineEntry = {
       status: input.newStatus,
@@ -134,32 +103,18 @@ export const updateOrderStatus = createAsyncThunk<
       if (input.trackingId?.trim()) orderUpdate.trackingId = input.trackingId.trim();
       if (input.courierName?.trim()) orderUpdate.courierName = input.courierName.trim();
     }
-    if (isCancel) {
-      orderUpdate.cancelReason = input.cancelReason!.trim();
-      if (order.paymentStatus === PaymentStatus.PAID)
-        orderUpdate.paymentStatus = PaymentStatus.REFUNDED;
-    }
     batch.update(orderRef, orderUpdate);
-
-    for (const r of restores) {
-      for (const d of r.variantDeltas) {
-        batch.update(
-          doc(db, FirestoreCollections.products, r.productId, FirestoreCollections.variants, d.variantId),
-          { stock: d.newStock },
-        );
-      }
-      batch.update(doc(db, FirestoreCollections.products, r.productId), {
-        totalStock: r.totalStock,
-        stockStatus: r.stockStatus,
-        updatedAt: serverTimestamp(),
-      });
-    }
-
     await batch.commit();
 
     const updated = await getDoc(orderRef);
     return { order: { ...updated.data(), id: updated.id } as OrderProps, previousStatus: current };
   } catch (err) {
-    return rejectWithValue(err instanceof Error ? err.message : 'Could not update order status');
+    return rejectWithValue(
+      isCancel
+        ? callableErrorMessage(err, 'Could not cancel the order')
+        : err instanceof Error
+          ? err.message
+          : 'Could not update order status',
+    );
   }
 });

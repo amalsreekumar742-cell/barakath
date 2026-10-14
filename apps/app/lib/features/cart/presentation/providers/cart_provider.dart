@@ -91,6 +91,16 @@ class CartProvider extends ChangeNotifier {
   Product? productFor(CartItem item) => _details.products[item.productId];
   Variant? variantFor(CartItem item) => _details.variants[item.variantId];
 
+  /// What one unit of [item] costs right now, or null until its live variant
+  /// has loaded. THE per-line price for every cart figure — the bag rows, the
+  /// checkout summary and the totals all read it, so they can't disagree. The
+  /// flash price needs the PRODUCT's `isFlashSale` too (see
+  /// [Variant.flashPrice]); a missing product reads as "no sale", which is
+  /// what the server would charge if it still sold the line at all.
+  double? unitPriceFor(CartItem item) => variantFor(item)?.effectivePrice(
+        productInFlashSale: productFor(item)?.isFlashSale ?? false,
+      );
+
   /// The products currently in the bag — coupon applicability is checked against
   /// these (category/product scoped coupons).
   List<Product> get cartProducts =>
@@ -120,9 +130,9 @@ class CartProvider extends ChangeNotifier {
   double get subtotal {
     var total = 0.0;
     for (final item in _items) {
-      final variant = variantFor(item);
-      if (variant == null) continue;
-      total += variant.effectivePrice * item.quantity;
+      final price = unitPriceFor(item);
+      if (price == null) continue;
+      total += price * item.quantity;
     }
     return total;
   }
@@ -209,8 +219,9 @@ class CartProvider extends ChangeNotifier {
     var saved = 0.0;
     for (final item in _items) {
       final variant = variantFor(item);
-      if (variant == null) continue;
-      final off = variant.mrp - variant.effectivePrice;
+      final price = unitPriceFor(item);
+      if (variant == null || price == null) continue;
+      final off = variant.mrp - price;
       if (off > 0) saved += off * item.quantity;
     }
     return saved + _couponDiscount;

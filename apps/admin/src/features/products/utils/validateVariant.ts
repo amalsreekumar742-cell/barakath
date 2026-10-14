@@ -83,6 +83,39 @@ export function isSameVariant(a: VariantIdentity, b: VariantIdentity): boolean {
 }
 
 /**
+ * Whether an edit turns an EXISTING variant into a different item — its colour or one of its units
+ * (Size, Layer…) changed or was removed — as opposed to a price/stock edit or a refinement.
+ *
+ * WHY it matters: an edit keeps the variant's id, and everything live points at that id — shoppers'
+ * saved bags and still-open orders follow it to the new colour/size, and stock given back by a later
+ * cancel lands on whatever the id now is (a cancelled "Gold" order restoring into what is now
+ * "Silver"). The form asks before doing that; selling it as a new item means adding a new row.
+ *
+ * WHY filling in a blank is NOT a repurpose: a legacy row ("57", no `options`) gaining a Layer while
+ * its Size stays 57 — or any row gaining an axis it never had — describes the same physical item more
+ * precisely. Only a value that existed and is now different (or gone) changes what was bought.
+ * Case-insensitive, like `isSameVariant`, so re-picking "white" for "White" is not a change.
+ */
+export function isVariantRepurpose(before: VariantIdentity, after: VariantIdentity): boolean {
+  const oldColor = norm(before.color);
+  if (oldColor && oldColor !== norm(after.color)) return true;
+
+  const newOptions = after.options ?? [];
+  // No picks after the edit = the legacy row kept its name as it was.
+  if (newOptions.length === 0) return !!norm(before.name) && norm(before.name) !== norm(after.name);
+
+  if (before.options?.length) {
+    // Every unit it had must survive, in the same group; added groups are fine.
+    return !before.options.every((o) =>
+      newOptions.some((n) => norm(n.group) === norm(o.group) && norm(n.value) === norm(o.value)),
+    );
+  }
+  // Legacy: its name WAS its one axis (group unrecorded), so it must still be one of the picked units.
+  const oldName = norm(before.name);
+  return !!oldName && !newOptions.some((n) => norm(n.value) === oldName);
+}
+
+/**
  * The first rule the row breaks, as a user-facing message — or null when the row is valid.
  *
  * `existing` are the product's other rows. A row matching one of them (`isSameVariant`) is refused:

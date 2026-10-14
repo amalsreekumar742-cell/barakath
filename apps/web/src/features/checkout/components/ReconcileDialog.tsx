@@ -15,11 +15,12 @@ export interface ReconcileDialogProps {
 /**
  * "The amount changed" prompt (spec §2.15) — shown only when `placeOrder`'s `onReconcileRequired`
  * fires, which happens ONLY when the server's real amount (after re-pricing the cart, the coupon and
- * stock server-side) differs from what was on screen by more than 50 paisa. At the moment this dialog
- * is visible, `createPaymentOrder` has ALREADY created the order (WEB_BATCH3_NOTES.md §7) — Continue
- * proceeds to Razorpay for the server's real amount; Cancel calls `cancelOrder` on that already-created
- * order (handled inside `checkoutThunks.ts`, not here) and the checkout ends in a `payment-failed`
- * route with a `reconcile-declined` reason.
+ * stock server-side) differs from what was on screen by more than 50 paisa. Only a checkout that still
+ * owes a Razorpay payment can reach it: at that moment `createPaymentOrder` has created a Pending
+ * `orderDrafts` document with its reservations held — Continue proceeds to Razorpay for the server's
+ * real amount; Cancel discards that draft (`discardOrderDraft`, inside `checkoutThunks.ts`, not here)
+ * and the checkout ends in a `payment-failed` route with a `reconcile-declined` reason. A wallet-only
+ * order never shows this — it is already placed and paid, so there is nothing to cancel.
  */
 export function ReconcileDialog({ reconcile, onContinue, onCancel }: ReconcileDialogProps) {
   return (

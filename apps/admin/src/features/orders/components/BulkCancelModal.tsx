@@ -13,7 +13,7 @@ type CancelForm = z.infer<typeof schema>;
 interface Props {
   isOpen: boolean;
   count: number;
-  /** Selected orders already Paid — they will be marked Refunded, same as a single cancel. */
+  /** Selected orders already Paid — each is refunded by the server, same as a single cancel. */
   paidCount: number;
   onClose: () => void;
   onConfirm: (cancelReason: string) => void;
@@ -21,8 +21,9 @@ interface Props {
 
 /**
  * BulkCancelModal — cancel several Pending orders with ONE shared reason (spec §1.7). Mirrors
- * CancelOrderModal's copy and validation; the actual cancel (and stock restore) still runs order by order
- * through `updateOrderStatus`, so the rules are identical to a single cancel.
+ * CancelOrderModal's copy and validation; the actual cancel (refund, wallet, coupon and stock reversal)
+ * still runs order by order through `updateOrderStatus` → the `cancelOrder` callable, so the rules are
+ * identical to a single cancel.
  */
 const BulkCancelModal: FC<Props> = ({ isOpen, count, paidCount, onClose, onConfirm }) => {
   const {

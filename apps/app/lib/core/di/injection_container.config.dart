@@ -197,6 +197,8 @@ import '../../features/products/domain/usecases/get_first_variants.dart'
     as _i357;
 import '../../features/products/domain/usecases/get_product_detail.dart'
     as _i892;
+import '../../features/products/domain/usecases/get_product_variant.dart'
+    as _i366;
 import '../../features/products/domain/usecases/get_product_variants.dart'
     as _i301;
 import '../../features/products/domain/usecases/get_products.dart' as _i143;
@@ -747,6 +749,8 @@ extension GetItInjectableX on _i174.GetIt {
         () => _i598.GetBundleProducts(gh<_i550.ProductDetailRepository>()));
     gh.factory<_i892.GetProductDetail>(
         () => _i892.GetProductDetail(gh<_i550.ProductDetailRepository>()));
+    gh.factory<_i366.GetProductVariant>(
+        () => _i366.GetProductVariant(gh<_i550.ProductDetailRepository>()));
     gh.factory<_i301.GetProductVariants>(
         () => _i301.GetProductVariants(gh<_i550.ProductDetailRepository>()));
     gh.factory<_i17.GetRecentProductReviews>(() =>
@@ -768,12 +772,6 @@ extension GetItInjectableX on _i174.GetIt {
           gh<_i160.WatchWishlistProductIds>(),
           gh<_i1071.AddToWishlist>(),
           gh<_i28.RemoveFromWishlist>(),
-        ));
-    gh.factory<_i388.OrdersProvider>(() => _i388.OrdersProvider(
-          gh<_i941.GetOrders>(),
-          gh<_i892.GetProductDetail>(),
-          gh<_i301.GetProductVariants>(),
-          gh<_i965.GetReturnStatuses>(),
         ));
     gh.factory<_i506.NotificationsProvider>(() => _i506.NotificationsProvider(
           gh<_i412.GetBroadcastNotifications>(),
@@ -800,6 +798,12 @@ extension GetItInjectableX on _i174.GetIt {
         ));
     gh.factory<_i985.ReplacementProvider>(
         () => _i985.ReplacementProvider(gh<_i1013.SubmitReplacementRequest>()));
+    gh.factory<_i388.OrdersProvider>(() => _i388.OrdersProvider(
+          gh<_i941.GetOrders>(),
+          gh<_i892.GetProductDetail>(),
+          gh<_i366.GetProductVariant>(),
+          gh<_i965.GetReturnStatuses>(),
+        ));
     gh.factory<_i919.ProfileProvider>(() => _i919.ProfileProvider(
           gh<_i472.WatchUser>(),
           gh<_i78.UpdateProfile>(),

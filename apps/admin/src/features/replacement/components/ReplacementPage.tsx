@@ -134,14 +134,11 @@ const ReplacementPage: FC = () => {
         header: 'Variant',
         cell: (c) => {
           const r = c.row.original;
+          // Text, not a swatch: `variantColor` is the colour NAME, not a CSS colour (the dot was empty).
           return (
-            <div className="flex items-center gap-1.5 text-[13px] text-muted">
-              <span
-                className="h-3 w-3 shrink-0 rounded-full border border-border"
-                style={{ backgroundColor: r.variantColor }}
-              />
-              {r.variantName}
-            </div>
+            <span className="text-[13px] text-muted">
+              {[r.variantColor, r.variantName].filter(Boolean).join(' · ') || '—'}
+            </span>
           );
         },
       }),

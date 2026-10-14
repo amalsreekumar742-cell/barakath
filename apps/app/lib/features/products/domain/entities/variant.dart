@@ -29,7 +29,8 @@ class Variant extends Equatable {
   /// Fixed affiliate commission (Firestore key: `commission`).
   final double commission;
 
-  /// Present only during an active flash sale, else null.
+  /// Present only during an active flash sale, else null. Raw — never price
+  /// with it directly; [flashPrice] decides whether it actually applies.
   final double? flashSalePrice;
   final int stock;
 
@@ -63,13 +64,36 @@ class Variant extends Equatable {
   /// Alias getter for the fixed affiliate commission.
   double get affiliateCommission => commission;
 
-  /// The price a customer actually pays: flash-sale price when live, else offer.
-  double get effectivePrice => flashSalePrice ?? offerPrice;
+  /// The flash-sale price when it genuinely applies, else null.
+  ///
+  /// MUST mirror the unit-price rule in `createPaymentOrder`
+  /// (functions/src/orders/createPaymentOrder.ts): that is what the customer
+  /// is charged, and the app has no "your total changed" step — a figure
+  /// shown here that the server disagrees with is a quoted price checkout
+  /// won't honour. The flash price counts only when ALL hold:
+  ///   1. [productInFlashSale] — the PRODUCT doc's `isFlashSale`. The variant
+  ///      field alone can outlive the sale (cleared at the window edge, or left
+  ///      behind by an in-place edit).
+  ///   2. It is a real price (> 0) — a zero is "unset", never "free".
+  ///   3. It is actually cheaper than [offerPrice]; a "sale" price at or above
+  ///      the everyday price is ignored rather than charged.
+  double? flashPrice({required bool productInFlashSale}) {
+    final flash = flashSalePrice;
+    if (!productInFlashSale || flash == null) return null;
+    return flash > 0 && flash < offerPrice ? flash : null;
+  }
 
-  /// Discount % of the effective price vs. MRP (0 when MRP is missing/lower).
-  double get discountPercentage {
-    if (mrp <= 0 || effectivePrice >= mrp) return 0;
-    return ((mrp - effectivePrice) / mrp) * 100;
+  /// The unit price the customer actually pays: [flashPrice] when it applies,
+  /// else the offer price. Takes the product's flag (rather than being a
+  /// getter) so no caller can price a variant without it.
+  double effectivePrice({required bool productInFlashSale}) =>
+      flashPrice(productInFlashSale: productInFlashSale) ?? offerPrice;
+
+  /// Discount % of [effectivePrice] vs. MRP (0 when MRP is missing/lower).
+  double discountPercentage({required bool productInFlashSale}) {
+    final price = effectivePrice(productInFlashSale: productInFlashSale);
+    if (mrp <= 0 || price >= mrp) return 0;
+    return ((mrp - price) / mrp) * 100;
   }
 
   bool get inStock => stock > 0;

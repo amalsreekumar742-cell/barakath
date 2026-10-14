@@ -258,9 +258,9 @@ class _ProductDetailViewState extends State<_ProductDetailView> {
                     detail.product?.id ?? '',
                     detail.selectedVariant?.id ?? '',
                   ),
-              price: detail.selectedVariant?.effectivePrice ??
-                  detail.product?.minPrice ??
-                  0,
+              price: detail.selectedVariant != null
+                  ? detail.effectivePrice
+                  : detail.product?.minPrice ?? 0,
               productId: detail.product?.id ?? '',
               onAddToCart: _addToCart,
             )

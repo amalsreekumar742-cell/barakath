@@ -40,6 +40,20 @@ class ProductDetailRepositoryImpl implements ProductDetailRepository {
   }
 
   @override
+  Future<Either<Failure, Variant?>> getVariant(
+    String productId,
+    String variantId,
+  ) async {
+    try {
+      return Right(await _remote.getVariant(productId, variantId));
+    } on ServerException catch (e) {
+      return Left(ServerFailure(e.message));
+    } catch (_) {
+      return const Left(ServerFailure());
+    }
+  }
+
+  @override
   Future<Either<Failure, List<BundleItem>>> getBundleProducts(
     List<String> productIds,
   ) async {

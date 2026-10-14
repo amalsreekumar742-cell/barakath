@@ -49,13 +49,13 @@ export interface PlaceOrderArgs {
   /** What the UI showed just before the customer tapped Pay — the reconciliation baseline. */
   displayedTotals: TotalsBreakdown;
   /**
-   * Called ONLY when the server's `amount` differs materially (> 50 paisa) from
-   * `displayedTotals.razorpayAmount` — e.g. a coupon expired or a price changed between page load and
-   * checkout. Must resolve `true` to continue to Razorpay with the server's real amount, or `false` to
-   * abandon (the thunk then calls `cancelOrder` on the already-created Pending order — see the note
-   * below on why the order exists before this callback even runs). Omit to always proceed silently;
-   * `createPaymentOrder` has ALREADY committed the order by the time this fires either way (§6/§7 — no
-   * "dry run" endpoint exists), so declining doesn't undo the order, only stops the payment step.
+   * Called ONLY when a Razorpay payment is still due AND the server's `amount` differs materially
+   * (> 50 paisa) from `displayedTotals.razorpayAmount` — e.g. a coupon expired or a price changed
+   * between page load and checkout. Must resolve `true` to continue to Razorpay with the server's real
+   * amount, or `false` to abandon (the thunk then discards the Pending draft `createPaymentOrder`
+   * already created, releasing its reservations). Omit to always proceed silently. NEVER called for a
+   * wallet-only order: that one is already a real, Paid order by the time the response arrives, so
+   * there is nothing a "Cancel" could undo — see `placeOrder`.
    *
    * WHY a callback function is an acceptable thunk argument in THIS store specifically: `stores/
    * store.ts`'s `serializableCheck.isSerializable` override treats any non-plain-object value
@@ -127,13 +127,33 @@ export const placeOrder = createAsyncThunk<PlaceOrderResult, PlaceOrderArgs, { r
       const { orderId: newOrderId, razorpayOrderId, amount, key_id } = res.data;
       orderId = newOrderId;
 
-      // RECONCILE: the order (and its stock/coupon/wallet reservations) is already committed at this
-      // point — createPaymentOrder wrote it inside its own transaction before returning. This step can
-      // only decide whether to CONTINUE to payment for the server's real amount, not prevent the order
-      // from having been created (WEB_BATCH3_NOTES.md §7 flags this as a real, narrow gap: a customer
-      // who declines here — or simply closes the tab — leaves an order stuck `Pending` with stock still
-      // reserved, since Razorpay never fires a webhook for a payment attempt that never happened;
-      // whether a scheduled cleanup expires these is a backend question outside this batch's scope).
+      // WALLET-ONLY FIRST, before any reconcile prompt. No Razorpay order means the wallet covered the
+      // whole total and `createPaymentOrder` has ALREADY written a real `orders/{orderId}` document,
+      // `Paid`, with the wallet debited inside the same transaction — there is no draft left to
+      // discard. Offering "Cancel order" here used to call `discardOrderDraft` (which can't touch a
+      // real order), report "Order not placed", and leave the customer debited for an order they were
+      // told didn't exist. Nothing needs confirming either: the server debits at most the
+      // `walletAmountToUse` the screen showed and collects ₹0 by Razorpay, so the customer can only
+      // have paid what they agreed to or less (the mismatch here is a price that DROPPED far enough for
+      // the wallet to cover it all).
+      //
+      // `!razorpayOrderId` rather than `=== null`: the callable documents `null`, but the order doc
+      // itself stores `''` for the same case — either way there is no payment leg to open.
+      //
+      // Clear the cart HERE (not left to the consuming slice) so it happens exactly once, at the moment
+      // success is certain. Dispatched by RAW action type (not the `clearCart` action creator) because
+      // `features/checkout` may not import `features/cart` — the same cross-feature-import boundary
+      // `ProductExperience.tsx` already works around for `cart/addItem`. `cartSlice`'s type is stable
+      // (`createSlice({ name: 'cart', ... })` always produces `'cart/clearCart'`).
+      if (!razorpayOrderId) {
+        dispatch({ type: 'cart/clearCart' });
+        return { orderId, done: true, razorpaySuccess: null };
+      }
+
+      // RECONCILE (Razorpay leg only): what exists at this point is an `orderDrafts` document with its
+      // stock/coupon/wallet reservations held — not yet an order. This step decides whether to CONTINUE
+      // to payment for the server's real amount; declining discards the draft (`releaseOrder`) so the
+      // reservations come back immediately instead of waiting for `expireUnpaidOrders`.
       const materiallyDifferent = Math.abs(args.displayedTotals.razorpayAmount - amount) > 0.5;
       if (materiallyDifferent && args.onReconcileRequired) {
         const proceed = await args.onReconcileRequired({ amount, displayed: args.displayedTotals.razorpayAmount });
@@ -141,17 +161,6 @@ export const placeOrder = createAsyncThunk<PlaceOrderResult, PlaceOrderArgs, { r
           await releaseOrder(orderId);
           return rejectWithValue({ orderId, reason: 'reconcile-declined', message: FAILURE_MESSAGES['reconcile-declined'] });
         }
-      }
-
-      if (razorpayOrderId === null) {
-        // Wallet covered the whole total — already Paid. Clear the cart HERE (not left to the
-        // consuming slice) so it happens exactly once, at the moment success is certain. Dispatched by
-        // RAW action type (not the `clearCart` action creator) because `features/checkout` may not
-        // import `features/cart` — the same cross-feature-import boundary `ProductExperience.tsx`
-        // already works around for `cart/addItem`. `cartSlice`'s type is stable
-        // (`createSlice({ name: 'cart', ... })` always produces `'cart/clearCart'`).
-        dispatch({ type: 'cart/clearCart' });
-        return { orderId, done: true, razorpaySuccess: null };
       }
 
       const razorpaySuccess = await new Promise<RazorpaySuccessResponse>((resolve, reject) => {

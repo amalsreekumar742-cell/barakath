@@ -7,9 +7,8 @@ import '../../../../core/constants/app_dimens.dart';
 import '../../../../core/constants/domain_enums.dart';
 import '../../../../core/usecase/usecase.dart';
 import '../../../cart/domain/entities/cart_item.dart';
-import '../../../products/domain/entities/variant.dart';
 import '../../../products/domain/usecases/get_product_detail.dart';
-import '../../../products/domain/usecases/get_product_variants.dart';
+import '../../../products/domain/usecases/get_product_variant.dart';
 import '../../domain/entities/order.dart';
 import '../../domain/usecases/get_orders.dart';
 import '../../domain/usecases/get_return_statuses.dart';
@@ -36,13 +35,13 @@ class OrdersProvider extends ChangeNotifier {
   OrdersProvider(
     this._getOrders,
     this._getProductDetail,
-    this._getProductVariants,
+    this._getProductVariant,
     this._getReturnStatuses,
   );
 
   final GetOrders _getOrders;
   final GetProductDetail _getProductDetail;
-  final GetProductVariants _getProductVariants;
+  final GetProductVariant _getProductVariant;
   final GetReturnStatuses _getReturnStatuses;
 
   OrdersState _state = OrdersState.initial;
@@ -177,15 +176,16 @@ class OrdersProvider extends ChangeNotifier {
         continue;
       }
 
-      final variantsResult = await _getProductVariants(item.productId);
-      final variants = variantsResult.fold((_) => null, (v) => v);
-      Variant? variant;
-      for (final v in variants ?? const <Variant>[]) {
-        if (v.id == item.variantId) {
-          variant = v;
-          break;
-        }
-      }
+      // Read the ordered variant straight by id. Searching the product's
+      // variant LIST (capped, ordered by `createdAt`) missed one past the cap
+      // or without that field, and reported it out of stock.
+      final variantResult = await _getProductVariant(
+        ProductVariantParams(
+          productId: item.productId,
+          variantId: item.variantId,
+        ),
+      );
+      final variant = variantResult.fold((_) => null, (v) => v);
       if (variant == null || !variant.inStock) {
         skipped++;
         continue;

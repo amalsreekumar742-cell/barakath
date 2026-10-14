@@ -98,10 +98,10 @@ export function isOrderPaid(paymentStatus: string): boolean {
 
 /**
  * Why an unpaid order may not be advanced — shown on the disabled action button and returned by the
- * update thunk. Stock is reserved at checkout, BEFORE payment; `dailyCleanup` only reclaims it from
- * orders still sitting at `status == 'Pending'`. Accepting an unpaid order therefore strands that
- * stock permanently and ships goods no one paid for. Cancelling remains available and is the right
- * way to release an abandoned checkout.
+ * update thunk. Unpaid checkouts now live in `orderDrafts` until paid, so an unpaid order here is a
+ * legacy (pre-draft) or Failed/Refunded document; accepting it would ship goods no one paid for.
+ * Cancelling remains available and is the right way to clear one — the `cancelOrder` callable gives
+ * back whatever it still holds.
  */
 export function unpaidAdvanceReason(paymentStatus: string): string {
   if (paymentStatus === PaymentStatus.FAILED)
@@ -109,6 +109,23 @@ export function unpaidAdvanceReason(paymentStatus: string): string {
   if (paymentStatus === PaymentStatus.REFUNDED)
     return 'This order has been refunded — it cannot be processed further.';
   return 'Payment is not complete for this order — it cannot be processed. Cancel it to release the stock.';
+}
+
+/**
+ * The FIRST timeline entry for each status — when the order actually reached it.
+ *
+ * WHY first, not last: the timeline is append-only and a status can recur. `approveReplacement` appends
+ * an entry carrying the order's CURRENT status (Delivered) plus a refund note, so a last-wins map would
+ * replace the real Delivered step's time with the refund's.
+ */
+export function firstEntryByStatus<T extends { status: string }>(
+  timeline: readonly T[] | null | undefined,
+): Map<string, T> {
+  const byStatus = new Map<string, T>();
+  for (const entry of timeline ?? []) {
+    if (!byStatus.has(entry.status)) byStatus.set(entry.status, entry);
+  }
+  return byStatus;
 }
 
 /** Whether `status` has been reached given the order's current status (for timeline completion). */

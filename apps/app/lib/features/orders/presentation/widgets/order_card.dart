@@ -178,16 +178,28 @@ class OrderCard extends StatelessWidget {
     );
   }
 
-  /// Active → Track, Delivered → Reorder, Cancelled → a static "Refunded to
-  /// bank" note (spec §2.17). All three are text, per the design.
+  /// Active → Track, Delivered → Reorder, Cancelled → a static refund note
+  /// (spec §2.17). All three are text, per the design.
+  ///
+  /// The refund note states only what `paymentStatus` proves: "Refunded …"
+  /// once it reads 'Refunded', "Refund pending" while a paid order's refund
+  /// is still owed, and nothing when no money was taken (payment failed or
+  /// never made) — "Refunded to bank" on every cancellation told customers
+  /// money was on its way that sometimes wasn't.
   Widget _action(OrderStatus status) {
     if (status == OrderStatus.cancelled) {
-      return const Text(
-        'Refunded to bank',
+      final (label, color) = OrderFormat.isRefunded(order)
+          ? (OrderFormat.refundedTo(order), AppColors.semanticSuccess)
+          : OrderFormat.isRefundPending(order)
+              ? ('Refund pending', AppColors.goldStrong)
+              : (null, null);
+      if (label == null) return const SizedBox.shrink();
+      return Text(
+        label,
         style: TextStyle(
           fontSize: 12,
           fontWeight: FontWeight.w700,
-          color: AppColors.semanticSuccess,
+          color: color,
         ),
       );
     }

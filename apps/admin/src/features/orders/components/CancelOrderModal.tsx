@@ -7,6 +7,7 @@ import { OrderStatus, PaymentStatus } from '@barakath/shared/config/enums';
 import { useAppDispatch, useAppSelector } from '@/stores/store';
 import Modal from '@/components/Modal';
 import Icon from '@/components/icons/Icon';
+import { formatINR } from '@/utils/format';
 import { updateOrderStatus } from '../api/updateOrderStatus';
 
 const schema = z.object({
@@ -18,6 +19,8 @@ interface Props {
   isOpen: boolean;
   orderId: string;
   paymentStatus: string;
+  /** Wallet money the order spent — the server credits it back on cancel (unless payment Failed). */
+  walletAmountUsed?: number;
   onClose: () => void;
   onCancelled: () => void;
 }
@@ -25,9 +28,17 @@ interface Props {
 /**
  * CancelOrderModal — cancel a still-Pending order with a required reason (spec §1.7). Warns that the
  * action is irreversible and that stock will be restored; if the order was Paid, also warns that a
- * refund will be initiated. Cancellation itself is enforced server-side in `updateOrderStatus`.
+ * refund will be initiated, and names any wallet money going back. Those promises are kept by the
+ * `cancelOrder` callable that `updateOrderStatus` calls — it refunds, re-credits and restores stock.
  */
-const CancelOrderModal: FC<Props> = ({ isOpen, orderId, paymentStatus, onClose, onCancelled }) => {
+const CancelOrderModal: FC<Props> = ({
+  isOpen,
+  orderId,
+  paymentStatus,
+  walletAmountUsed = 0,
+  onClose,
+  onCancelled,
+}) => {
   const dispatch = useAppDispatch();
   const loading = useAppSelector((s) => s.orders.updateStatusLoading);
   const {
@@ -42,12 +53,24 @@ const CancelOrderModal: FC<Props> = ({ isOpen, orderId, paymentStatus, onClose, 
     onClose();
   };
 
+  const paid = paymentStatus === PaymentStatus.PAID;
+  // A Failed payment was already reversed by the webhook, so the server credits nothing back then.
+  const walletBack = walletAmountUsed > 0 && paymentStatus !== PaymentStatus.FAILED;
+
   const onSubmit = async (data: CancelForm) => {
     const res = await dispatch(
       updateOrderStatus({ orderId, newStatus: OrderStatus.CANCELLED, cancelReason: data.cancelReason }),
     );
     if (updateOrderStatus.fulfilled.match(res)) {
-      toast.success('Order status updated to Cancelled');
+      // cancelOrder still cancels when Razorpay refuses the refund, but leaves the order Paid (never a
+      // false "Refunded") — so a paid order that is STILL Paid means the money did not go back.
+      if (paid && res.payload.order.paymentStatus === PaymentStatus.PAID) {
+        toast.error('Order cancelled, but the Razorpay refund failed — the money is still owed.', {
+          duration: 8000,
+        });
+      } else {
+        toast.success('Order status updated to Cancelled');
+      }
       onCancelled();
       close();
     } else {
@@ -71,11 +94,14 @@ const CancelOrderModal: FC<Props> = ({ isOpen, orderId, paymentStatus, onClose, 
         <p className="text-[13px] leading-normal text-muted">
           This action cannot be undone. The order will be cancelled and stock will be restored.
         </p>
-        {paymentStatus === PaymentStatus.PAID && (
+        {(paid || walletBack) && (
           <div className="mt-3 flex gap-2 rounded-lg border border-warning-subtle bg-warning-subtle/50 px-3 py-2.5">
             <Icon name="AlertLine" size={16} className="mt-0.5 shrink-0 text-warning" />
             <p className="text-[13px] text-foreground">
-              A refund will be initiated to the original payment method.
+              {paid && 'A refund will be initiated to the original payment method.'}
+              {paid && walletBack && ' '}
+              {walletBack &&
+                `${formatINR(walletAmountUsed)} paid from the wallet goes back to the customer's wallet.`}
             </p>
           </div>
         )}

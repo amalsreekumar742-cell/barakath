@@ -1,5 +1,11 @@
 import { describe, it, expect } from 'vitest';
-import { validateVariant, parseVariantFields, isSameVariant, type VariantFieldsInput } from './validateVariant';
+import {
+  validateVariant,
+  parseVariantFields,
+  isSameVariant,
+  isVariantRepurpose,
+  type VariantFieldsInput,
+} from './validateVariant';
 
 const valid: VariantFieldsInput = {
   color: 'Black',
@@ -148,6 +154,65 @@ describe('parseVariantFields', () => {
       commission: 0,
       gstPercentage: 18,
       stock: 7,
+    });
+  });
+});
+
+describe('isVariantRepurpose', () => {
+  const size = (value: string) => ({ group: 'Size', value });
+  const layer = (value: string) => ({ group: 'Layer', value });
+  const saved = { color: 'Gold', name: '57 · Layer 2', options: [size('57'), layer('2')] };
+
+  it('is false when colour and units are unchanged (a price/stock edit)', () => {
+    expect(isVariantRepurpose(saved, { ...saved })).toBe(false);
+  });
+
+  it('ignores case and group-name spelling', () => {
+    expect(
+      isVariantRepurpose(saved, {
+        color: ' gold ',
+        name: '57 · Layer 2',
+        options: [{ group: 'LAYER', value: '2' }, { group: 'size', value: '57' }],
+      }),
+    ).toBe(false);
+  });
+
+  it('is true when the colour changes', () => {
+    expect(isVariantRepurpose(saved, { ...saved, color: 'Silver' })).toBe(true);
+  });
+
+  it('is true when a unit changes or is removed', () => {
+    expect(isVariantRepurpose(saved, { ...saved, options: [size('57'), layer('3')] })).toBe(true);
+    expect(isVariantRepurpose(saved, { ...saved, options: [size('55'), layer('2')] })).toBe(true);
+    expect(isVariantRepurpose(saved, { ...saved, options: [size('57')] })).toBe(true);
+  });
+
+  it('is false when a row only gains an axis it never had', () => {
+    const single = { color: 'Gold', name: '57', options: [size('57')] };
+    expect(isVariantRepurpose(single, { ...single, options: [size('57'), layer('2')] })).toBe(false);
+  });
+
+  describe('legacy row (no options, name is its one axis)', () => {
+    const legacy = { color: 'White', name: '57' };
+
+    it('is false when a Layer is added and the Size stays the same', () => {
+      expect(
+        isVariantRepurpose(legacy, { color: 'White', name: '57 · Layer 2', options: [size('57'), layer('2')] }),
+      ).toBe(false);
+    });
+
+    it('is false when left untouched (no picks)', () => {
+      expect(isVariantRepurpose(legacy, { color: 'White', name: '57' })).toBe(false);
+    });
+
+    it('is true when the size is re-picked to a different unit', () => {
+      expect(
+        isVariantRepurpose(legacy, { color: 'White', name: '55 · Layer 2', options: [size('55'), layer('2')] }),
+      ).toBe(true);
+    });
+
+    it('is true when the colour changes', () => {
+      expect(isVariantRepurpose(legacy, { color: 'Black', name: '57' })).toBe(true);
     });
   });
 });

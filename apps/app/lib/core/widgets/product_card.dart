@@ -39,19 +39,22 @@ class ProductCard extends StatelessWidget {
   /// Defaults to opening the product's detail page.
   final VoidCallback? onTap;
 
-  /// The price the customer actually pays: flash-sale price when one is set,
-  /// otherwise the offer price, falling back to the product's min price.
+  /// The price the customer actually pays: the flash price only when it
+  /// genuinely applies (see [Variant.flashPrice]), otherwise the offer price,
+  /// falling back to the product's min price.
   double get _effectivePrice {
     final v = variant;
     if (v == null) return product.minPrice;
-    return v.flashSalePrice ?? v.offerPrice;
+    return v.effectivePrice(productInFlashSale: product.isFlashSale);
   }
 
   /// The struck-through comparison price, or null when there's no discount.
+  /// A live flash price is compared with the offer price it undercuts.
   double? get _strikeThrough {
     final v = variant;
     if (v == null) return null;
-    final original = v.flashSalePrice != null ? v.offerPrice : v.mrp;
+    final isFlash = v.flashPrice(productInFlashSale: product.isFlashSale) != null;
+    final original = isFlash ? v.offerPrice : v.mrp;
     return original > _effectivePrice ? original : null;
   }
 
