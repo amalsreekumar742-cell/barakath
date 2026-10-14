@@ -8,7 +8,7 @@ import toast from 'react-hot-toast';
 import Skeleton from 'react-loading-skeleton';
 import { ProductStatus } from '@barakath/shared/config/enums';
 import type { SpecificationProps, VariantOption } from '@barakath/shared/types';
-import { variantLabel } from '@barakath/shared/utils/variantOptions';
+import { axisLabel, variantLabel } from '@barakath/shared/utils/variantOptions';
 import { useAppDispatch, useAppSelector } from '@/stores/store';
 import Icon from '@/components/icons/Icon';
 import SearchSelect from '@/components/SearchSelect';
@@ -710,7 +710,7 @@ const ProductFormPage: FC = () => {
                                   key={o.group}
                                   className="inline-flex items-center gap-1 whitespace-nowrap rounded-pill border border-border bg-subtle px-1.5 py-0.5 text-[11px] font-semibold text-foreground"
                                 >
-                                  <span className="font-normal text-faint">{o.group}</span>
+                                  <span className="font-normal text-faint">{axisLabel(o.group)}</span>
                                   {o.value}
                                 </span>
                               ))}
