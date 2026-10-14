@@ -12,6 +12,7 @@ import OrderStatusBadge from '@/components/OrderStatusBadge';
 import { formatINR } from '@/utils/format';
 import { fetchOrderDetail } from '../api/fetchOrderDetail';
 import { updateOrderStatus } from '../api/updateOrderStatus';
+import { retryRefund } from '../api/retryRefund';
 import { resetOrderDetail } from '../stores/ordersSlice';
 import {
   FLOW_STEPS,
@@ -65,6 +66,8 @@ const OrderDetailPage: FC = () => {
   const [confirmAdvance, setConfirmAdvance] = useState(false);
   // const [shipOpen, setShipOpen] = useState(false);
   const [cancelOpen, setCancelOpen] = useState(false);
+  const [confirmRetry, setConfirmRetry] = useState(false);
+  const [retrying, setRetrying] = useState(false);
 
   useEffect(() => {
     void dispatch(fetchOrderDetail(id));
@@ -83,6 +86,22 @@ const OrderDetailPage: FC = () => {
     setConfirmAdvance(false);
     if (updateOrderStatus.fulfilled.match(res)) toast.success(`Order status updated to ${next}`);
     else toast.error((res.payload as string) ?? 'Could not update status');
+  };
+
+  // A cancelled order whose Razorpay refund failed at cancel time (`gatewayRefundPending`) — retry it
+  // through the server, then re-read the order so the page shows what the server recorded.
+  const doRetryRefund = async () => {
+    if (!order) return;
+    setRetrying(true);
+    const res = await dispatch(retryRefund(order.id));
+    setRetrying(false);
+    setConfirmRetry(false);
+    if (retryRefund.fulfilled.match(res)) {
+      toast.success('Refund issued');
+      void dispatch(fetchOrderDetail(order.id));
+    } else {
+      toast.error(res.payload ?? 'Could not retry the refund');
+    }
   };
 
   const copy = (text: string) => {
@@ -142,6 +161,23 @@ const OrderDetailPage: FC = () => {
 
   return (
     <div className="p-6">
+      {/* Refund still owed: cancelled, but the Razorpay refund failed at cancel time. */}
+      {isCancelled && order.gatewayRefundPending && (
+        <div className="mb-4 flex flex-wrap items-center gap-3 rounded-xl border border-warning-subtle bg-warning-subtle/50 px-4 py-3">
+          <Icon name="AlertLine" size={18} className="shrink-0 text-warning" />
+          <p className="flex-1 text-[13px] text-foreground">
+            This order was cancelled but the Razorpay refund failed — {formatINR(order.grandTotal - (order.walletAmountUsed ?? 0))} is still owed to the customer.
+          </p>
+          <button
+            type="button"
+            onClick={() => setConfirmRetry(true)}
+            className="rounded-md bg-primary px-4 py-2 text-[13px] font-semibold text-white hover:bg-primary-dark"
+          >
+            Retry refund
+          </button>
+        </div>
+      )}
+
       {/* Top section */}
       <div className="mb-4 flex flex-wrap items-start justify-between gap-4 rounded-xl border border-border bg-surface p-5 shadow-sm">
         <div>
@@ -378,6 +414,15 @@ const OrderDetailPage: FC = () => {
         onClose={() => setShipOpen(false)}
         onShipped={() => setShipOpen(false)}
       /> */}
+      <ConfirmDialog
+        isOpen={confirmRetry}
+        title="Retry the refund?"
+        message="Razorpay will be asked again to refund this payment to the customer's original payment method."
+        confirmLabel="Retry refund"
+        loading={retrying}
+        onConfirm={() => void doRetryRefund()}
+        onCancel={() => setConfirmRetry(false)}
+      />
       <CancelOrderModal
         isOpen={cancelOpen}
         orderId={order.id}
