@@ -347,6 +347,10 @@ const ProductFormPage: FC = () => {
     // An open edit row holds values that are not in `variants` yet — saving now would silently drop
     // them, so make the admin apply (✓) or discard (✕) first.
     if (editing) return toast.error('Finish editing the variant first');
+    // Purchase prices are patched in by a separate read after the form opens (see hydration above);
+    // until it lands every variant holds a 0 placeholder, and the save writes each variant's cost —
+    // a quick save would zero the real purchase prices behind the profit report.
+    if (isEdit && !costsReady) return toast.error('Purchase prices are still loading — try again in a moment');
     if (isEdit && !admin) return toast.error('Your admin profile is still loading — try again');
     if (!categoryId || !subCategoryId) return toast.error('Select a category and sub-category');
     if (images.length === 0) return toast.error('Add at least one product image');
