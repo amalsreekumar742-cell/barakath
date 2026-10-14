@@ -87,8 +87,8 @@ export function isSameVariant(a: VariantIdentity, b: VariantIdentity): boolean {
  *
  * `existing` are the product's other rows. A row matching one of them (`isSameVariant`) is refused:
  * two identical variants would split one item's stock, and the storefront's chips could only ever
- * reach the first. The edit row passes none — its colour and variant are pinned, so it cannot turn
- * into a duplicate.
+ * reach the first. The edit row passes every row EXCEPT itself, since its colour and variant can be
+ * changed too.
  *
  * Comparisons are written as `!(a <= b)` rather than `a > b` on purpose: the negated form also fails
  * on NaN, so an unparseable value can never slip through a check by comparing false both ways.

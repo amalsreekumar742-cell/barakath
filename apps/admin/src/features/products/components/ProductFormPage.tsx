@@ -46,9 +46,21 @@ const EMPTY_NV = {
   stock: '',
 };
 
-/** The in-place edit row's inputs. Colour and variant are NOT here: they identify the variant, so a
- *  "different colour" is a different variant (delete + add), not an edit of this one. */
+/** The in-place edit row's text inputs (prices + stock). Colour and variant are edited through their
+ *  pickers and held beside these in the `editing` state. */
 type EditFields = Omit<VariantFieldsInput, 'color' | 'name' | 'options'>;
+
+/** Stable empty fallback for the settings selector (a fresh `[]` per render would re-render forever). */
+const EMPTY_GROUPS: { name: string; units: string[] }[] = [];
+
+/** The one row open for in-place editing: its text inputs plus its colour and unit picks. */
+interface EditState {
+  id: string;
+  fields: EditFields;
+  color: string;
+  colorCode: string;
+  options: VariantOption[];
+}
 
 /** Edit-row inputs, in table column order. */
 const EDIT_COLUMNS: readonly { key: keyof EditFields; placeholder: string; label: string }[] = [
@@ -110,9 +122,8 @@ const ProductFormPage: FC = () => {
   const admin = useAppSelector((s) => s.currentAdmin.admin);
   // Variant axes come from Settings › Variables (spec §1.21 / design 04): the Colour swatches + the
   // variant-group names (e.g. Size) feed this section's pickers and the "From Settings" helper chips.
-  const variantGroupNames = useAppSelector(
-    (s) => s.settings.settings?.variables.variantGroups.map((g) => g.name) ?? [],
-  );
+  const variantGroups = useAppSelector((s) => s.settings.settings?.variables.variantGroups ?? EMPTY_GROUPS);
+  const variantGroupNames = variantGroups.map((g) => g.name);
 
   const {
     register,
@@ -147,7 +158,7 @@ const ProductFormPage: FC = () => {
   const [dragIndex, setDragIndex] = useState<number | null>(null);
   const [nv, setNv] = useState(EMPTY_NV); // inline "new variant" row
   /** The one variant row open for in-place editing, with its raw input values. */
-  const [editing, setEditing] = useState<{ id: string; fields: EditFields } | null>(null);
+  const [editing, setEditing] = useState<EditState | null>(null);
   /**
    * False until the edit page's purchase-price read settles. Editing is held until then: the edit row
    * copies the draft's purchase price when it opens, so opening it early would capture the 0
@@ -317,12 +328,28 @@ const ProductFormPage: FC = () => {
       return next;
     });
 
-  // In-place edit of a variant's prices + stock. Editing (rather than delete + re-add) keeps the
-  // variant's id, which saved carts and flash sales reference.
+  /**
+   * The picks a legacy row (no `options`, just a name like "57") opens with: its name as a unit of the
+   * Settings group that holds it, so the admin only has to ADD the new axis (e.g. Layer 2) instead of
+   * re-picking the size. Empty when no group holds it — the row then keeps its name unless re-picked.
+   */
+  const legacyPicks = (name: string): VariantOption[] => {
+    const key = name.trim().toLowerCase();
+    const group = variantGroups.find((g) => g.units.some((u) => u.trim().toLowerCase() === key));
+    const unit = group?.units.find((u) => u.trim().toLowerCase() === key);
+    return group && unit ? [{ group: group.name, value: unit }] : [];
+  };
+
+  // In-place edit of a variant — prices, stock, colour and variant (Size / Layer…). Editing (rather
+  // than delete + re-add) keeps the variant's id, which saved carts, flash sales and the stock history
+  // reference; past orders are unaffected because they snapshot the label at checkout.
   const startEdit = (v: VariantDraft) => {
     if (editing) return; // one row at a time — the other rows' edit buttons are disabled too
     setEditing({
       id: v.id,
+      color: v.color,
+      colorCode: v.colorCode,
+      options: v.options?.length ? v.options : legacyPicks(v.name),
       fields: {
         purchasePrice: String(v.purchasePrice),
         mrp: String(v.mrp),
@@ -338,15 +365,25 @@ const ProductFormPage: FC = () => {
     if (!editing) return;
     const v = variants.find((x) => x.id === editing.id);
     if (!v) return setEditing(null);
-    const input = { ...editing.fields, color: v.color, name: v.name, options: v.options };
-    const error = validateVariant(input);
+    // No unit picked on a legacy row = its variant is left as it was (name kept, still single-axis).
+    const options = editing.options.length ? editing.options : v.options;
+    const name = editing.options.length ? variantLabel(editing.options) : v.name;
+    const input = { ...editing.fields, color: editing.color, name, options };
+    // Against the OTHER rows only — the row is allowed to equal its own previous self.
+    const error = validateVariant(input, variants.filter((x) => x.id !== v.id));
     if (error) return toast.error(error);
     const parsed = parseVariantFields(input);
     // A legacy variant's GST left blank stays "shop default" (null) instead of being pinned to 0 —
     // the same distinction VariantDraft.gstPercentage draws.
     const gstPercentage = editing.fields.gstPercentage.trim() === '' && v.gstPercentage === null ? null : parsed.gstPercentage;
     // `originalStock` survives the spread, so the save still knows what the stock was at load time.
-    setVariants((prev) => prev.map((x) => (x.id === v.id ? { ...x, ...parsed, gstPercentage } : x)));
+    setVariants((prev) =>
+      prev.map((x) =>
+        x.id === v.id
+          ? { ...x, ...parsed, gstPercentage, color: editing.color.trim(), colorCode: editing.colorCode, name, options }
+          : x,
+      ),
+    );
     setEditing(null);
   };
   const setEditField = (key: keyof EditFields, value: string) =>
@@ -639,6 +676,24 @@ const ProductFormPage: FC = () => {
                             </button>
                           </div>
                         </td>
+                        {edit ? (
+                          <>
+                            <td className="px-2 py-2">
+                              <VariantColorPicker
+                                value={edit.color}
+                                colorCode={edit.colorCode}
+                                onSelect={(color, colorCode) => setEditing((e) => (e ? { ...e, color, colorCode } : e))}
+                              />
+                            </td>
+                            <td className="px-2 py-2">
+                              <VariantUnitPicker
+                                value={edit.options}
+                                onChange={(options) => setEditing((e) => (e ? { ...e, options } : e))}
+                              />
+                            </td>
+                          </>
+                        ) : (
+                          <>
                         <td className="px-3 py-2">
                           <span className="inline-flex items-center gap-1.5 text-foreground">
                             <span className="h-3 w-3 rounded-full border border-border" style={{ backgroundColor: v.colorCode }} />
@@ -664,6 +719,8 @@ const ProductFormPage: FC = () => {
                             v.name
                           )}
                         </td>
+                          </>
+                        )}
                         {edit ? (
                           EDIT_COLUMNS.map((c) => (
                             <td key={c.key} className="px-2 py-2">
