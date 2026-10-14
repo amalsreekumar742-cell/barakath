@@ -34,8 +34,8 @@ export interface UpdateOrderStatusResult {
  *
  * WHY the transition is validated here (server-trust boundary, skill): the UI only ever offers the
  * single next step, but the thunk still re-checks that `newStatus` is exactly `nextStatus(current)` —
- * or, for a cancel, that the order is still Pending — so no out-of-order write can slip through. Shipped
- * requires tracking + courier; Cancel requires a reason. On cancel we also refund-mark a paid order and
+ * or, for a cancel, that the order is still Pending — so no out-of-order write can slip through. Cancel
+ * requires a reason (Shipped's tracking + courier requirement is switched off for now). On cancel we also refund-mark a paid order and
  * RESTORE stock (increment each item's variant + re-derive the product totals), all in one atomic batch
  * so status, timeline, refund flag and stock never diverge.
  *
@@ -71,8 +71,10 @@ export const updateOrderStatus = createAsyncThunk<
         return rejectWithValue(unpaidAdvanceReason(order.paymentStatus));
       if (input.newStatus !== nextStatus(current))
         return rejectWithValue(`Cannot move from "${current}" to "${input.newStatus}"`);
-      if (input.newStatus === OrderStatus.SHIPPED && (!input.trackingId?.trim() || !input.courierName?.trim()))
-        return rejectWithValue('Tracking ID and courier name are required to ship');
+      // Shipment details are switched off for now (the shipment form is commented out), so Ship no
+      // longer requires them. Re-enable together with ShipmentModal.
+      // if (input.newStatus === OrderStatus.SHIPPED && (!input.trackingId?.trim() || !input.courierName?.trim()))
+      //   return rejectWithValue('Tracking ID and courier name are required to ship');
     }
 
     // --- Pre-read everything needed for a stock restore (cancel only), before the batch ---
@@ -128,8 +130,9 @@ export const updateOrderStatus = createAsyncThunk<
       updatedAt: serverTimestamp(),
     };
     if (input.newStatus === OrderStatus.SHIPPED) {
-      orderUpdate.trackingId = input.trackingId!.trim();
-      orderUpdate.courierName = input.courierName!.trim();
+      // Only when supplied — a plain Ship leaves the checkout's empty defaults in place.
+      if (input.trackingId?.trim()) orderUpdate.trackingId = input.trackingId.trim();
+      if (input.courierName?.trim()) orderUpdate.courierName = input.courierName.trim();
     }
     if (isCancel) {
       orderUpdate.cancelReason = input.cancelReason!.trim();

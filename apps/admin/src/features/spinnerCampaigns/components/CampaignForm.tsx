@@ -267,12 +267,14 @@ const CampaignForm: FC<CampaignFormProps> = ({ mode, campaign }) => {
               <Field label="Spins per user / day" error={errors.maxSpinsPerUser?.message}>
                 <input type="number" min={1} {...register('maxSpinsPerUser')} className={inputCls} />
               </Field>
+              {/* Eligibility is hidden for now: the campaign model has no audience field — every
+                  signed-in customer can spin — so the disabled "All users" select only implied a
+                  choice that does not exist. Restore it when audience targeting is built.
               <Field label="Eligibility">
-                {/* Model currently supports all users only; kept as a select to mirror the design. */}
                 <select className={inputCls} defaultValue="all" disabled>
                   <option value="all">All users</option>
                 </select>
-              </Field>
+              </Field> */}
             </div>
 
             {/* Reward validity. Sits on its own row because the helper line under it changes as you

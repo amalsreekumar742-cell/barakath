@@ -23,7 +23,9 @@ import {
   unpaidAdvanceReason,
 } from '../utils/orderFlow';
 import { PaymentMethodBadge, PaymentStatusBadge } from './PaymentBadges';
-import ShipmentModal from './ShipmentModal';
+// Shipment details (tracking ID + courier) are switched off for now — Ship is a plain confirm like
+// every other step. Kept commented, not deleted, so it can be turned back on.
+// import ShipmentModal from './ShipmentModal';
 import CancelOrderModal from './CancelOrderModal';
 
 const Card: FC<{ title: string; children: React.ReactNode; action?: React.ReactNode }> = ({
@@ -47,8 +49,8 @@ const flowIndex = (s: string) => FLOW_STEPS.indexOf(s as (typeof FLOW_STEPS)[num
 
 /**
  * OrderDetailPage — full order view + sequential status control (spec §1.7). The action area shows only
- * the single next valid step (never a dropdown): advancing runs a confirm; Ship opens the shipment
- * form; Cancel (Pending only) opens the cancel form. Timeline, items, payment and tracking read off the
+ * the single next valid step (never a dropdown): advancing runs a confirm (Ship included — the
+ * shipment form is switched off); Cancel (Pending only) opens the cancel form. Timeline, items, payment and tracking read off the
  * one order doc.
  */
 const OrderDetailPage: FC = () => {
@@ -60,7 +62,7 @@ const OrderDetailPage: FC = () => {
   );
 
   const [confirmAdvance, setConfirmAdvance] = useState(false);
-  const [shipOpen, setShipOpen] = useState(false);
+  // const [shipOpen, setShipOpen] = useState(false);
   const [cancelOpen, setCancelOpen] = useState(false);
 
   useEffect(() => {
@@ -168,9 +170,8 @@ const OrderDetailPage: FC = () => {
               type="button"
               disabled={updateStatusLoading || !paid}
               title={blockedReason ?? undefined}
-              onClick={() =>
-                order.status === OrderStatus.PACKED ? setShipOpen(true) : setConfirmAdvance(true)
-              }
+              /* Was: Packed opened the shipment form (setShipOpen). Every step now confirms the same way. */
+              onClick={() => setConfirmAdvance(true)}
               className="inline-flex items-center gap-2 rounded-md bg-primary px-5 py-2.5 text-[14px] font-semibold text-white hover:bg-primary-dark disabled:cursor-not-allowed disabled:opacity-50"
             >
               {updateStatusLoading && <Icon name="Loader4Line" size={16} className="animate-spin" />}
@@ -333,8 +334,9 @@ const OrderDetailPage: FC = () => {
             </div>
           </Card>
 
-          {/* Tracking */}
-          {shippedOrLater && (
+          {/* Tracking — only orders shipped while the shipment form was on carry these; new ones would
+              render an empty "—" card. */}
+          {shippedOrLater && (order.trackingId || order.courierName) && (
             <Card title="Tracking">
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
@@ -372,12 +374,12 @@ const OrderDetailPage: FC = () => {
         onConfirm={advance}
         onCancel={() => setConfirmAdvance(false)}
       />
-      <ShipmentModal
+      {/* <ShipmentModal
         isOpen={shipOpen}
         orderId={order.id}
         onClose={() => setShipOpen(false)}
         onShipped={() => setShipOpen(false)}
-      />
+      /> */}
       <CancelOrderModal
         isOpen={cancelOpen}
         orderId={order.id}
