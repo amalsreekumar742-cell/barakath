@@ -180,8 +180,8 @@ class ProductDetailProvider extends ChangeNotifier {
       (value) => _reviews = value,
     );
 
-    // Default selection: the first (oldest) variant, matching the merchant's
-    // authoring order.
+    // Default selection: the first variant in the admin's display order — the
+    // same one every product card prices from.
     _selectedVariant = _variants.isEmpty ? null : _variants.first;
     _selectedImageIndex = 0;
     _status = ProductDetailStatus.loaded;

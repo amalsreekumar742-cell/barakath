@@ -120,7 +120,7 @@ export const createProduct = createAsyncThunk<
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
     });
-    for (const v of input.variants) {
+    for (const [index, v] of input.variants.entries()) {
       const variantRef = doc(
         collection(db, FirestoreCollections.products, productRef.id, FirestoreCollections.variants),
       );
@@ -134,6 +134,10 @@ export const createProduct = createAsyncThunk<
         commission: v.commission,
         gstPercentage: v.gstPercentage,
         stock: v.stock,
+        // The form's row order IS the display order. Written explicitly rather than left to
+        // `createdAt`: every variant in one batch gets the same server timestamp, so createdAt alone
+        // cannot order them.
+        sortOrder: index,
         createdAt: serverTimestamp(),
       });
       // Cost rides the SAME batch, so a variant can never be saved without its purchase price.

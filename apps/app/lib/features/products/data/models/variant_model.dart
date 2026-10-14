@@ -22,6 +22,7 @@ class VariantModel extends Variant {
     required super.flashSalePrice,
     required super.stock,
     required super.images,
+    required super.sortOrder,
     required super.createdAt,
   });
 
@@ -31,6 +32,8 @@ class VariantModel extends Variant {
 
   factory VariantModel.fromMap(Map<String, dynamic> data, String id) {
     final flash = data['flashSalePrice'];
+    // Absent (not 0) on never-reordered variants — 0 would claim first place.
+    final sortOrder = data['sortOrder'];
     return VariantModel(
       id: id.isNotEmpty ? id : ModelParse.toStr(data['id']),
       name: ModelParse.toStr(data['name']),
@@ -43,6 +46,7 @@ class VariantModel extends Variant {
       flashSalePrice: flash == null ? null : ModelParse.toDouble(flash),
       stock: ModelParse.toInt(data['stock']),
       images: ModelParse.stringList(data['images']),
+      sortOrder: sortOrder == null ? null : ModelParse.toInt(sortOrder),
       createdAt: ModelParse.dateTime(data['createdAt']),
     );
   }

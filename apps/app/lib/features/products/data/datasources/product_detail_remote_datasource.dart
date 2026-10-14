@@ -6,6 +6,7 @@ import '../../../../core/error/exceptions.dart';
 import '../../../reviews/data/models/review_model.dart';
 import '../models/product_model.dart';
 import '../models/variant_model.dart';
+import 'variant_order.dart';
 import '../../../../core/error/firebase_error_message.dart';
 
 /// The ONLY place the Product **Detail** screen touches Firestore.
@@ -19,9 +20,9 @@ abstract class ProductDetailRemoteDataSource {
   /// `products/{productId}`. Throws [ServerException] when the doc is missing.
   Future<ProductModel> getProduct(String productId);
 
-  /// `products/{productId}/variants` ordered by `createdAt` ascending, so the
-  /// first entry is the variant the merchant created first — the default
-  /// selection on the detail screen.
+  /// `products/{productId}/variants` in the admin's display order
+  /// ([VariantOrder.sort]) — the first entry is the default selection on the
+  /// detail screen, and the same variant every product card prices from.
   Future<List<VariantModel>> getVariants(String productId);
 
   /// The bundle / "frequently bought together" products for [productIds]
@@ -68,14 +69,14 @@ class ProductDetailRemoteDataSourceImpl implements ProductDetailRemoteDataSource
   @override
   Future<List<VariantModel>> getVariants(String productId) async {
     try {
-      final snap = await _firestore
-          .collection(FirebaseCollections.products)
-          .doc(productId)
-          .collection(FirebaseCollections.variants)
+      // Queried by `createdAt` and sorted in memory, NOT `orderBy('sortOrder')`:
+      // variants that predate reordering have no `sortOrder`, and Firestore
+      // would silently drop them from an ordered query.
+      final snap = await _variantsOf(productId)
           .orderBy('createdAt')
           .limit(_variantLimit)
           .get();
-      return snap.docs.map(VariantModel.fromFirestore).toList();
+      return VariantOrder.sort(snap.docs.map(VariantModel.fromFirestore).toList());
     } on FirebaseException catch (e) {
       throw ServerException(FirebaseErrorMessage.of(e) ?? 'Could not load variants.', e.code);
     }
@@ -135,17 +136,13 @@ class ProductDetailRemoteDataSourceImpl implements ProductDetailRemoteDataSource
     }
   }
 
+  CollectionReference<Map<String, dynamic>> _variantsOf(String productId) => _firestore
+      .collection(FirebaseCollections.products)
+      .doc(productId)
+      .collection(FirebaseCollections.variants);
+
   /// The cheapest way to price a bundle tile: one variant, not the whole
-  /// subcollection.
-  Future<VariantModel?> _firstVariant(String productId) async {
-    final snap = await _firestore
-        .collection(FirebaseCollections.products)
-        .doc(productId)
-        .collection(FirebaseCollections.variants)
-        .orderBy('createdAt')
-        .limit(1)
-        .get();
-    if (snap.docs.isEmpty) return null;
-    return VariantModel.fromFirestore(snap.docs.first);
-  }
+  /// subcollection — picked by the same rule as every other product card.
+  Future<VariantModel?> _firstVariant(String productId) =>
+      VariantOrder.readFirst(_variantsOf(productId));
 }

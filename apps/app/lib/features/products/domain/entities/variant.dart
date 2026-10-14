@@ -25,6 +25,11 @@ class Variant extends Equatable {
   /// Not part of the shared schema (images live on the product) — defaults to
   /// [] but read if present. See report.
   final List<String> images;
+
+  /// The admin-chosen display position (0-based, set by the ▲/▼ reorder).
+  /// Null on variants written before reordering existed; those sort after the
+  /// ordered ones, in `createdAt` order (the datasources apply this rule).
+  final int? sortOrder;
   final DateTime? createdAt;
 
   const Variant({
@@ -39,6 +44,7 @@ class Variant extends Equatable {
     required this.flashSalePrice,
     required this.stock,
     required this.images,
+    required this.sortOrder,
     required this.createdAt,
   });
 
@@ -69,6 +75,7 @@ class Variant extends Equatable {
         flashSalePrice,
         stock,
         images,
+        sortOrder,
         createdAt,
       ];
 }

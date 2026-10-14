@@ -56,11 +56,18 @@ export interface VariantDraft {
    */
   gstPercentage: number | null;
   stock: number;
+  /**
+   * The stock as LOADED, for existing variants only (absent on new ones). The save writes `stock` only
+   * when it differs from this, so orders placed while the form was open are not overwritten by the
+   * form's stale copy — see `planVariantStock`.
+   */
+  originalStock?: number;
 }
 
 /**
  * A variant on its way to Firestore. Identical to [VariantDraft] except that "inherit the shop
- * default" has already been resolved, so the write path can never persist an ambiguous rate.
+ * default" has already been resolved, so the write path can never persist an ambiguous rate. Array
+ * order is the saved display order (`VariantProps.sortOrder` = index).
  */
 export type VariantToSave = Omit<VariantDraft, 'gstPercentage'> & { gstPercentage: number };
 

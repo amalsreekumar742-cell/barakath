@@ -3,12 +3,14 @@ import { collection, doc, getDoc, getDocs, writeBatch, serverTimestamp } from 'f
 import { FirestoreCollections } from '@barakath/shared/config/collections';
 import { ProductStatus } from '@barakath/shared/config/enums';
 import keywordsBuilder from '@barakath/shared/utils/keywordsBuilder';
+import { sortVariants } from '@barakath/shared/utils/sortVariants';
 import type { ProductProps, VariantProps, SpecificationProps } from '@barakath/shared/types';
 import { db } from '@/lib/firebaseConfig';
 import { isSkuTaken } from './checkSku';
 import { resolveProductImages } from './createProduct';
 import { queueVariantCost, queueVariantCostDelete } from './variantCosts';
-import { sumStock, deriveStockStatus, deriveListFields } from '../utils/stock';
+import { deriveStockStatus, deriveListFields } from '../utils/stock';
+import { planVariantStock } from '../utils/planVariantStock';
 import type { VariantToSave, ImageDraft } from '../types';
 
 export interface UpdateProductInput {
@@ -29,16 +31,24 @@ export interface UpdateProductInput {
   lowStockThreshold: number;
   frequentlyBoughtTogether: string[];
   status: ProductStatus;
+  /** Desired variant set, in display order (index → `sortOrder`). */
   variants: VariantToSave[];
+  /** The admin saving — stamped on the `stockAdjustments` audit doc of every stock they changed. */
+  adjustedBy: string;
+  adjustedByName: string;
 }
 
 /**
  * updateProduct — update the product doc and reconcile its variant subcollection (spec §1.5).
  *
- * WHY diff-then-batch: the form hands us the desired variant set; we create the new ones (upload
- * images), update the existing ones (re-resolving their image order), and delete the removed ones
- * (doc + Storage images) — all product/variant writes in one atomic batch. `totalStock`/`stockStatus`
- * are re-derived; `keywords` rebuilt (name/sku/category may have changed). SKU uniqueness excludes self.
+ * WHY diff-then-batch: the form hands us the desired variant set; we create the new ones, update the
+ * existing ones IN PLACE (same doc id, so saved carts and flash sales that reference the variant keep
+ * working after a price edit), and delete the removed ones — all product/variant writes in one atomic
+ * batch. `totalStock`/`stockStatus` are re-derived; `keywords` rebuilt (name/sku/category may have
+ * changed). SKU uniqueness excludes self.
+ *
+ * Stock is the exception to "write what the form says": see `planVariantStock` — an existing
+ * variant's stock is written (and audited, in this same batch) only if the admin changed it.
  */
 export const updateProduct = createAsyncThunk<
   { product: ProductProps; variants: VariantProps[] },
@@ -64,7 +74,14 @@ export const updateProduct = createAsyncThunk<
     // Upload the product images (new blobs) / keep existing urls, in order.
     const images = await resolveProductImages(input.id, input.images);
 
-    const totalStock = sumStock(input.variants.map((v) => v.stock));
+    // Live stock from the read above, not the form's load-time copy — orders keep decrementing it.
+    const liveStock = new Map<string, number>();
+    for (const d of existingSnap.docs) {
+      const s = (d.data() as Partial<VariantProps>).stock;
+      liveStock.set(d.id, typeof s === 'number' && Number.isFinite(s) ? s : 0);
+    }
+    const stockPlan = planVariantStock(input.variants, liveStock);
+    const totalStock = stockPlan.totalStock;
     const stockStatus = deriveStockStatus(totalStock, input.lowStockThreshold);
     const listFields = deriveListFields(images, input.variants);
 
@@ -96,7 +113,7 @@ export const updateProduct = createAsyncThunk<
       ),
       updatedAt: serverTimestamp(),
     });
-    for (const v of input.variants) {
+    for (const [index, v] of input.variants.entries()) {
       const ref = v.isNew ? doc(varCol) : doc(varCol, v.id);
       const base = {
         name: v.name.trim(),
@@ -107,12 +124,35 @@ export const updateProduct = createAsyncThunk<
         referralPrice: v.referralPrice,
         commission: v.commission,
         gstPercentage: v.gstPercentage,
-        stock: v.stock,
+        // Rewritten for EVERY variant, not just moved ones: positions are relative, so one move
+        // shifts its neighbours, and legacy variants without a sortOrder get one on first save.
+        sortOrder: index,
       };
-      if (v.isNew) batch.set(ref, { ...base, createdAt: serverTimestamp() });
-      else batch.update(ref, base);
+      const stock = stockPlan.writeStock.get(v.id);
+      if (v.isNew) batch.set(ref, { ...base, stock: v.stock, createdAt: serverTimestamp() });
+      else batch.update(ref, stock === undefined ? base : { ...base, stock });
       // Cost rides the SAME batch as the variant it belongs to.
       queueVariantCost(batch, ref.id, input.id, v.purchasePrice);
+    }
+    // Audit every stock the admin changed here, exactly as Inventory › Adjust stock does — a stock
+    // change made from the product form must not be the one kind that leaves no trail.
+    const byId = new Map(input.variants.map((v) => [v.id, v]));
+    for (const c of stockPlan.changes) {
+      batch.set(doc(collection(db, FirestoreCollections.stockAdjustments)), {
+        productId: input.id,
+        productName: input.name.trim(),
+        variantId: c.variantId,
+        // Size name only — the same value Inventory writes into this field.
+        variantName: byId.get(c.variantId)?.name.trim() ?? '',
+        previousStock: c.previousStock,
+        newStock: c.newStock,
+        adjustment: c.newStock - c.previousStock,
+        reason: 'Product edit',
+        note: 'Edited from the product form',
+        adjustedBy: input.adjustedBy,
+        adjustedByName: input.adjustedByName,
+        createdAt: serverTimestamp(),
+      });
     }
     for (const id of removedIds) {
       batch.delete(doc(varCol, id));
@@ -123,7 +163,10 @@ export const updateProduct = createAsyncThunk<
     const snap = await getDoc(productRef);
     const product = { ...snap.data(), id: input.id } as ProductProps;
     const finalVars = await getDocs(varCol);
-    const variants = finalVars.docs.map((d) => ({ ...d.data(), id: d.id }) as VariantProps);
+    // Unordered read, so sort — this becomes `productDetail`, which the form hydrates from.
+    const variants = sortVariants(
+      finalVars.docs.map((d) => ({ ...d.data(), id: d.id }) as VariantProps),
+    );
     return { product, variants };
   } catch (err) {
     return rejectWithValue(err instanceof Error ? err.message : 'Could not update product');

@@ -24,7 +24,8 @@ type ClientVariant = Omit<VariantProps, 'createdAt'>;
 
 export interface ProductExperienceProps {
   product: ClientProduct;
-  /** All variants, oldest-created first (matches `getVariants`'s ordering — index 0 is the default). */
+  /** All variants in the admin's display order (`getVariants` sorts by `sortOrder` — index 0 is the
+   *  default). Colour/size chips follow this order, so a reorder in the admin reorders them here. */
   variants: ClientVariant[];
   /** The live flash sale's end, as millis — null when no sale is running. See `FlashCountdown` note on
    *  why millis crosses the Server→Client boundary cleanly while a raw `Timestamp` does not. */

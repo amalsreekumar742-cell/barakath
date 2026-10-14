@@ -6,7 +6,8 @@ import '../../../../core/usecase/usecase.dart';
 import '../entities/variant.dart';
 import '../repositories/product_detail_repository.dart';
 
-/// All variants of a product, oldest-first — the first is the default selection.
+/// All variants of a product in the admin's display order (`sortOrder`; never-
+/// reordered ones after, oldest first) — the first is the default selection.
 @injectable
 class GetProductVariants implements UseCase<List<Variant>, String> {
   GetProductVariants(this._repository);

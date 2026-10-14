@@ -27,7 +27,8 @@ class BundleItem extends Equatable {
 abstract class ProductDetailRepository {
   Future<Either<Failure, Product>> getProduct(String productId);
 
-  /// Ordered by `createdAt` ascending — the first entry is the default variant.
+  /// In the admin's display order (`sortOrder`, then `createdAt` for variants
+  /// never reordered) — the first entry is the default variant.
   Future<Either<Failure, List<Variant>>> getVariants(String productId);
 
   Future<Either<Failure, List<BundleItem>>> getBundleProducts(
