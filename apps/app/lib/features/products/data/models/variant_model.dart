@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../../../../core/utils/model_parse.dart';
 import '../../domain/entities/variant.dart';
+import '../../domain/entities/variant_options.dart';
 
 /// A product variant document (`products/{id}/variants/{variantId}`).
 ///
@@ -13,6 +14,7 @@ class VariantModel extends Variant {
   const VariantModel({
     required super.id,
     required super.name,
+    super.options,
     required super.color,
     required super.colorCode,
     required super.mrp,
@@ -37,6 +39,17 @@ class VariantModel extends Variant {
     return VariantModel(
       id: id.isNotEmpty ? id : ModelParse.toStr(data['id']),
       name: ModelParse.toStr(data['name']),
+      // Absent on single-axis variants; entries with no group or value are
+      // dropped rather than rendered as an empty chip.
+      options: [
+        for (final o in ModelParse.mapList(data['options']))
+          if (ModelParse.toStr(o['group']).isNotEmpty &&
+              ModelParse.toStr(o['value']).isNotEmpty)
+            VariantOption(
+              group: ModelParse.toStr(o['group']),
+              value: ModelParse.toStr(o['value']),
+            ),
+      ],
       color: ModelParse.toStr(data['color']),
       colorCode: ModelParse.toStr(data['colorCode']),
       mrp: ModelParse.toDouble(data['mrp']),

@@ -14,7 +14,7 @@ export type {
   OrderShippingAddress,
   OrderStatusTimelineEntry,
 } from './order';
-export type { ProductProps, VariantProps, SpecificationProps } from './product';
+export type { ProductProps, VariantProps, VariantOption, SpecificationProps } from './product';
 export type { VariantCostProps, OrderCostProps, OrderCostLine } from './cost';
 export type { CategoryProps } from './category';
 export type { SubCategoryProps } from './subCategory';

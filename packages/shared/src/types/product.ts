@@ -8,9 +8,32 @@ import type { ProductStatus, StockStatus } from '../config/enums';
  * its own Price/Offer/stock (per-variant pricing, spec §1.5). `stockStatus`/`totalStock` are derived
  * server-side from variants (spec §1.6 auto-calc). Date fields use `Timestamp`.
  */
+/**
+ * One axis value of a variant — a unit from a Settings › Variables group, e.g. `{ group: 'Size', value: '57' }`
+ * or `{ group: 'Layer', value: '2' }`. The group name travels WITH the variant so storefronts can label the
+ * chip row without reading `variables/config` (admin-only).
+ */
+export interface VariantOption {
+  group: string;
+  value: string;
+}
+
 export interface VariantProps {
   id: string;
+  /**
+   * Display label of the non-colour part of the variant. For a single-axis variant it IS the axis value
+   * (e.g. "57", shown under "Size"). For a multi-axis variant it is DERIVED from `options` by
+   * `variantLabel` (e.g. "57 · Layer 2") and written alongside them, so every surface that only prints
+   * `name` — cart, order snapshot, invoice, inventory, reviews — keeps working unchanged.
+   */
   name: string;
+  /**
+   * One unit per Settings › Variables group, in group order — e.g. Size 57 + Layer 2. ABSENT on
+   * single-axis variants (every variant before multi-axis support): their `name` is the only axis.
+   * An array, not a map, so the axis order (Size before Layer) survives Firestore. Read it through
+   * `variantAxes` (utils/variantOptions), which folds the legacy case in.
+   */
+  options?: VariantOption[];
   color: string;
   colorCode: string;
   /** Per-variant pricing (spec §1.5): MRP ≥ Offer ≥ Referral ≥ Commission. Images live on the product. */

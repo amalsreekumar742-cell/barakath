@@ -1,5 +1,7 @@
 import 'package:equatable/equatable.dart';
 
+import 'variant_options.dart';
+
 /// A product variant document (`products/{id}/variants/{variantId}`).
 ///
 /// Per-variant pricing (spec §1.5): MRP ≥ Offer ≥ Referral ≥ Commission.
@@ -8,7 +10,16 @@ import 'package:equatable/equatable.dart';
 /// active flash sale (added/removed at the sale window edges).
 class Variant extends Equatable {
   final String id;
+
+  /// Display label of the non-colour part. For a single-axis variant it IS the
+  /// axis value (shown under "Size"); for a multi-axis one it is derived from
+  /// [options] (e.g. "57 · Layer 2").
   final String name;
+
+  /// One unit per Settings › Variables group, in group order (Size 57,
+  /// Layer 2). Empty on single-axis variants — read axes through
+  /// `variantAxes`, which folds that case in.
+  final List<VariantOption> options;
   final String color;
   final String colorCode;
   final double mrp;
@@ -35,6 +46,7 @@ class Variant extends Equatable {
   const Variant({
     required this.id,
     required this.name,
+    this.options = const [],
     required this.color,
     required this.colorCode,
     required this.mrp,
@@ -66,6 +78,7 @@ class Variant extends Equatable {
   List<Object?> get props => [
         id,
         name,
+        options,
         color,
         colorCode,
         mrp,
