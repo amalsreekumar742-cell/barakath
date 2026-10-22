@@ -34,19 +34,37 @@ export interface CreateProductInput {
 /**
  * Uploads the product's ordered images (new blobs) and passes through any already-uploaded urls, so the
  * stored `images` array preserves the first-image-is-hero order (spec §1.5 Images section).
+ *
+ * `urlById` maps each draft's local id to its final url — a variant's photo link is held as that id
+ * until now, because a photo added in this session had no url before the upload.
  */
 export async function resolveProductImages(
   productId: string,
   images: ImageDraft[],
-): Promise<string[]> {
+): Promise<{ urls: string[]; urlById: Map<string, string> }> {
   const urls: string[] = [];
+  const urlById = new Map<string, string>();
   for (let i = 0; i < images.length; i++) {
     const img = images[i]!;
-    if (img.url) urls.push(img.url);
-    else if (img.blob)
-      urls.push(await uploadImage(img.blob, `products/${productId}/images/${i}`, 0.5, 1000));
+    const url = img.url
+      ? img.url
+      : img.blob
+        ? await uploadImage(img.blob, `products/${productId}/images/${i}`, 0.5, 1000)
+        : null;
+    if (!url) continue;
+    urls.push(url);
+    urlById.set(img.id, url);
   }
-  return urls;
+  return { urls, urlById };
+}
+
+/**
+ * The variant's photo link (`imageUrl`) as resolved for this save, or null when it has none — never
+ * picked, or its photo was removed from the gallery before saving. Create omits the field on null;
+ * update deletes it, so an unlinked photo really unlinks.
+ */
+export function variantImageUrl(v: Pick<VariantToSave, 'imageId'>, urlById: Map<string, string>): string | null {
+  return (v.imageId && urlById.get(v.imageId)) || null;
 }
 
 /**
@@ -65,10 +83,9 @@ export function variantOptionsField(v: Pick<VariantToSave, 'options'>): { option
 /**
  * createProduct — writes the product + its variant docs (spec §1.5).
  *
- * WHY upload images BEFORE the batch: doc ids are minted up front (needed for the storage paths), each
- * variant's images are uploaded to `products/{id}/variants/{variantId}/{index}`, then the product doc
- * and every variant doc are written atomically in one batch — so a product never persists with a
- * partial variant set. `totalStock`/`stockStatus` are derived from the variant stocks; `keywords` are
+ * WHY upload images BEFORE the batch: the product id is minted up front (needed for the storage paths),
+ * the gallery is uploaded to `products/{id}/images/{index}`, then the product doc and every variant doc
+ * are written atomically in one batch — so a product never persists with a partial variant set. `totalStock`/`stockStatus` are derived from the variant stocks; `keywords` are
  * built from name+sku+category+sub-category for search (skill).
  */
 export const createProduct = createAsyncThunk<
@@ -84,7 +101,7 @@ export const createProduct = createAsyncThunk<
     const stockStatus = deriveStockStatus(totalStock, input.lowStockThreshold);
 
     // Upload the product images (product-level gallery), then write the product + variant docs.
-    const images = await resolveProductImages(productRef.id, input.images);
+    const { urls: images, urlById } = await resolveProductImages(productRef.id, input.images);
     const listFields = deriveListFields(images, input.variants);
 
     const batch = writeBatch(db);
@@ -137,6 +154,7 @@ export const createProduct = createAsyncThunk<
       const variantRef = doc(
         collection(db, FirestoreCollections.products, productRef.id, FirestoreCollections.variants),
       );
+      const imageUrl = variantImageUrl(v, urlById);
       batch.set(variantRef, {
         // The label every name-only surface prints (cart, invoice, inventory); derived from
         // `options` by the form for multi-axis rows.
@@ -144,6 +162,7 @@ export const createProduct = createAsyncThunk<
         ...variantOptionsField(v),
         color: v.color.trim(),
         colorCode: v.colorCode,
+        ...(imageUrl ? { imageUrl } : {}),
         mrp: v.mrp,
         offerPrice: v.offerPrice,
         referralPrice: v.referralPrice,

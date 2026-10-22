@@ -36,7 +36,15 @@ export interface VariantProps {
   options?: VariantOption[];
   color: string;
   colorCode: string;
-  /** Per-variant pricing (spec §1.5): MRP ≥ Offer ≥ Referral ≥ Commission. Images live on the product. */
+  /**
+   * The product-gallery photo that shows this variant — one of `ProductProps.images`, picked in the admin
+   * variant table. Picking a colour on the storefront slides the gallery to it. ABSENT when none was
+   * picked; a url no longer in `images` (photo removed) counts as absent. Read it through
+   * `variantImageIndex` (utils/variantImage), which also falls back to another size of the same colour,
+   * so the admin only has to set it once per colour.
+   */
+  imageUrl?: string;
+  /** Per-variant pricing (spec §1.5): MRP ≥ Offer ≥ Referral ≥ Commission. */
   mrp: number;
   offerPrice: number;
   referralPrice: number;

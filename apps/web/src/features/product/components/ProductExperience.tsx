@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import type { ProductProps, VariantProps } from '@barakath/shared';
 import { axisValues, resolveVariant } from '@barakath/shared/utils/variantOptions';
+import { variantImageIndex } from '@barakath/shared/utils/variantImage';
 import { resolvePrice } from '@/lib/pricing';
 import { formatInr } from '@/components/catalog/PriceBlock';
 import { RatingStars } from '@/components/catalog/RatingStars';
@@ -15,6 +16,7 @@ import { useAppSelector, useAppDispatch } from '@/stores/store';
 import { toastError, toastSuccess } from '@/lib/toast';
 import { useRequireAuth } from '@/hooks/useRequireAuth';
 import { VariantSelector } from './VariantSelector';
+import { useGalleryFocus } from './GalleryFocus';
 
 /** `ProductProps`/`VariantProps` minus their Firestore `Timestamp` fields — a `Timestamp` class instance
  *  is not a plain object, so React rejects it crossing the Server → Client boundary as a prop (the same
@@ -60,6 +62,7 @@ export function ProductExperience({
   const { requireAuth } = useRequireAuth();
   const isAuthenticated = useAppSelector((s) => s.auth.isAuthenticated);
   const user = useAppSelector((s) => s.auth.user);
+  const { focus: focusImage } = useGalleryFocus();
 
   // The page never renders this component when `variants` is empty (see page.tsx's guard).
   const first = variants[0]!;
@@ -85,11 +88,16 @@ export function ProductExperience({
   /** Picking one axis can point at a combination no variant has (Size 55 while on Layer 3, when 55
    *  only comes in Layer 2). Leaving the other axes untouched would let the highlighted chips and the
    *  shown price/stock disagree — so `resolveVariant` picks the closest real variant WITH the tapped
-   *  value, and the whole selection snaps to that variant's values. */
+   *  value, and the whole selection snaps to that variant's values.
+   *
+   *  The galleries then slide to the variant's photo (`variantImageIndex`) — on a re-tap too, so the
+   *  shopper who swiped to another colour's photo gets this one's back. */
   function onSelectVariant(axis: string, value: string) {
     const next = resolveVariant(variants, { ...selection, [axis]: value }, axis) ?? first;
     setSelection(axisValues(next));
     setQuantity(1); // a new variant has its own stock cap — start from 1 rather than carry over.
+    const imageIndex = variantImageIndex(variants, next, product.images);
+    if (imageIndex !== null) focusImage(product.images[imageIndex]!);
   }
 
   function onAddToBag() {

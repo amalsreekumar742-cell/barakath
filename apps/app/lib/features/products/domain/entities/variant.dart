@@ -38,6 +38,12 @@ class Variant extends Equatable {
   /// [] but read if present. See report.
   final List<String> images;
 
+  /// The product-gallery photo that shows this variant — one of
+  /// `Product.images`, picked in the admin. '' when none was picked. Read it
+  /// through `ProductDetailProvider`, which also falls back to another size of
+  /// the same colour and ignores a url no longer in the gallery.
+  final String imageUrl;
+
   /// The admin-chosen display position (0-based, set by the ▲/▼ reorder).
   /// Null on variants written before reordering existed; those sort after the
   /// ordered ones, in `createdAt` order (the datasources apply this rule).
@@ -57,6 +63,7 @@ class Variant extends Equatable {
     required this.flashSalePrice,
     required this.stock,
     required this.images,
+    this.imageUrl = '',
     required this.sortOrder,
     required this.createdAt,
   });
@@ -112,6 +119,7 @@ class Variant extends Equatable {
         flashSalePrice,
         stock,
         images,
+        imageUrl,
         sortOrder,
         createdAt,
       ];

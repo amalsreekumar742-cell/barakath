@@ -18,7 +18,8 @@
     "./utils/gstBreakdown": "./src/utils/gstBreakdown.ts",
     "./utils/spinValidity": "./src/utils/spinValidity.ts",
     "./utils/sortVariants": "./src/utils/sortVariants.ts",
-    "./utils/variantOptions": "./src/utils/variantOptions.ts"
+    "./utils/variantOptions": "./src/utils/variantOptions.ts",
+    "./utils/variantImage": "./src/utils/variantImage.ts"
   },
   "scripts": {
     "build": "tsc --noEmit",

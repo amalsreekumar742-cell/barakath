@@ -7,6 +7,7 @@ import { ImageOff, Play } from 'lucide-react';
 import { CircleBackButton } from '@/components/CircleBackButton';
 import { WishlistHeart } from '@/components/catalog/WishlistHeart';
 import { extractYoutubeId } from './YoutubeEmbed';
+import { useGalleryFocus } from './GalleryFocus';
 
 /**
  * The product gallery as the Flutter app draws it
@@ -36,6 +37,8 @@ export interface MobileGalleryProps {
   videoUrl?: string;
   /** Shows the red SALE badge, as the app does for a flash-sale product. */
   onSale?: boolean;
+  /** The page to open on — the default variant's photo (see `variantImageIndex`), else 0. */
+  initialIndex?: number;
 }
 
 export function MobileGallery({
@@ -44,6 +47,7 @@ export function MobileGallery({
   productId,
   videoUrl,
   onSale = false,
+  initialIndex = 0,
 }: MobileGalleryProps) {
   const videoId = useMemo(() => (videoUrl ? extractYoutubeId(videoUrl) : null), [videoUrl]);
   // Memoised so the pause-on-swipe effect below does not re-subscribe on every render.
@@ -52,8 +56,8 @@ export function MobileGallery({
     [images, videoId],
   );
 
-  const [emblaRef, embla] = useEmblaCarousel({ loop: false, align: 'start' });
-  const [selected, setSelected] = useState(0);
+  const [emblaRef, embla] = useEmblaCarousel({ loop: false, align: 'start', startIndex: initialIndex });
+  const [selected, setSelected] = useState(initialIndex);
   const [playing, setPlaying] = useState(false);
 
   useEffect(() => {
@@ -72,6 +76,15 @@ export function MobileGallery({
   }, [selected, pages, videoId]);
 
   const goTo = useCallback((i: number) => embla?.scrollTo(i), [embla]);
+
+  // A colour pick slides to that colour's photo — see GalleryFocus. Keyed on `seq` so a re-pick of
+  // the same colour still jumps back after the shopper swiped elsewhere.
+  const { url: focusUrl, seq: focusSeq } = useGalleryFocus();
+  useEffect(() => {
+    const i = focusUrl ? images.indexOf(focusUrl) : -1;
+    if (i >= 0) goTo(i);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- runs per focus request, not per url/images change
+  }, [focusSeq]);
 
   if (pages.length === 0) {
     return (

@@ -24,6 +24,7 @@ class VariantModel extends Variant {
     required super.flashSalePrice,
     required super.stock,
     required super.images,
+    super.imageUrl,
     required super.sortOrder,
     required super.createdAt,
   });
@@ -59,6 +60,7 @@ class VariantModel extends Variant {
       flashSalePrice: flash == null ? null : ModelParse.toDouble(flash),
       stock: ModelParse.toInt(data['stock']),
       images: ModelParse.stringList(data['images']),
+      imageUrl: ModelParse.toStr(data['imageUrl']),
       sortOrder: sortOrder == null ? null : ModelParse.toInt(sortOrder),
       createdAt: ModelParse.dateTime(data['createdAt']),
     );

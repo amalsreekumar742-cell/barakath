@@ -189,9 +189,10 @@ class ProductDetailProvider extends ChangeNotifier {
     );
 
     // Default selection: the first variant in the admin's display order — the
-    // same one every product card prices from.
+    // same one every product card prices from. The gallery opens on its photo.
     _selectedVariant = _variants.isEmpty ? null : _variants.first;
-    _selectedImageIndex = 0;
+    final first = _selectedVariant;
+    _selectedImageIndex = first == null ? 0 : _linkedImageIndex(first) ?? 0;
     _status = ProductDetailStatus.loaded;
     notifyListeners();
 
@@ -222,13 +223,50 @@ class ProductDetailProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Switch the active variant. Resets the gallery because a variant can carry
-  /// its own images and index 3 of the old set may not exist in the new one.
+  /// Switch the active variant and slide the gallery to its photo (see
+  /// [_linkedImageIndex]). With no photo linked the gallery resets to the
+  /// first page, because a variant can carry its own images and index 3 of
+  /// the old set may not exist in the new one.
+  ///
+  /// Re-tapping the variant already selected still jumps to its photo: the
+  /// shopper may have swiped to another colour's photo and is asking to see
+  /// this one again.
   void selectVariant(Variant variant) {
-    if (_selectedVariant?.id == variant.id) return;
+    if (_selectedVariant?.id == variant.id) {
+      final linked = _linkedImageIndex(variant);
+      if (linked == null || linked == _selectedImageIndex) return;
+      _selectedImageIndex = linked;
+      notifyListeners();
+      return;
+    }
+    // Assigned first: [galleryImages] — which the lookup searches — follows
+    // the selected variant.
     _selectedVariant = variant;
-    _selectedImageIndex = 0;
+    _selectedImageIndex = _linkedImageIndex(variant) ?? 0;
     notifyListeners();
+  }
+
+  /// Which gallery page shows [variant]: its own `imageUrl`, else that of
+  /// another size of the same colour (the admin links a photo once per
+  /// colour), else null. A url no longer in the gallery counts as none.
+  ///
+  /// Mirrors `variantImageIndex` (packages/shared/src/utils/variantImage.ts),
+  /// which the website uses — keep the two in step.
+  int? _linkedImageIndex(Variant variant) {
+    final images = galleryImages;
+    int? indexOf(String url) {
+      final i = url.isEmpty ? -1 : images.indexOf(url);
+      return i >= 0 ? i : null;
+    }
+
+    final own = indexOf(variant.imageUrl);
+    if (own != null) return own;
+    for (final other in _variants) {
+      if (other.color != variant.color) continue;
+      final linked = indexOf(other.imageUrl);
+      if (linked != null) return linked;
+    }
+    return null;
   }
 
   // ---------------------------------------------------------------------------

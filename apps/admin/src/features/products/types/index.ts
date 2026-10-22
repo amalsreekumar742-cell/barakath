@@ -29,8 +29,8 @@ export interface ImageDraft {
 /**
  * A variant being edited in the product form BEFORE the product is saved (spec §1.5). Nothing is
  * written to Firestore until the whole product is saved; `isNew` distinguishes create-vs-update and a
- * real Firestore id (edit) from a temp uuid (add). Images live on the PRODUCT (right-side gallery),
- * not the variant (spec §1.5 / design).
+ * real Firestore id (edit) from a temp uuid (add). Images live on the PRODUCT (right-side gallery);
+ * a variant only points at one of them ([imageId]).
  */
 export interface VariantDraft {
   id: string;
@@ -48,6 +48,12 @@ export interface VariantDraft {
   options?: VariantOption[];
   color: string;
   colorCode: string;
+  /**
+   * The product photo that shows this variant, as the [ImageDraft] `id` — NOT a url, because a photo
+   * added in this session has no url until the save uploads it. Resolved to `VariantProps.imageUrl` on
+   * save; an id no longer in the gallery (photo removed) saves as no link.
+   */
+  imageId?: string;
   /**
    * Purchase payment — what the business pays per unit. Persisted to `variantCosts/{variantId}`, NOT
    * to the variant document, because variants are world-readable and this is the margin. See

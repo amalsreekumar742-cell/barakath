@@ -340,3 +340,78 @@ export const VariantUnitPicker: FC<{ value: VariantOption[]; onChange: (options:
     </>
   );
 };
+
+// ---------------------------------------------------------------------------------------------------
+
+/**
+ * The Image field: which of the product's gallery photos shows this variant (`VariantProps.imageUrl`).
+ * Picking a colour on the storefront slides the gallery to it. `value` is the photo's local draft id
+ * (see `VariantDraft.imageId`) and `images` is the gallery as drafted, in order — so a photo added in
+ * this session can be linked before it is uploaded.
+ */
+export const VariantImagePicker: FC<{
+  value?: string;
+  images: { id: string; src: string }[];
+  onSelect: (imageId: string | undefined) => void;
+}> = ({ value, images, onSelect }) => {
+  const anchorRef = useRef<HTMLButtonElement>(null);
+  const [open, setOpen] = useState(false);
+  const index = images.findIndex((img) => img.id === value);
+  const picked = index >= 0 ? images[index] : undefined;
+
+  const pick = (id: string | undefined) => {
+    onSelect(id);
+    setOpen(false);
+  };
+
+  return (
+    <>
+      <button ref={anchorRef} type="button" onClick={() => setOpen((v) => !v)} className={`${triggerCls} !min-w-[96px]`}>
+        <span className="flex min-w-0 items-center gap-1.5">
+          {picked ? (
+            <>
+              <img src={picked.src} alt="" className="h-6 w-6 shrink-0 rounded border border-border object-cover" />
+              <span className="truncate">Photo {index + 1}</span>
+            </>
+          ) : (
+            <span className="text-faint">Photo</span>
+          )}
+        </span>
+        <Icon name="ArrowDownLine" size={14} className="shrink-0 text-faint" />
+      </button>
+
+      {open && (
+        <Dropdown anchorRef={anchorRef} onClose={() => setOpen(false)}>
+          {images.length === 0 ? (
+            <p className="px-2 py-2 text-[12px] text-muted">Add product images first.</p>
+          ) : (
+            <div className="grid grid-cols-4 gap-1.5 p-1">
+              {images.map((img, i) => (
+                <button
+                  key={img.id}
+                  type="button"
+                  onClick={() => pick(img.id)}
+                  aria-label={`Photo ${i + 1}`}
+                  className={`relative aspect-square overflow-hidden rounded-md border-2 bg-subtle ${
+                    img.id === value ? 'border-primary' : 'border-transparent hover:border-border-strong'
+                  }`}
+                >
+                  <img src={img.src} alt="" className="h-full w-full object-cover" />
+                  <span className="absolute bottom-0 left-0 rounded-tr bg-ink/60 px-1 text-[9px] font-bold text-white">{i + 1}</span>
+                </button>
+              ))}
+            </div>
+          )}
+          {picked && (
+            <>
+              <div className="my-1 border-t border-border" />
+              <button type="button" onClick={() => pick(undefined)} className="flex w-full items-center gap-1.5 rounded-md px-2 py-1.5 text-left text-[13px] font-semibold text-muted hover:bg-subtle">
+                <Icon name="CloseLine" size={14} /> No photo
+              </button>
+            </>
+          )}
+        </Dropdown>
+      )}
+    </>
+  );
+};

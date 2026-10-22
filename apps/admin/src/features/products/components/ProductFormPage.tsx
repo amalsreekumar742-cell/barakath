@@ -1,4 +1,4 @@
-import { type FC, type ReactNode, type FocusEvent, type ChangeEvent, type KeyboardEvent, useEffect, useRef, useState } from 'react';
+import { type FC, type ReactNode, type FocusEvent, type ChangeEvent, type KeyboardEvent, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -25,7 +25,7 @@ import { updateProduct } from '../api/updateProduct';
 import { resetProductDetail } from '../stores/productsSlice';
 import { fetchGeneralSettings } from '@/features/settings/api/fetchGeneralSettings';
 import ProductPicker from './ProductPicker';
-import { VariantColorPicker, VariantUnitPicker } from './VariantVariablePickers';
+import { VariantColorPicker, VariantImagePicker, VariantUnitPicker } from './VariantVariablePickers';
 import { fetchVariantCosts } from '../api/variantCosts';
 import {
   validateVariant,
@@ -43,6 +43,8 @@ const EMPTY_NV = {
   color: '',
   colorCode: '#0f7a5a',
   options: [] as VariantOption[],
+  /** The linked gallery photo's draft id — see VariantDraft.imageId. */
+  imageId: undefined as string | undefined,
   purchasePrice: '',
   mrp: '',
   offerPrice: '',
@@ -59,13 +61,14 @@ type EditFields = Omit<VariantFieldsInput, 'color' | 'name' | 'options'>;
 /** Stable empty fallback for the settings selector (a fresh `[]` per render would re-render forever). */
 const EMPTY_GROUPS: { name: string; units: string[] }[] = [];
 
-/** The one row open for in-place editing: its text inputs plus its colour and unit picks. */
+/** The one row open for in-place editing: its text inputs plus its colour, unit and photo picks. */
 interface EditState {
   id: string;
   fields: EditFields;
   color: string;
   colorCode: string;
   options: VariantOption[];
+  imageId?: string;
 }
 
 /** Edit-row inputs, in table column order. */
@@ -208,7 +211,9 @@ const ProductFormPage: FC = () => {
     setIsCombo(p.isCombo);
     setReplacementAvailable(p.replacementAvailable);
     setSpecifications(p.specifications ?? []);
-    setImages((p.images ?? []).map((url) => ({ id: uuid(), url })));
+    // Drafted first: each variant's photo link is held as one of THESE draft ids, not as a url.
+    const imageDrafts: ImageDraft[] = (p.images ?? []).map((url) => ({ id: uuid(), url }));
+    setImages(imageDrafts);
     setVariants(
       detail.variants.map((v) => ({
         id: v.id,
@@ -219,6 +224,8 @@ const ProductFormPage: FC = () => {
         ...(v.options?.length ? { options: v.options } : {}),
         color: v.color,
         colorCode: v.colorCode,
+        // A url no longer in the gallery finds no draft and loads as "no photo".
+        imageId: v.imageUrl ? imageDrafts.find((d) => d.url === v.imageUrl)?.id : undefined,
         // Filled in by the variantCosts read below — it is a separate, admin-only document.
         purchasePrice: 0,
         mrp: v.mrp,
@@ -295,6 +302,14 @@ const ProductFormPage: FC = () => {
     setDragIndex(null);
   };
   const imgSrc = (img: ImageDraft) => img.url ?? (img.blob ? URL.createObjectURL(img.blob) : '');
+  /** The gallery as the variant rows' photo pickers offer it — memoised so a blob's object url is made
+   *  once per gallery change, not once per row per render. */
+  const pickerImages = useMemo(
+    () => images.map((img) => ({ id: img.id, src: img.url ?? (img.blob ? URL.createObjectURL(img.blob) : '') })),
+    [images],
+  );
+  /** A row's linked photo, or undefined when it has none or the photo was removed from the gallery. */
+  const linkedImage = (imageId?: string) => pickerImages.find((img) => img.id === imageId);
 
   // Inline "Add variant" row (spec §1.5 / design 04 — variants added inline, not in a modal).
   const addInlineVariant = () => {
@@ -312,6 +327,7 @@ const ProductFormPage: FC = () => {
         options: nv.options,
         color: nv.color.trim(),
         colorCode: nv.colorCode,
+        imageId: nv.imageId,
         ...parseVariantFields(input),
       },
     ]);
@@ -359,6 +375,7 @@ const ProductFormPage: FC = () => {
       color: v.color,
       colorCode: v.colorCode,
       options: v.options?.length ? v.options : legacyPicks(v.name),
+      imageId: v.imageId,
       fields: {
         purchasePrice: String(v.purchasePrice),
         mrp: String(v.mrp),
@@ -396,7 +413,7 @@ const ProductFormPage: FC = () => {
     setVariants((prev) =>
       prev.map((x) =>
         x.id === v.id
-          ? { ...x, ...parsed, gstPercentage, color: editing.color.trim(), colorCode: editing.colorCode, name, options }
+          ? { ...x, ...parsed, gstPercentage, color: editing.color.trim(), colorCode: editing.colorCode, name, options, imageId: editing.imageId }
           : x,
       ),
     );
@@ -649,11 +666,15 @@ const ProductFormPage: FC = () => {
                 price, pre-selected on the product page). Edit a row to change its prices or stock
                 without replacing the variant.
               </p>
+              <p className="text-[12px] text-faint">
+                Photo: the product image that shows this colour — picking the colour in the app or on
+                the website slides the gallery to it. Set it once per colour; its other sizes use it too.
+              </p>
             </div>
             <div className="overflow-x-auto rounded-lg border border-border">
-              {/* Sized so the eleven columns fit without scrolling on a normal desktop; narrower than
+              {/* Sized so the twelve columns fit without scrolling on a normal desktop; narrower than
                   that the pinned action column keeps Add/Edit/Delete reachable. */}
-              <table className="w-full min-w-[1080px] text-[13px]">
+              <table className="w-full min-w-[1180px] text-[13px]">
                 <thead className="bg-subtle/50 text-left text-[11px] uppercase tracking-wide text-faint">
                   <tr>
                     <th className="px-3 py-2 font-semibold">#</th>
@@ -661,6 +682,7 @@ const ProductFormPage: FC = () => {
                         referralPrice / commission) are unchanged, so no document is rewritten. */}
                     <th className="px-3 py-2 font-semibold">Color</th>
                     <th className="px-3 py-2 font-semibold">Variant</th>
+                    <th className="px-3 py-2 font-semibold">Photo</th>
                     <th className="px-3 py-2 font-semibold">Purchase payment (₹)</th>
                     <th className="px-3 py-2 font-semibold">Actual (₹)</th>
                     <th className="px-3 py-2 font-semibold">Selling price (₹)</th>
@@ -679,6 +701,7 @@ const ProductFormPage: FC = () => {
                 <tbody>
                   {variants.map((v, i) => {
                     const edit = editing?.id === v.id ? editing : null;
+                    const photo = linkedImage(v.imageId);
                     return (
                       <tr key={v.id} className={`group border-t border-border ${edit ? 'bg-subtle/30' : ''}`}>
                         <td className="px-2 py-2">
@@ -707,6 +730,13 @@ const ProductFormPage: FC = () => {
                                 onChange={(options) => setEditing((e) => (e ? { ...e, options } : e))}
                               />
                             </td>
+                            <td className="px-2 py-2">
+                              <VariantImagePicker
+                                value={edit.imageId}
+                                images={pickerImages}
+                                onSelect={(imageId) => setEditing((e) => (e ? { ...e, imageId } : e))}
+                              />
+                            </td>
                           </>
                         ) : (
                           <>
@@ -733,6 +763,16 @@ const ProductFormPage: FC = () => {
                             </span>
                           ) : (
                             v.name
+                          )}
+                        </td>
+                        <td className="px-3 py-2">
+                          {photo ? (
+                            <span className="inline-flex items-center gap-1.5 text-muted">
+                              <img src={photo.src} alt="" className="h-7 w-7 rounded border border-border object-cover" />
+                              #{pickerImages.indexOf(photo) + 1}
+                            </span>
+                          ) : (
+                            <span className="text-faint">—</span>
                           )}
                         </td>
                           </>
@@ -814,6 +854,9 @@ const ProductFormPage: FC = () => {
                     </td>
                     <td className="px-2 py-2">
                       <VariantUnitPicker value={nv.options} onChange={(options) => setNv((s) => ({ ...s, options }))} />
+                    </td>
+                    <td className="px-2 py-2">
+                      <VariantImagePicker value={nv.imageId} images={pickerImages} onSelect={(imageId) => setNv((s) => ({ ...s, imageId }))} />
                     </td>
                     <td className="px-2 py-2"><input type="number" value={nv.purchasePrice} onChange={(e) => setNv((s) => ({ ...s, purchasePrice: e.target.value }))} placeholder="₹ Purchase" className={cellCls} /></td>
                     <td className="px-2 py-2"><input type="number" value={nv.mrp} onChange={(e) => setNv((s) => ({ ...s, mrp: e.target.value }))} placeholder="₹ Actual" className={cellCls} /></td>

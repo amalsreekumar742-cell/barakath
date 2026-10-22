@@ -1,5 +1,5 @@
 import { createAsyncThunk } from '@reduxjs/toolkit';
-import { collection, doc, getDoc, getDocs, writeBatch, serverTimestamp } from 'firebase/firestore';
+import { collection, deleteField, doc, getDoc, getDocs, writeBatch, serverTimestamp } from 'firebase/firestore';
 import { FirestoreCollections } from '@barakath/shared/config/collections';
 import { ProductStatus } from '@barakath/shared/config/enums';
 import keywordsBuilder from '@barakath/shared/utils/keywordsBuilder';
@@ -7,7 +7,7 @@ import { sortVariants } from '@barakath/shared/utils/sortVariants';
 import type { ProductProps, VariantProps, SpecificationProps } from '@barakath/shared/types';
 import { db } from '@/lib/firebaseConfig';
 import { isSkuTaken } from './checkSku';
-import { resolveProductImages, variantOptionsField } from './createProduct';
+import { resolveProductImages, variantImageUrl, variantOptionsField } from './createProduct';
 import { queueVariantCost, queueVariantCostDelete } from './variantCosts';
 import { deriveStockStatus, deriveListFields } from '../utils/stock';
 import { planVariantStock } from '../utils/planVariantStock';
@@ -72,7 +72,7 @@ export const updateProduct = createAsyncThunk<
     const removedIds = [...existingIds].filter((id) => !desiredExistingIds.has(id));
 
     // Upload the product images (new blobs) / keep existing urls, in order.
-    const images = await resolveProductImages(input.id, input.images);
+    const { urls: images, urlById } = await resolveProductImages(input.id, input.images);
 
     // Live stock from the read above, not the form's load-time copy — orders keep decrementing it.
     const liveStock = new Map<string, number>();
@@ -115,6 +115,7 @@ export const updateProduct = createAsyncThunk<
     });
     for (const [index, v] of input.variants.entries()) {
       const ref = v.isNew ? doc(varCol) : doc(varCol, v.id);
+      const imageUrl = variantImageUrl(v, urlById);
       const base = {
         name: v.name.trim(),
         // Present only when the row carries options; a legacy variant's update simply never touches
@@ -132,8 +133,14 @@ export const updateProduct = createAsyncThunk<
         sortOrder: index,
       };
       const stock = stockPlan.writeStock.get(v.id);
-      if (v.isNew) batch.set(ref, { ...base, stock: v.stock, createdAt: serverTimestamp() });
-      else batch.update(ref, stock === undefined ? base : { ...base, stock });
+      if (v.isNew) {
+        batch.set(ref, { ...base, ...(imageUrl ? { imageUrl } : {}), stock: v.stock, createdAt: serverTimestamp() });
+      } else {
+        // Deleted rather than left behind when the link was cleared or its photo removed — a stale url
+        // would keep pointing the storefront at a photo the admin took away.
+        const update = { ...base, imageUrl: imageUrl ?? deleteField() };
+        batch.update(ref, stock === undefined ? update : { ...update, stock });
+      }
       // Cost rides the SAME batch as the variant it belongs to.
       queueVariantCost(batch, ref.id, input.id, v.purchasePrice);
     }
