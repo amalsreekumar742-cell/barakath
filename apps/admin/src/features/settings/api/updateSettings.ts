@@ -2,6 +2,7 @@ import { createAsyncThunk } from '@reduxjs/toolkit';
 import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { FirestoreCollections } from '@barakath/shared/config/collections';
 import type {
+  AppUpdateSettings,
   ColorUnit,
   GeneralSettingsProps,
   VariantGroup,
@@ -134,5 +135,18 @@ export const updateHelpSupport = createAsyncThunk<
     return await writeAndRead({ contactus: { ...input } });
   } catch (err) {
     return rejectWithValue(err instanceof Error ? err.message : 'Could not save help & support');
+  }
+});
+
+/** App Update tab (customer app minimum/latest version + store links, per platform). */
+export const updateAppUpdate = createAsyncThunk<
+  GeneralSettingsProps,
+  AppUpdateSettings,
+  { rejectValue: string }
+>('settings/updateAppUpdate', async (input, { rejectWithValue }) => {
+  try {
+    return await writeAndRead({ appUpdate: { ...input } });
+  } catch (err) {
+    return rejectWithValue(err instanceof Error ? err.message : 'Could not save app update settings');
   }
 });

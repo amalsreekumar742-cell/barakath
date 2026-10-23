@@ -29,6 +29,7 @@ export type {
   PrivacySettings,
   TermsSettings,
   ContactUsSettings,
+  AppUpdateSettings,
   Msg91Settings,
 } from './general';
 export type { UserProps, UserAddressProps } from './user';

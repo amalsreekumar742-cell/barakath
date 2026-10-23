@@ -23,4 +23,8 @@ class PrefKeys {
   /// Ids of notifications the customer has opened. Read state is deliberately
   /// LOCAL ONLY (spec §4.18) — no Firestore field, no sub-collection.
   static const String readNotificationIds = 'read_notification_ids';
+
+  /// The `latestVersion` whose optional update prompt the customer already
+  /// saw — so "Update available" is offered once per release, not every launch.
+  static const String seenUpdateVersion = 'seen_update_version';
 }

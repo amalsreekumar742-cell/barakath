@@ -13,6 +13,7 @@ export const SettingsTab = {
   OTP: 3,
   POLICIES: 4,
   HELP_SUPPORT: 5,
+  APP_UPDATE: 6,
 } as const;
 export type SettingsTab = (typeof SettingsTab)[keyof typeof SettingsTab];
 
@@ -24,6 +25,7 @@ export const SETTINGS_TAB_LABELS: readonly string[] = [
   'OTP (MSG91)',
   'Policies',
   'Help & Support',
+  'App Update',
 ];
 
 export const SETTINGS_PATH = '/settings';

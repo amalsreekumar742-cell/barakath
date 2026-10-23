@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../../../../core/utils/model_parse.dart';
+import '../../domain/entities/app_update_policy.dart';
 import '../../domain/entities/general_settings.dart';
 
 /// Data model for the `general/config` document — extends the [GeneralSettings]
@@ -21,8 +22,8 @@ class GeneralSettingsModel extends GeneralSettings {
     required super.helpPhone,
     required super.helpWhatsApp,
     required super.helpEmail,
-    required super.appMinVersion,
-    required super.appLatestVersion,
+    required super.androidUpdate,
+    required super.iosUpdate,
     required super.updatedAt,
   });
 
@@ -35,6 +36,8 @@ class GeneralSettingsModel extends GeneralSettings {
     final delivery = ModelParse.map(data['delivery']);
     final payment = ModelParse.map(data['payment']);
     final contact = ModelParse.map(data['contactus']);
+    // Admin Settings › App Update. Absent until first saved → no prompts.
+    final appUpdate = ModelParse.map(data['appUpdate']);
 
     return GeneralSettingsModel(
       standardDeliveryFee: ModelParse.toDouble(delivery['standardDeliveryFee']),
@@ -48,10 +51,16 @@ class GeneralSettingsModel extends GeneralSettings {
       helpPhone: ModelParse.toStr(contact['helpPhone']),
       helpWhatsApp: ModelParse.toStr(contact['helpWhatsApp']),
       helpEmail: ModelParse.toStr(contact['helpEmail']),
-      // Not present in the schema — defaulted. Read top-level `appMinVersion` /
-      // `appLatestVersion` if the doc ever gains them, else fall back to 1.0.0.
-      appMinVersion: ModelParse.toStr(data['appMinVersion'], '1.0.0'),
-      appLatestVersion: ModelParse.toStr(data['appLatestVersion'], '1.0.0'),
+      androidUpdate: AppUpdatePolicy(
+        minVersion: ModelParse.toStr(appUpdate['androidMinVersion']).trim(),
+        latestVersion: ModelParse.toStr(appUpdate['androidLatestVersion']).trim(),
+        storeUrl: ModelParse.toStr(appUpdate['androidStoreUrl']).trim(),
+      ),
+      iosUpdate: AppUpdatePolicy(
+        minVersion: ModelParse.toStr(appUpdate['iosMinVersion']).trim(),
+        latestVersion: ModelParse.toStr(appUpdate['iosLatestVersion']).trim(),
+        storeUrl: ModelParse.toStr(appUpdate['iosStoreUrl']).trim(),
+      ),
       updatedAt: ModelParse.dateTime(data['updatedAt']),
     );
   }

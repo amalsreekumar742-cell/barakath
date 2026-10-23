@@ -57,6 +57,16 @@ export const DEFAULT_SETTINGS: GeneralSettingsProps = {
     helpWhatsApp: '',
     helpEmail: '',
   },
+  // Blank versions = no prompt. The Play link is fixed by the package id, so it is pre-filled; the
+  // App Store link only exists once the listing does.
+  appUpdate: {
+    androidMinVersion: '',
+    androidLatestVersion: '',
+    androidStoreUrl: 'https://play.google.com/store/apps/details?id=com.barakath.barakath',
+    iosMinVersion: '',
+    iosLatestVersion: '',
+    iosStoreUrl: '',
+  },
   updatedAt: null,
 };
 
@@ -84,6 +94,7 @@ export function mergeSettings(data: Partial<GeneralSettingsProps>): GeneralSetti
     privacy: { ...DEFAULT_SETTINGS.privacy, ...(data.privacy ?? {}) },
     terms: { ...DEFAULT_SETTINGS.terms, ...(data.terms ?? {}) },
     contactus: { ...DEFAULT_SETTINGS.contactus, ...(data.contactus ?? {}) },
+    appUpdate: { ...DEFAULT_SETTINGS.appUpdate, ...(data.appUpdate ?? {}) },
     updatedAt: data.updatedAt ?? null,
   };
 }

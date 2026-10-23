@@ -1,5 +1,7 @@
 import 'package:equatable/equatable.dart';
 
+import 'app_update_policy.dart';
+
 /// A single delivery-fee tier. `general/config` stores no explicit slab table —
 /// slabs are derived from `standardDeliveryFee` + `freeDeliveryThreshold` (see
 /// [GeneralSettings.deliverySlabs]) so screens iterate a uniform list.
@@ -45,8 +47,8 @@ class GeneralSettings extends Equatable {
     required this.helpPhone,
     required this.helpWhatsApp,
     required this.helpEmail,
-    required this.appMinVersion,
-    required this.appLatestVersion,
+    required this.androidUpdate,
+    required this.iosUpdate,
     required this.updatedAt,
   });
 
@@ -67,9 +69,9 @@ class GeneralSettings extends Equatable {
   final String helpWhatsApp;
   final String helpEmail;
 
-  // app version (not in schema — defaulted)
-  final String appMinVersion;
-  final String appLatestVersion;
+  // appUpdate map — one policy per store (see [AppUpdatePolicy])
+  final AppUpdatePolicy androidUpdate;
+  final AppUpdatePolicy iosUpdate;
 
   final DateTime? updatedAt;
 
@@ -87,8 +89,8 @@ class GeneralSettings extends Equatable {
     helpPhone: '',
     helpWhatsApp: '',
     helpEmail: '',
-    appMinVersion: '1.0.0',
-    appLatestVersion: '1.0.0',
+    androidUpdate: AppUpdatePolicy.none,
+    iosUpdate: AppUpdatePolicy.none,
     updatedAt: null,
   );
 
@@ -119,8 +121,8 @@ class GeneralSettings extends Equatable {
         helpPhone,
         helpWhatsApp,
         helpEmail,
-        appMinVersion,
-        appLatestVersion,
+        androidUpdate,
+        iosUpdate,
         updatedAt,
       ];
 }
