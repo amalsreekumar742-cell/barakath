@@ -10,8 +10,9 @@ export const SettingsTab = {
   VARIABLES: 0,
   DELIVERY_TAX: 1,
   PAYMENT_GATEWAY: 2,
-  POLICIES: 3,
-  HELP_SUPPORT: 4,
+  OTP: 3,
+  POLICIES: 4,
+  HELP_SUPPORT: 5,
 } as const;
 export type SettingsTab = (typeof SettingsTab)[keyof typeof SettingsTab];
 
@@ -20,6 +21,7 @@ export const SETTINGS_TAB_LABELS: readonly string[] = [
   'Variables',
   'Delivery & Tax',
   'Payment Gateway',
+  'OTP (MSG91)',
   'Policies',
   'Help & Support',
 ];

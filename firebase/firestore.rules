@@ -385,11 +385,16 @@ service cloud.firestore {
     match /general/secrets {
       allow read, write: if isAdmin();
     }
+    // `general/msg91` holds the MSG91 OTP widget tokens + Play reviewer login (Settings › OTP); only
+    // the OTP Cloud Functions (Admin SDK) and admins read it. Same reason for matching it first.
+    match /general/msg91 {
+      allow read, write: if isAdmin();
+    }
     // Every other general doc (`config`) is publishable — delivery fees, GST, support contacts, legal
     // text, app version, and the *publishable* razorpayKeyId. The storefront reads it before sign-in,
     // so it must be world-readable. Never put a secret in here; put it in general/secrets.
     match /general/{docId} {
-      allow read: if docId != 'secrets';
+      allow read: if !(docId in ['secrets', 'msg91']);
       allow write: if isAdmin();
     }
 

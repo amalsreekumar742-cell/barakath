@@ -1,7 +1,9 @@
 import { createSlice, isAnyOf } from '@reduxjs/toolkit';
 import type { PayloadAction } from '@reduxjs/toolkit';
-import type { GeneralSettingsProps, PolicyProps } from '@barakath/shared/types';
+import type { GeneralSettingsProps, Msg91Settings, PolicyProps } from '@barakath/shared/types';
 import { fetchGeneralSettings } from '../api/fetchGeneralSettings';
+import { fetchMsg91Settings } from '../api/fetchMsg91Settings';
+import { updateMsg91Settings } from '../api/updateMsg91Settings';
 import {
   updateVariables,
   updateDeliveryTax,
@@ -50,13 +52,22 @@ interface PolicyEditorState {
   notFound: boolean;
 }
 
+/** The OTP tab's admin-only `general/msg91` doc — loaded only when that tab opens. */
+interface Msg91State {
+  data: Msg91Settings | null;
+  loading: boolean;
+  error: string | null;
+}
+
 interface SettingsState {
   settings: GeneralSettingsProps | null;
   loading: boolean;
   error: string | null;
   saveLoading: boolean;
-  /** A `SettingsTab` index (Variables, Delivery & Tax, Payment, Policies, Help & Support). */
+  /** A `SettingsTab` index (Variables, Delivery & Tax, Payment, OTP, Policies, Help & Support). */
   activeTab: number;
+
+  msg91: Msg91State;
 
   policies: PoliciesListState;
   policy: PolicyEditorState;
@@ -80,6 +91,8 @@ const initialState: SettingsState = {
   error: null,
   saveLoading: false,
   activeTab: SettingsTab.VARIABLES,
+
+  msg91: { data: null, loading: false, error: null },
 
   policies: { items: [], loading: false, error: null, loaded: false },
   policy: initialPolicyEditor,
@@ -118,6 +131,30 @@ const settingsSlice = createSlice({
       .addCase(fetchGeneralSettings.rejected, (s, a) => {
         s.loading = false;
         s.error = a.payload ?? 'Could not load settings';
+      });
+
+    // --- OTP (MSG91) — its own doc; the save shares `saveLoading` since only one tab is visible ---
+    builder
+      .addCase(fetchMsg91Settings.pending, (s) => {
+        s.msg91.loading = true;
+        s.msg91.error = null;
+      })
+      .addCase(fetchMsg91Settings.fulfilled, (s, a) => {
+        s.msg91 = { data: a.payload, loading: false, error: null };
+      })
+      .addCase(fetchMsg91Settings.rejected, (s, a) => {
+        s.msg91.loading = false;
+        s.msg91.error = a.payload ?? 'Could not load OTP settings';
+      })
+      .addCase(updateMsg91Settings.pending, (s) => {
+        s.saveLoading = true;
+      })
+      .addCase(updateMsg91Settings.fulfilled, (s, a) => {
+        s.saveLoading = false;
+        s.msg91.data = a.payload;
+      })
+      .addCase(updateMsg91Settings.rejected, (s) => {
+        s.saveLoading = false;
       });
 
     // --- Policies list ---

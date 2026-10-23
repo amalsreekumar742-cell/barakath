@@ -1,12 +1,8 @@
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import { logger } from 'firebase-functions';
 import { getFirestore, FieldValue } from 'firebase-admin/firestore';
-import {
-  OTP_REQUESTS_COLLECTION,
-  OTP_REQUEST_TTL_MS,
-  normalizeOtpSource,
-  resolveWidgetCredentials,
-} from './constants';
+import { OTP_REQUESTS_COLLECTION, OTP_REQUEST_TTL_MS, normalizeOtpSource } from './constants';
+import { getOtpConfig, isReviewLogin, resolveWidgetCredentials } from './otpConfig';
 import { resendOtp, normalizePhone, isSuccess, RETRY_CHANNELS } from './msg91Client';
 
 /**
@@ -26,10 +22,17 @@ export const resendOTP = onCall(async (request) => {
   if (!normalized) {
     throw new HttpsError('invalid-argument', 'Enter a valid 10-digit Indian (+91) mobile number.');
   }
+
   // The app speaks 'text' | 'voice'; MSG91's widget wants a numeric channel code.
   const retryChannel = data.retryType === 'voice' ? RETRY_CHANNELS.voice : RETRY_CHANNELS.sms;
 
   try {
+    const config = await getOtpConfig();
+    // Play reviewer number: nothing was sent, so there is nothing to resend — its code is fixed.
+    if (isReviewLogin(config, normalized.local)) {
+      return { success: true };
+    }
+
     const reqRef = getFirestore().collection(OTP_REQUESTS_COLLECTION).doc(normalized.digits);
     const reqSnap = await reqRef.get();
     const pending = reqSnap.data();
@@ -37,7 +40,7 @@ export const resendOTP = onCall(async (request) => {
     const createdAtMs = typeof pending?.createdAtMs === 'number' ? pending.createdAtMs : 0;
 
     // Retry against the widget that ISSUED this reqId (stored by authOTP), never a client-claimed one.
-    const { widgetId, tokenAuth } = resolveWidgetCredentials(normalizeOtpSource(pending?.source));
+    const { widgetId, tokenAuth } = resolveWidgetCredentials(config, normalizeOtpSource(pending?.source));
 
     if (!reqId || Date.now() - createdAtMs > OTP_REQUEST_TTL_MS) {
       throw new HttpsError('failed-precondition', 'This code has expired. Please request a new OTP.');

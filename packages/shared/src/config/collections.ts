@@ -131,6 +131,8 @@ export const FirestoreDocs = {
   generalConfig: 'config',
   /** general/secrets — API keys. ADMIN ONLY; never referenced from a client bundle. */
   generalSecrets: 'secrets',
+  /** general/msg91 — MSG91 OTP widget credentials + Play reviewer login. ADMIN ONLY (Settings › OTP). */
+  generalMsg91: 'msg91',
   /** variables/config — master colour swatches and variant groups for the product form. */
   variablesConfig: 'config',
 } as const;

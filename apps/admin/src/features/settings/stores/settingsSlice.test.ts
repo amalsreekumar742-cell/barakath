@@ -13,6 +13,8 @@ import { fetchPolicy } from '../api/fetchPolicy';
 import { reorderPolicies } from '../api/reorderPolicies';
 import { savePolicy } from '../api/savePolicy';
 import { setPolicyStatus } from '../api/setPolicyStatus';
+import { fetchMsg91Settings } from '../api/fetchMsg91Settings';
+import { updateMsg91Settings } from '../api/updateMsg91Settings';
 
 const at = Timestamp.fromMillis(1_700_000_000_000);
 const policy = (id: string, order: number, name = id): PolicyProps => ({
@@ -112,5 +114,38 @@ describe('settingsSlice — policy editor', () => {
     s = reducer(s, { type: fetchPolicy.fulfilled.type, payload: policy('a', 1), meta: { arg: 'a' } });
     s = reducer(s, resetPolicyEditor());
     expect(s.policy).toEqual({ id: null, data: null, loading: false, error: null, notFound: false });
+  });
+});
+
+describe('settingsSlice — OTP (MSG91)', () => {
+  const saved = {
+    appWidgetId: 'app-widget',
+    appTokenAuth: 'app-token',
+    webWidgetId: '',
+    webTokenAuth: '',
+    reviewLoginPhone: '',
+    reviewLoginOtp: '',
+    updatedAt: null,
+  };
+
+  it('fetch fulfilled stores the doc and clears loading', () => {
+    let s = reducer(undefined, { type: fetchMsg91Settings.pending.type });
+    expect(s.msg91.loading).toBe(true);
+    s = reducer(s, { type: fetchMsg91Settings.fulfilled.type, payload: saved });
+    expect(s.msg91).toEqual({ data: saved, loading: false, error: null });
+  });
+
+  it('fetch rejected keeps the error for the retry state', () => {
+    const s = reducer(undefined, { type: fetchMsg91Settings.rejected.type, payload: 'denied' });
+    expect(s.msg91).toEqual({ data: null, loading: false, error: 'denied' });
+  });
+
+  it('save drives the shared Save spinner and replaces the doc, leaving general settings alone', () => {
+    let s = reducer(undefined, { type: updateMsg91Settings.pending.type });
+    expect(s.saveLoading).toBe(true);
+    s = reducer(s, { type: updateMsg91Settings.fulfilled.type, payload: saved });
+    expect(s.saveLoading).toBe(false);
+    expect(s.msg91.data).toEqual(saved);
+    expect(s.settings).toBeNull();
   });
 });
