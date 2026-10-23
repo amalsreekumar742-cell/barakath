@@ -113,6 +113,10 @@ flutter_launcher_icons:
   android: "ic_launcher"
   ios: true
   image_path: "android/app/src/main/res/mipmap-xxxhdpi/ic_launcher_foreground.png"
+  # iOS has no adaptive-icon safe zone, so it uses its own 1024 master: the flame cropped from
+  # assets/images/logo_barakath.png at ~68% height on white. assets/launcher/ is deliberately not
+  # a declared asset folder, so the master is not bundled into the app.
+  image_path_ios: "assets/launcher/app_icon_ios.png"
   min_sdk_android: 21
   remove_alpha_ios: true
   background_color_ios: "#FFFFFF"

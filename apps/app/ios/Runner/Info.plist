@@ -24,8 +24,43 @@
 	<string>????</string>
 	<key>CFBundleVersion</key>
 	<string>$(FLUTTER_BUILD_NUMBER)</string>
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
+	<key>LSApplicationQueriesSchemes</key>
+	<array>
+		<string>tel</string>
+		<string>tez</string>
+		<string>phonepe</string>
+		<string>paytmmp</string>
+		<string>credpay</string>
+		<string>mobikwik</string>
+		<string>in.fampay.app</string>
+		<string>bhim</string>
+		<string>amazonpay</string>
+		<string>navi</string>
+		<string>kiwi</string>
+		<string>payzapp</string>
+		<string>jupiter</string>
+		<string>omnicard</string>
+		<string>icici</string>
+		<string>popclubapp</string>
+		<string>sbiyono</string>
+		<string>myjio</string>
+		<string>slice-upi</string>
+		<string>bobupi</string>
+		<string>shriramone</string>
+		<string>indusmobile</string>
+		<string>whatsapp</string>
+		<string>kotakbank</string>
+	</array>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<key>NSCameraUsageDescription</key>
+	<string>Barakath uses the camera to take a photo for your profile, a product review or a return request.</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>Barakath uses your location to fill in your delivery address.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Barakath needs access to your photos to add a picture to your profile, a product review or a return request.</string>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>
@@ -49,6 +84,10 @@
 	</dict>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>remote-notification</string>
+	</array>
 	<key>UILaunchStoryboardName</key>
 	<string>LaunchScreen</string>
 	<key>UIMainStoryboardFile</key>
@@ -56,15 +95,6 @@
 	<key>UISupportedInterfaceOrientations</key>
 	<array>
 		<string>UIInterfaceOrientationPortrait</string>
-		<string>UIInterfaceOrientationLandscapeLeft</string>
-		<string>UIInterfaceOrientationLandscapeRight</string>
-	</array>
-	<key>UISupportedInterfaceOrientations~ipad</key>
-	<array>
-		<string>UIInterfaceOrientationPortrait</string>
-		<string>UIInterfaceOrientationPortraitUpsideDown</string>
-		<string>UIInterfaceOrientationLandscapeLeft</string>
-		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
 </dict>
 </plist>
