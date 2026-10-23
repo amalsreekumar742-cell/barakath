@@ -17,14 +17,19 @@ import {
 } from './defaults';
 
 /**
- * The six Settings update thunks (spec §1.21 — "All tabs save independently"). Each writes ONLY its own
- * tab's map to the shared `general/config` document with `{ merge: true }` (so the doc is created on the
- * first save and other tabs' maps are never clobbered — merge deep-merges maps), stamps a top-level
+ * The four config-tab update thunks (spec §1.21 — "All tabs save independently"). Each writes ONLY its
+ * own tab's map to the shared `general/config` document with `{ merge: true }` (so the doc is created on
+ * the first save and other tabs' maps are never clobbered — merge deep-merges maps), stamps a top-level
  * `updatedAt`, then re-reads and returns the full merged settings so the slice replaces its state with
  * server-resolved values.
  *
  * WHY re-read instead of returning the patch: `serverTimestamp()` is a write sentinel, not a value —
- * the legal tabs' "Last updated" stamp and `updatedAt` are only known after the server resolves them.
+ * `updatedAt` is only known after the server resolves it.
+ *
+ * WHY there is no Privacy / Terms save any more: those moved to one document per policy
+ * (`policies/{id}`, Settings › Policies — see savePolicy). The old `general/config.privacy` / `.terms`
+ * maps are deliberately LEFT in place, never rewritten or deleted: app installs from before the move
+ * still read them. Every save here merges only its own map, so nothing in this file touches them.
  */
 
 /** Persist a partial (per-tab map) patch to the config doc, then return the full merged settings. */
@@ -36,7 +41,7 @@ async function writeAndRead(patch: Record<string, unknown>): Promise<GeneralSett
 }
 
 /**
- * Tab 1 — Variables: colour units + variant groups. UNLIKE the other tabs, these persist to their OWN
+ * Variables tab: colour units + variant groups. UNLIKE the other tabs, these persist to their OWN
  * `variables/config` document (a dedicated collection — see FirestoreCollections.variables), not to
  * `general/config`. The full settings object is rebuilt from current state with the new variables so the
  * slice keeps every other tab's values (no re-read of `general/config` needed).
@@ -63,7 +68,7 @@ export const updateVariables = createAsyncThunk<
   }
 });
 
-/** Tab 2 — Delivery & Tax. */
+/** Delivery & Tax tab. */
 export const updateDeliveryTax = createAsyncThunk<
   GeneralSettingsProps,
   {
@@ -83,7 +88,7 @@ export const updateDeliveryTax = createAsyncThunk<
   }
 });
 
-/** Tab 3 — Payment Gateway (Razorpay credentials + toggles). */
+/** Payment Gateway tab (Razorpay credentials + toggles). */
 export const updatePaymentGateway = createAsyncThunk<
   GeneralSettingsProps,
   {
@@ -119,43 +124,7 @@ export const updatePaymentGateway = createAsyncThunk<
   }
 });
 
-/** Tab 4 — Privacy Policy (auto-stamps its own "Last updated"). */
-export const updatePrivacyPolicy = createAsyncThunk<
-  GeneralSettingsProps,
-  { privacyPolicy: string },
-  { rejectValue: string }
->('settings/updatePrivacyPolicy', async (input, { rejectWithValue }) => {
-  try {
-    return await writeAndRead({
-      privacy: {
-        privacyPolicy: input.privacyPolicy,
-        privacyPolicyUpdatedAt: serverTimestamp(),
-      },
-    });
-  } catch (err) {
-    return rejectWithValue(err instanceof Error ? err.message : 'Could not save privacy policy');
-  }
-});
-
-/** Tab 5 — Terms & Conditions (auto-stamps its own "Last updated"). */
-export const updateTermsConditions = createAsyncThunk<
-  GeneralSettingsProps,
-  { termsAndConditions: string },
-  { rejectValue: string }
->('settings/updateTermsConditions', async (input, { rejectWithValue }) => {
-  try {
-    return await writeAndRead({
-      terms: {
-        termsAndConditions: input.termsAndConditions,
-        termsUpdatedAt: serverTimestamp(),
-      },
-    });
-  } catch (err) {
-    return rejectWithValue(err instanceof Error ? err.message : 'Could not save terms & conditions');
-  }
-});
-
-/** Tab 6 — Help & Support (contact us). */
+/** Help & Support tab (contact us). */
 export const updateHelpSupport = createAsyncThunk<
   GeneralSettingsProps,
   { helpPhone: string; helpWhatsApp: string; helpEmail: string },

@@ -1,12 +1,15 @@
 'use client';
 
-import { useState, type MouseEvent } from 'react';
+import { useEffect, useState, type MouseEvent } from 'react';
 import Image from 'next/image';
 import { ImageOff } from 'lucide-react';
+import { useGalleryFocus } from './GalleryFocus';
 
 export interface GalleryProps {
   images: string[];
   productName: string;
+  /** The page to open on — the default variant's photo (see `variantImageIndex`), else 0. */
+  initialIndex?: number;
 }
 
 /**
@@ -24,10 +27,19 @@ export interface GalleryProps {
  * result with zero additional JS shipped. It is skipped entirely on touch devices (no `hover` capability)
  * via a media query rather than a JS pointer-type check, so it never fires from a tap-and-hold.
  */
-export function Gallery({ images, productName }: GalleryProps) {
-  const [activeIndex, setActiveIndex] = useState(0);
+export function Gallery({ images, productName, initialIndex = 0 }: GalleryProps) {
+  const [activeIndex, setActiveIndex] = useState(initialIndex);
   const [zoomPos, setZoomPos] = useState({ x: 50, y: 50 });
   const [zooming, setZooming] = useState(false);
+
+  // A colour pick shows that colour's photo — see GalleryFocus. Keyed on `seq` so a re-pick of the
+  // same colour still jumps back after the shopper clicked another thumbnail.
+  const { url: focusUrl, seq: focusSeq } = useGalleryFocus();
+  useEffect(() => {
+    const i = focusUrl ? images.indexOf(focusUrl) : -1;
+    if (i >= 0) setActiveIndex(i);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- runs per focus request, not per url/images change
+  }, [focusSeq]);
 
   const active = images[activeIndex] ?? '';
 

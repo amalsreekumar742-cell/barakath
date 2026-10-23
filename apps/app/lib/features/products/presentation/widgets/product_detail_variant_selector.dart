@@ -3,36 +3,49 @@ import 'package:flutter/material.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_dimens.dart';
 import '../../domain/entities/variant_option.dart';
+// The contract's own `VariantOption` (one unit of a variant) would clash with
+// the chip model above; only the axis row type is needed from it.
+import '../../domain/entities/variant_options.dart' show VariantAxis;
 
-/// Two independent selection rows — Colour, then Size — instead of one combined
-/// variant chip.
+/// Independent selection rows — Colour, then one per unit group the product
+/// varies on (Size, and e.g. Layer on a multi-axis cap) — instead of one
+/// combined variant chip. A single-axis product gets Colour + Size, as always.
 ///
 /// WHY the rows are rendered separately but resolved together: a variant is a
-/// (colour, size) pair and the catalogue's pairs are sparse, so the provider
-/// decides which variant a tap lands on (see its "Colour / size axes" note).
-/// This widget stays dumb: it draws chips and reports which value was tapped.
+/// combination of every axis and the catalogue's combinations are sparse, so
+/// the provider decides which variant a tap lands on (see its "Variant axes"
+/// note). This widget stays dumb: it draws chips and reports which value was
+/// tapped.
 ///
-/// Sold-out values stay tappable on purpose — the shopper gets an explicit
+/// Unavailable values stay tappable on purpose — the shopper gets an explicit
 /// "out of stock" message and a page that reflects it, instead of a dead chip
-/// that seems broken. A row with no values is omitted entirely rather than
-/// rendering a header over nothing.
+/// that seems broken. A greyed chip without the "Out of stock" tag is a value
+/// that exists, just not with the current picks; the tag means it is sold out
+/// everywhere. A row with no values is omitted entirely rather than rendering
+/// a header over nothing.
 class ProductDetailVariantSelector extends StatelessWidget {
   const ProductDetailVariantSelector({
     super.key,
     required this.colorOptions,
-    required this.sizeOptions,
     required this.selectedColor,
-    required this.selectedSize,
     required this.onSelectColor,
-    required this.onSelectSize,
+    required this.axes,
+    required this.selectedValue,
+    required this.isAvailable,
+    required this.isSoldOut,
+    required this.onSelectAxis,
   });
 
   final List<VariantOption> colorOptions;
-  final List<VariantOption> sizeOptions;
   final String selectedColor;
-  final String selectedSize;
   final ValueChanged<String> onSelectColor;
-  final ValueChanged<String> onSelectSize;
+
+  /// The non-colour rows, each labelled by its axis name ("Size", "Layer").
+  final List<VariantAxis> axes;
+  final String? Function(String axis) selectedValue;
+  final bool Function(String axis, String value) isAvailable;
+  final bool Function(String axis, String value) isSoldOut;
+  final void Function(String axis, String value) onSelectAxis;
 
   @override
   Widget build(BuildContext context) {
@@ -41,15 +54,31 @@ class ProductDetailVariantSelector extends StatelessWidget {
         _AxisRow(
           label: 'Colour',
           selected: selectedColor,
-          options: colorOptions,
+          chips: [
+            for (final option in colorOptions)
+              _ChipSpec(
+                value: option.value,
+                colorCode: option.colorCode,
+                dimmed: option.soldOut,
+                soldOut: option.soldOut,
+              ),
+          ],
           onSelect: onSelectColor,
         ),
-      if (sizeOptions.isNotEmpty)
+      for (final axis in axes)
         _AxisRow(
-          label: 'Size',
-          selected: selectedSize,
-          options: sizeOptions,
-          onSelect: onSelectSize,
+          label: axis.axis,
+          selected: selectedValue(axis.axis) ?? '',
+          chips: [
+            for (final value in axis.values)
+              _ChipSpec(
+                value: value,
+                colorCode: '',
+                dimmed: !isAvailable(axis.axis, value),
+                soldOut: isSoldOut(axis.axis, value),
+              ),
+          ],
+          onSelect: (value) => onSelectAxis(axis.axis, value),
         ),
     ];
     if (rows.isEmpty) return const SizedBox.shrink();
@@ -66,17 +95,39 @@ class ProductDetailVariantSelector extends StatelessWidget {
   }
 }
 
+/// What one chip draws — flattened so the colour row (swatches, from
+/// [VariantOption]) and the unit rows (plain values) share a single chip.
+class _ChipSpec {
+  const _ChipSpec({
+    required this.value,
+    required this.colorCode,
+    required this.dimmed,
+    required this.soldOut,
+  });
+
+  final String value;
+
+  /// `#RRGGBB` swatch for a colour chip; empty on a unit chip.
+  final String colorCode;
+
+  /// Greyed: no buyable variant with this value and the current picks.
+  final bool dimmed;
+
+  /// Tagged "Out of stock": every variant carrying this value is sold out.
+  final bool soldOut;
+}
+
 class _AxisRow extends StatelessWidget {
   const _AxisRow({
     required this.label,
     required this.selected,
-    required this.options,
+    required this.chips,
     required this.onSelect,
   });
 
   final String label;
   final String selected;
-  final List<VariantOption> options;
+  final List<_ChipSpec> chips;
   final ValueChanged<String> onSelect;
 
   @override
@@ -119,14 +170,14 @@ class _AxisRow extends StatelessWidget {
           child: ListView.separated(
             scrollDirection: Axis.horizontal,
             padding: const EdgeInsets.symmetric(horizontal: AppDimens.screenPadding),
-            itemCount: options.length,
+            itemCount: chips.length,
             separatorBuilder: (_, __) => const SizedBox(width: 10),
             itemBuilder: (_, i) {
-              final option = options[i];
+              final chip = chips[i];
               return _OptionChip(
-                option: option,
-                selected: option.value == selected,
-                onTap: () => onSelect(option.value),
+                chip: chip,
+                selected: chip.value == selected,
+                onTap: () => onSelect(chip.value),
               );
             },
           ),
@@ -138,19 +189,19 @@ class _AxisRow extends StatelessWidget {
 
 class _OptionChip extends StatelessWidget {
   const _OptionChip({
-    required this.option,
+    required this.chip,
     required this.selected,
     required this.onTap,
   });
 
-  final VariantOption option;
+  final _ChipSpec chip;
   final bool selected;
   final VoidCallback onTap;
 
   /// `colorCode` is authored as `#RRGGBB` in the admin; anything unparseable
   /// falls back to the neutral fill so the chip never renders a black hole.
   Color get _swatchColor {
-    final raw = option.colorCode.replaceAll('#', '').trim();
+    final raw = chip.colorCode.replaceAll('#', '').trim();
     if (raw.length != 6) return AppColors.subtle;
     final value = int.tryParse('FF$raw', radix: 16);
     return value == null ? AppColors.subtle : Color(value);
@@ -158,10 +209,10 @@ class _OptionChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final hasSwatch = option.colorCode.trim().isNotEmpty;
+    final hasSwatch = chip.colorCode.trim().isNotEmpty;
 
     return Opacity(
-      opacity: option.soldOut ? 0.45 : 1,
+      opacity: chip.dimmed ? 0.45 : 1,
       child: InkWell(
         borderRadius: BorderRadius.circular(12),
         onTap: onTap,
@@ -191,14 +242,14 @@ class _OptionChip extends StatelessWidget {
                 const SizedBox(width: 8),
               ],
               Text(
-                option.value,
+                chip.value,
                 style: TextStyle(
                   color: selected ? AppColors.brandGreen : AppColors.textPrimary,
                   fontSize: 13,
                   fontWeight: FontWeight.w700,
                 ),
               ),
-              if (option.soldOut) ...[
+              if (chip.soldOut) ...[
                 const SizedBox(width: 8),
                 const Text(
                   'Out of stock',

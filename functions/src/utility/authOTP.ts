@@ -1,19 +1,16 @@
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import { logger } from 'firebase-functions';
 import { getFirestore, FieldValue } from 'firebase-admin/firestore';
-import {
-  OTP_REQUESTS_COLLECTION,
-  normalizeOtpSource,
-  resolveWidgetCredentials,
-} from './constants';
+import { OTP_REQUESTS_COLLECTION, normalizeOtpSource } from './constants';
+import { getOtpConfig, isReviewLogin, resolveWidgetCredentials } from './otpConfig';
 import { sendOtp, normalizePhone, isSuccess, payloadOf } from './msg91Client';
 
 /**
  * authOTP — send a login OTP to a storefront customer's phone via the MSG91 OTP Widget (spec §5.2 #1).
  *
  * WHY a Cloud Function: the MSG91 widget credentials are server-only secrets — they can never ship to a
- *   client, so the send must happen server-side (skill: secrets live in functions/.env, never in client
- *   env vars).
+ *   client, so the send must happen server-side (they live in the admin-only `general/msg91` doc, with
+ *   functions/.env as the fallback — never in client env vars).
  * WHY onCall with NO auth gate: this is the pre-login step — the caller is an anonymous visitor who has no
  *   Firebase identity yet, so there is intentionally no validateAuth here. The only guard is input shape.
  * WHY the reqId is stored (not returned): verify/retry need the reqId MSG91 issues here. Parking it in
@@ -34,10 +31,16 @@ export const authOTP = onCall(async (request) => {
   // portable across widgets.
   const source = normalizeOtpSource(data.source);
 
-  // Resolve params INSIDE the handler (never at module scope) — a missing value already blocked deploy.
-  const { widgetId, tokenAuth } = resolveWidgetCredentials(source);
-
   try {
+    // Admin-managed (Settings › OTP), read per call so a credential change needs no redeploy.
+    const config = await getOtpConfig();
+
+    // Play reviewer number: no SMS — verifyOTP checks its fixed code instead of an MSG91 request.
+    if (isReviewLogin(config, normalized.local)) {
+      return { success: true, message: 'OTP sent' };
+    }
+
+    const { widgetId, tokenAuth } = resolveWidgetCredentials(config, source);
     const result = await sendOtp(widgetId, tokenAuth, normalized.digits, source);
     if (!isSuccess(result)) {
       // MSG91 rejected the send (e.g. rate limit); surface a generic message, keep detail in the log.

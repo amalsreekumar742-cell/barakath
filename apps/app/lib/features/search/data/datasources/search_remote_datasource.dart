@@ -3,8 +3,8 @@ import 'package:injectable/injectable.dart';
 
 import '../../../../core/constants/firebase_collections.dart';
 import '../../../../core/error/exceptions.dart';
+import '../../../products/data/datasources/variant_order.dart';
 import '../../../products/data/models/product_model.dart';
-import '../../../products/data/models/variant_model.dart';
 import '../../../products/domain/entities/variant.dart';
 import '../models/search_results_model.dart';
 import '../../../../core/error/firebase_error_message.dart';
@@ -77,28 +77,23 @@ class SearchRemoteDataSourceImpl implements SearchRemoteDataSource {
   /// variant subcollection is read alongside the page — in parallel, since a
   /// sequential loop would make a 10-item page 10 round trips deep.
   ///
-  /// WHY ordered by `createdAt` with an unordered fallback: "first variant" has
-  /// to mean the SAME variant on every surface, or the identical product shows
-  /// one price in search and another in the listing (seen live: ₹150 vs ₹101).
-  /// Home and the listing both order by `createdAt`, so search must too. The
-  /// fallback covers the reason ordering was avoided in the first place — an
-  /// ordered query silently drops docs missing the field, which would otherwise
-  /// leave a card with no price at all.
+  /// WHY `VariantOrder.readFirst` (sortOrder → createdAt → unordered): "first
+  /// variant" has to mean the SAME variant on every surface, or the identical
+  /// product shows one price in search and another in the listing (seen live:
+  /// ₹150 vs ₹101). Home, the listing and detail all use that helper, so
+  /// search must too. Its fallbacks cover why ordering was once avoided here —
+  /// an ordered query silently drops docs missing the field, which would
+  /// otherwise leave a card with no price at all.
   Future<Map<String, Variant>> _loadFirstVariants(
     List<QueryDocumentSnapshot<Map<String, dynamic>>> docs,
   ) async {
     final entries = await Future.wait(
       docs.map((doc) async {
-        final variantsRef = doc.reference.collection(FirebaseCollections.variants);
-        var variants = await variantsRef.orderBy('createdAt').limit(1).get();
-        if (variants.docs.isEmpty) {
-          variants = await variantsRef.limit(1).get();
-        }
-        if (variants.docs.isEmpty) return null;
-        return MapEntry<String, Variant>(
-          doc.id,
-          VariantModel.fromFirestore(variants.docs.first),
+        final variant = await VariantOrder.readFirst(
+          doc.reference.collection(FirebaseCollections.variants),
         );
+        if (variant == null) return null;
+        return MapEntry<String, Variant>(doc.id, variant);
       }),
     );
     return Map<String, Variant>.fromEntries(entries.whereType<MapEntry<String, Variant>>());

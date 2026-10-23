@@ -53,6 +53,13 @@ function percentOff(mrp: number, price: number): number {
  * stale field can never be mistaken for a live sale. During a flash sale the offer price is HIDDEN
  * (spec §1.16) — the comparison shown is against the MRP, so the saving is `mrp` vs the flash price.
  *
+ * WHY the flash price must also be BELOW the offer price: `flashSalePrice` is snapshotted when the
+ * sale is created, but the admin can edit a variant's offer price in place mid-sale — down to or below
+ * that snapshot. `createPaymentOrder` charges the flash price only when it is the lower of the two, so
+ * showing it otherwise would quote one figure and charge another (and every such bag would trip
+ * checkout's "amount changed" prompt). The `> 0` guard keeps a corrupt ₹0 flash price from reading as
+ * a free item.
+ *
  * WHY the non-flash branch compares `mrp` to `offerPrice` (not `minPrice`): this resolver has a real
  * variant, so it states the exact per-variant saving; the range-based `discountPercent` in `PriceBlock`
  * is for the card that only holds the denormalised product.
@@ -61,8 +68,9 @@ export function resolvePrice(
   product: Pick<ProductProps, 'isFlashSale'>,
   variant: Pick<VariantProps, 'flashSalePrice' | 'mrp' | 'offerPrice'>,
 ): ResolvedPrice {
-  if (product.isFlashSale && variant.flashSalePrice != null) {
-    const displayPrice = variant.flashSalePrice;
+  const flash = variant.flashSalePrice;
+  if (product.isFlashSale && flash != null && flash > 0 && flash < variant.offerPrice) {
+    const displayPrice = flash;
     return {
       displayPrice,
       mrp: variant.mrp,

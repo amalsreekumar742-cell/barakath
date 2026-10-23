@@ -124,8 +124,10 @@ class _ProductListingPageState extends State<ProductListingPage> {
   double _priceCeiling(ProductListingProvider provider) {
     var highest = 0.0;
     for (final product in provider.products) {
-      final price =
-          provider.variantFor(product.id)?.effectivePrice ?? product.maxPrice;
+      final price = provider.variantFor(product.id)?.effectivePrice(
+            productInFlashSale: product.isFlashSale,
+          ) ??
+          product.maxPrice;
       if (price > highest) highest = price;
     }
     if (highest <= 0) return 5000;

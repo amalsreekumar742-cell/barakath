@@ -81,6 +81,27 @@ export interface ContactUsSettings {
   helpEmail: string;
 }
 
+/**
+ * Settings › OTP — the admin-only `general/msg91` document (NOT a map in `general/config`, which is
+ * world-readable). authOTP / verifyOTP / resendOTP read it on every call; until it holds the app widget
+ * pair they fall back to functions/.env. Mirrored by `OtpConfig` in functions/src/utility/otpConfig.ts.
+ */
+export interface Msg91Settings {
+  /** Customer-app OTP widget id (MSG91 → OTP Widget). Required. */
+  appWidgetId: string;
+  /** Customer-app widget token auth. Server-only secret. Required. */
+  appTokenAuth: string;
+  /** Website OTP widget id — the site uses a separate widget. Blank falls back to the app widget. */
+  webWidgetId: string;
+  /** Website widget token auth. Blank falls back to the app widget's token. */
+  webTokenAuth: string;
+  /** Google Play reviewer number (10 digits). Skips the SMS. Blank with the code turns the bypass off. */
+  reviewLoginPhone: string;
+  /** The reviewer number's fixed 6-digit code. */
+  reviewLoginOtp: string;
+  updatedAt: Timestamp | null;
+}
+
 export interface GeneralSettingsProps {
   /** Tab 1 — Variables (spec §1.21 Tab 1). */
   variables: VariablesSettings;

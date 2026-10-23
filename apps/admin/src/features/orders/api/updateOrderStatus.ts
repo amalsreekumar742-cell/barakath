@@ -1,19 +1,12 @@
 import { createAsyncThunk } from '@reduxjs/toolkit';
-import {
-  collection,
-  doc,
-  getDoc,
-  getDocs,
-  writeBatch,
-  serverTimestamp,
-  Timestamp,
-} from 'firebase/firestore';
+import { doc, getDoc, runTransaction, serverTimestamp, Timestamp } from 'firebase/firestore';
+import { httpsCallable } from 'firebase/functions';
 import { FirestoreCollections } from '@barakath/shared/config/collections';
-import { OrderStatus, PaymentStatus } from '@barakath/shared/config/enums';
-import type { OrderProps, VariantProps } from '@barakath/shared/types';
-import { db } from '@/lib/firebaseConfig';
-import { sumStock, deriveStockStatus } from '@/features/products/utils/stock';
+import { OrderStatus } from '@barakath/shared/config/enums';
+import type { OrderProps } from '@barakath/shared/types';
+import { db, functions } from '@/lib/firebaseConfig';
 import { nextStatus, canCancel, isOrderPaid, unpaidAdvanceReason } from '../utils/orderFlow';
+import { callableErrorMessage } from '../utils/callableError';
 
 export interface UpdateOrderStatusInput {
   orderId: string;
@@ -23,6 +16,12 @@ export interface UpdateOrderStatusInput {
   courierName?: string;
   cancelReason?: string;
 }
+
+/**
+ * Mirrors CANCEL_CLAIM_TTL_MS in functions/src/orders/cancelOrder.ts. A claim younger than this means a
+ * cancellation — and its gateway refund — is in flight; an older one is from a crashed attempt.
+ */
+const CANCEL_CLAIM_TTL_MS = 2 * 60 * 1000;
 
 export interface UpdateOrderStatusResult {
   order: OrderProps;
@@ -34,25 +33,39 @@ export interface UpdateOrderStatusResult {
  *
  * WHY the transition is validated here (server-trust boundary, skill): the UI only ever offers the
  * single next step, but the thunk still re-checks that `newStatus` is exactly `nextStatus(current)` —
- * or, for a cancel, that the order is still Pending — so no out-of-order write can slip through. Shipped
- * requires tracking + courier; Cancel requires a reason. On cancel we also refund-mark a paid order and
- * RESTORE stock (increment each item's variant + re-derive the product totals), all in one atomic batch
- * so status, timeline, refund flag and stock never diverge.
+ * or, for a cancel, that the order is still Pending — so no out-of-order write can slip through.
+ * Cancel requires a reason (Shipped's tracking + courier requirement is switched off for now).
  *
- * WHY an unpaid order cannot be advanced: `createPaymentOrder` reserves stock BEFORE the customer pays,
- * and the only things that give that stock back are the `payment.failed` webhook and `dailyCleanup` —
- * and `dailyCleanup` only matches orders still at `status == 'Pending'`. Moving an unpaid order to
- * Accepted therefore strands its stock permanently AND ships goods that were never paid for. Cancelling
- * stays allowed at any payment status: that is the correct way to clear an abandoned checkout.
+ * WHY a cancel goes through the `cancelOrder` callable instead of a client batch: cancelling moves
+ * money and cross-user inventory. The callable (functions/src/orders/cancelOrder.ts) does the whole
+ * reversal in one server transaction — Razorpay refund, wallet credit, coupon release, stock restore,
+ * the payment doc and the timeline. The client batch this replaced only flipped `paymentStatus` to
+ * Refunded (no money actually moved; the payment doc stayed Paid) and restored stock by reading each
+ * variant and writing an absolute value, which raced any concurrent checkout. The client must never
+ * restore stock as well: the callable already did, and a second restore would double it.
+ *
+ * WHY an unpaid order cannot be advanced: an unpaid checkout lives in `orderDrafts` and only becomes an
+ * order once paid (functions/src/orders/service/promoteDraft.ts), so a non-Paid order here is a legacy
+ * document from before that split, or a Failed/Refunded one. Advancing it would ship goods nobody paid
+ * for. Cancelling stays allowed at any payment status — the callable skips the reversal for a Failed
+ * payment, which the payment-failed webhook already reversed.
  *
  * WHY a client `Timestamp.now()` in the timeline (not serverTimestamp): Firestore forbids the
  * serverTimestamp sentinel inside an array element, so each timeline entry stamps the client time.
+ *
+ * WHY an advance is a transaction that honours `cancelClaimedAt`: cancelOrder claims a Pending order,
+ * issues the Razorpay refund, and only then flips it to Cancelled — re-checking Pending first. An
+ * advance landing in that window made the cancel abort AFTER the refund, leaving an Accepted order
+ * whose payment had been returned. Reading the claim in the same transaction as the write makes the
+ * two exclusive: either the advance commits first (the claim then finds Accepted and refuses) or the
+ * claim does (the advance is refused here).
  */
 export const updateOrderStatus = createAsyncThunk<
   UpdateOrderStatusResult,
   UpdateOrderStatusInput,
   { rejectValue: string }
 >('orders/updateStatus', async (input, { rejectWithValue }) => {
+  const isCancel = input.newStatus === OrderStatus.CANCELLED;
   try {
     const orderRef = doc(db, FirestoreCollections.orders, input.orderId);
     const snap = await getDoc(orderRef);
@@ -60,103 +73,70 @@ export const updateOrderStatus = createAsyncThunk<
     const order = { ...snap.data(), id: snap.id } as OrderProps;
     const current = order.status;
 
-    const isCancel = input.newStatus === OrderStatus.CANCELLED;
-
-    // --- Validate the transition ---
     if (isCancel) {
       if (!canCancel(current)) return rejectWithValue('Order can only be cancelled while Pending');
-      if (!input.cancelReason?.trim()) return rejectWithValue('Cancel reason is required');
-    } else {
-      if (!isOrderPaid(order.paymentStatus))
-        return rejectWithValue(unpaidAdvanceReason(order.paymentStatus));
-      if (input.newStatus !== nextStatus(current))
-        return rejectWithValue(`Cannot move from "${current}" to "${input.newStatus}"`);
-      if (input.newStatus === OrderStatus.SHIPPED && (!input.trackingId?.trim() || !input.courierName?.trim()))
-        return rejectWithValue('Tracking ID and courier name are required to ship');
+      const cancelReason = input.cancelReason?.trim();
+      if (!cancelReason) return rejectWithValue('Cancel reason is required');
+
+      // The server re-checks Pending inside its own read, so a status change between our read and
+      // this call is refused there rather than double-cancelled.
+      const call = httpsCallable<{ orderId: string; cancelReason: string }, { success: boolean }>(
+        functions,
+        'cancelOrder',
+      );
+      await call({ orderId: input.orderId, cancelReason });
+
+      // Re-read so the slice gets the server-written status, payment status and timeline.
+      const cancelled = await getDoc(orderRef);
+      return { order: { ...cancelled.data(), id: cancelled.id } as OrderProps, previousStatus: current };
     }
 
-    // --- Pre-read everything needed for a stock restore (cancel only), before the batch ---
-    type ProductRestore = {
-      productId: string;
-      totalStock: number;
-      stockStatus: ReturnType<typeof deriveStockStatus>;
-      variantDeltas: { variantId: string; newStock: number }[];
-    };
-    const restores: ProductRestore[] = [];
-    if (isCancel) {
-      const byProduct = new Map<string, Map<string, number>>();
-      for (const it of order.items) {
-        if (!byProduct.has(it.productId)) byProduct.set(it.productId, new Map());
-        const m = byProduct.get(it.productId)!;
-        m.set(it.variantId, (m.get(it.variantId) ?? 0) + it.quantity);
-      }
-      for (const [productId, additions] of byProduct) {
-        const pRef = doc(db, FirestoreCollections.products, productId);
-        const pSnap = await getDoc(pRef);
-        if (!pSnap.exists()) continue; // product deleted — skip its restore
-        const threshold = (pSnap.data().lowStockThreshold as number) ?? 0;
-        const varCol = collection(db, FirestoreCollections.products, productId, FirestoreCollections.variants);
-        const varSnap = await getDocs(varCol);
-        const variantDeltas: { variantId: string; newStock: number }[] = [];
-        const stocks = varSnap.docs.map((d) => {
-          const v = d.data() as VariantProps;
-          const add = additions.get(d.id) ?? 0;
-          const newStock = v.stock + add;
-          if (add > 0) variantDeltas.push({ variantId: d.id, newStock });
-          return newStock;
-        });
-        const totalStock = sumStock(stocks);
-        restores.push({
-          productId,
-          totalStock,
-          stockStatus: deriveStockStatus(totalStock, threshold),
-          variantDeltas,
-        });
-      }
-    }
+    // --- Advance: validate the transition on the transaction's own read, then write ---
+    // Shipment details are switched off for now (the shipment form is commented out), so Ship no
+    // longer requires them. Re-enable together with ShipmentModal.
+    // if (input.newStatus === OrderStatus.SHIPPED && (!input.trackingId?.trim() || !input.courierName?.trim()))
+    //   return rejectWithValue('Tracking ID and courier name are required to ship');
+    let previousStatus = current;
+    await runTransaction(db, async (tx) => {
+      const fresh = await tx.get(orderRef);
+      if (!fresh.exists()) throw new Error('Order not found');
+      const live = fresh.data() as OrderProps & { cancelClaimedAt?: Timestamp };
+      previousStatus = live.status;
 
-    // --- Build the atomic batch ---
-    const batch = writeBatch(db);
-    const timelineEntry = {
-      status: input.newStatus,
-      timestamp: Timestamp.now(),
-      note: input.note ?? '',
-    };
-    const orderUpdate: Record<string, unknown> = {
-      status: input.newStatus,
-      statusTimeline: [...(order.statusTimeline ?? []), timelineEntry],
-      updatedAt: serverTimestamp(),
-    };
-    if (input.newStatus === OrderStatus.SHIPPED) {
-      orderUpdate.trackingId = input.trackingId!.trim();
-      orderUpdate.courierName = input.courierName!.trim();
-    }
-    if (isCancel) {
-      orderUpdate.cancelReason = input.cancelReason!.trim();
-      if (order.paymentStatus === PaymentStatus.PAID)
-        orderUpdate.paymentStatus = PaymentStatus.REFUNDED;
-    }
-    batch.update(orderRef, orderUpdate);
+      if (!isOrderPaid(live.paymentStatus)) throw new Error(unpaidAdvanceReason(live.paymentStatus));
+      if (input.newStatus !== nextStatus(live.status))
+        throw new Error(`Cannot move from "${live.status}" to "${input.newStatus}"`);
+      const claimedAt = live.cancelClaimedAt;
+      if (claimedAt && Date.now() - claimedAt.toMillis() < CANCEL_CLAIM_TTL_MS)
+        throw new Error('This order is being cancelled. Refresh in a moment.');
 
-    for (const r of restores) {
-      for (const d of r.variantDeltas) {
-        batch.update(
-          doc(db, FirestoreCollections.products, r.productId, FirestoreCollections.variants, d.variantId),
-          { stock: d.newStock },
-        );
-      }
-      batch.update(doc(db, FirestoreCollections.products, r.productId), {
-        totalStock: r.totalStock,
-        stockStatus: r.stockStatus,
+      const timelineEntry = {
+        status: input.newStatus,
+        timestamp: Timestamp.now(),
+        note: input.note ?? '',
+      };
+      const orderUpdate: Record<string, unknown> = {
+        status: input.newStatus,
+        statusTimeline: [...(live.statusTimeline ?? []), timelineEntry],
         updatedAt: serverTimestamp(),
-      });
-    }
-
-    await batch.commit();
+      };
+      if (input.newStatus === OrderStatus.SHIPPED) {
+        // Only when supplied — a plain Ship leaves the checkout's empty defaults in place.
+        if (input.trackingId?.trim()) orderUpdate.trackingId = input.trackingId.trim();
+        if (input.courierName?.trim()) orderUpdate.courierName = input.courierName.trim();
+      }
+      tx.update(orderRef, orderUpdate);
+    });
 
     const updated = await getDoc(orderRef);
-    return { order: { ...updated.data(), id: updated.id } as OrderProps, previousStatus: current };
+    return { order: { ...updated.data(), id: updated.id } as OrderProps, previousStatus };
   } catch (err) {
-    return rejectWithValue(err instanceof Error ? err.message : 'Could not update order status');
+    return rejectWithValue(
+      isCancel
+        ? callableErrorMessage(err, 'Could not cancel the order')
+        : err instanceof Error
+          ? err.message
+          : 'Could not update order status',
+    );
   }
 });

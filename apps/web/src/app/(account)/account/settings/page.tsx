@@ -9,7 +9,7 @@ import { PersonalInfoForm } from './PersonalInfoForm';
 import { DangerZone } from './DangerZone';
 
 /**
- * /account/settings (spec 3.19) — Personal info (editable), Legal (links only), Danger zone (delete
+ * /account/settings (spec 3.19) — Personal info (editable), Legal (a link to /policies), Danger zone (delete
  * account). `noindex` is inherited from `(account)/layout.tsx`'s `metadata.robots` — not re-declared.
  *
  * NOTE on the profile-photo asymmetry: the account sidebar (`AccountSidebar.tsx`) already displays
@@ -36,12 +36,12 @@ export default function SettingsPage() {
 
           <div className="rounded-xl border border-border bg-surface p-5">
             <h2 className="font-display text-lg font-semibold text-foreground">Legal</h2>
+            {/* One link to the index rather than one per policy: the admin can publish any number of
+                them (Settings › Policies), and /policies lists whatever is currently enabled — a
+                hard-coded pair here would go stale the moment a refund or shipping policy is added. */}
             <div className="mt-3 flex flex-col gap-2 text-sm font-medium text-primary">
-              <Link href="/privacy-policy" className="hover:underline">
-                Privacy Policy
-              </Link>
-              <Link href="/terms" className="hover:underline">
-                Terms &amp; Conditions
+              <Link href="/policies" className="hover:underline">
+                Policies
               </Link>
             </div>
           </div>

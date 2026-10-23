@@ -136,7 +136,9 @@ export const razorpayWebhook = onRequest({ cors: true }, async (req, res) => {
       // Only reverse once: skip if already Failed, or if it somehow got Paid.
       if (o.paymentStatus === 'Failed' || o.paymentStatus === 'Paid') return;
 
-      const stockMap = await readProductStock(tx, productIds);
+      // skipMissing: a product deleted since checkout must not block handing back the wallet/coupon
+      // (a throw here would 500 the webhook on every Razorpay retry, forever).
+      const stockMap = await readProductStock(tx, productIds, { skipMissing: true });
       const userRef = userId ? db.collection(Collections.users).doc(userId) : null;
       let currentBalance = 0;
       if (userRef && walletAmountUsed > 0) {

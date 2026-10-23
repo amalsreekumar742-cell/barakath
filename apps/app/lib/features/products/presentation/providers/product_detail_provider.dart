@@ -8,6 +8,9 @@ import '../../../reviews/domain/entities/review.dart';
 import '../../domain/entities/product.dart';
 import '../../domain/entities/variant.dart';
 import '../../domain/entities/variant_option.dart';
+// The contract's own `VariantOption` (one unit of a variant) is not needed
+// here and would clash with the chip model above.
+import '../../domain/entities/variant_options.dart' hide VariantOption;
 import '../../domain/repositories/product_detail_repository.dart';
 import '../../domain/usecases/get_bundle_products.dart';
 import '../../domain/usecases/get_first_variants.dart';
@@ -101,9 +104,14 @@ class ProductDetailProvider extends ChangeNotifier {
     return thumbnail.isEmpty ? const [] : [thumbnail];
   }
 
-  /// What the customer pays for the selected variant: flash price when live.
+  /// What the customer pays for the selected variant: the flash price only
+  /// when it genuinely applies (see [Variant.flashPrice]) — the same figure
+  /// the bag and checkout will charge.
   double get effectivePrice =>
-      _selectedVariant?.flashSalePrice ?? _selectedVariant?.offerPrice ?? 0;
+      _selectedVariant?.effectivePrice(
+        productInFlashSale: _product?.isFlashSale ?? false,
+      ) ??
+      0;
 
   double get mrp => _selectedVariant?.mrp ?? 0;
 
@@ -180,10 +188,11 @@ class ProductDetailProvider extends ChangeNotifier {
       (value) => _reviews = value,
     );
 
-    // Default selection: the first (oldest) variant, matching the merchant's
-    // authoring order.
+    // Default selection: the first variant in the admin's display order — the
+    // same one every product card prices from. The gallery opens on its photo.
     _selectedVariant = _variants.isEmpty ? null : _variants.first;
-    _selectedImageIndex = 0;
+    final first = _selectedVariant;
+    _selectedImageIndex = first == null ? 0 : _linkedImageIndex(first) ?? 0;
     _status = ProductDetailStatus.loaded;
     notifyListeners();
 
@@ -214,119 +223,158 @@ class ProductDetailProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Switch the active variant. Resets the gallery because a variant can carry
-  /// its own images and index 3 of the old set may not exist in the new one.
+  /// Switch the active variant and slide the gallery to its photo (see
+  /// [_linkedImageIndex]). With no photo linked the gallery resets to the
+  /// first page, because a variant can carry its own images and index 3 of
+  /// the old set may not exist in the new one.
+  ///
+  /// Re-tapping the variant already selected still jumps to its photo: the
+  /// shopper may have swiped to another colour's photo and is asking to see
+  /// this one again.
   void selectVariant(Variant variant) {
-    if (_selectedVariant?.id == variant.id) return;
+    if (_selectedVariant?.id == variant.id) {
+      final linked = _linkedImageIndex(variant);
+      if (linked == null || linked == _selectedImageIndex) return;
+      _selectedImageIndex = linked;
+      notifyListeners();
+      return;
+    }
+    // Assigned first: [galleryImages] — which the lookup searches — follows
+    // the selected variant.
     _selectedVariant = variant;
-    _selectedImageIndex = 0;
+    _selectedImageIndex = _linkedImageIndex(variant) ?? 0;
     notifyListeners();
   }
 
+  /// Which gallery page shows [variant]: its own `imageUrl`, else that of
+  /// another size of the same colour (the admin links a photo once per
+  /// colour), else null. A url no longer in the gallery counts as none.
+  ///
+  /// Mirrors `variantImageIndex` (packages/shared/src/utils/variantImage.ts),
+  /// which the website uses — keep the two in step.
+  int? _linkedImageIndex(Variant variant) {
+    final images = galleryImages;
+    int? indexOf(String url) {
+      final i = url.isEmpty ? -1 : images.indexOf(url);
+      return i >= 0 ? i : null;
+    }
+
+    final own = indexOf(variant.imageUrl);
+    if (own != null) return own;
+    for (final other in _variants) {
+      if (other.color != variant.color) continue;
+      final linked = indexOf(other.imageUrl);
+      if (linked != null) return linked;
+    }
+    return null;
+  }
+
   // ---------------------------------------------------------------------------
-  // Colour / size axes
+  // Variant axes — Colour, then one row per unit group (Size, Layer …)
   //
-  // A variant is a (colour, size) PAIR, but the shopper picks one axis at a
-  // time. The catalogue's pairs are SPARSE — a product with 3 colours and 3
-  // sizes typically has 3 variants (Gold/30ml, Amber/50ml, Emerald/100ml), not
-  // 9 — so the two rows cannot be independent: most combinations the shopper
-  // could compose simply do not exist.
+  // A variant is a COMBINATION — Colour × Size, or Colour × Size × Layer on a
+  // multi-axis product — but the shopper picks one axis at a time. The
+  // catalogue's combinations are SPARSE — a product with 3 colours and 3 sizes
+  // typically has 3 variants (Gold/30ml, Amber/50ml, Emerald/100ml), not 9 — so
+  // the rows cannot be independent: most combinations the shopper could
+  // compose simply do not exist.
   //
-  // The rule below never dead-ends. Tapping an axis value ALWAYS keeps that
-  // value and moves the other axis to the nearest real variant:
-  //   1. the exact pair, if the merchant created it;
-  //   2. otherwise the first variant carrying the tapped value, preferring one
-  //      that is in stock.
+  // Which variant a tap lands on is `resolveVariant` (variant_options.dart) —
+  // the rule the website shares, so the same chips pick the same variant on
+  // both surfaces. It never dead-ends. Tapping a value ALWAYS keeps that value
+  // and moves the other axes to the nearest real variant:
+  //   1. the exact combination, if the merchant created it;
+  //   2. otherwise a variant carrying the tapped value — in stock first, then
+  //      the one keeping the most of the other picks, then the admin's order.
   // So every chip is live, every tap lands on a real variant, and no shopper is
   // shown a price or an Add-to-bag button for something that was never sold.
+  //
+  // A legacy single-axis variant (no `options`) reads as Colour + "Size" over
+  // its `name`, so these products resolve exactly as they always did.
   // ---------------------------------------------------------------------------
 
-  /// The selected variant's colour, or '' when nothing is selected.
-  String get selectedColor => _selectedVariant?.color.trim() ?? '';
-
-  /// The selected variant's size/unit label, or '' when nothing is selected.
-  String get selectedSize => _selectedVariant?.name.trim() ?? '';
-
-  List<String> _distinct(String Function(Variant) pick) {
-    final seen = <String>{};
-    final values = <String>[];
-    for (final variant in _variants) {
-      final value = pick(variant).trim();
-      // Authoring order is the merchant's order — never sorted alphabetically.
-      if (value.isNotEmpty && seen.add(value)) values.add(value);
-    }
-    return values;
+  /// Every axis value of the selected variant, colour included, keyed by axis
+  /// name. Empty when nothing is selected.
+  Map<String, String> get _selection {
+    final variant = _selectedVariant;
+    return variant == null ? const {} : axisValues(variant);
   }
+
+  /// The selected variant's value on [axis] — [colourAxis] or a unit group such
+  /// as "Size" — or null when nothing is selected or it has no such axis.
+  String? selectedValue(String axis) => _selection[axis];
+
+  /// The selected variant's colour, or '' when nothing is selected.
+  String get selectedColor => selectedValue(colourAxis) ?? '';
 
   /// The colour row. Empty when no variant names a colour, which hides the row
-  /// rather than rendering a header over nothing.
-  List<VariantOption> get colorOptions => _distinct((v) => v.color)
-      .map(
-        (color) => VariantOption(
+  /// rather than rendering a header over nothing. Kept apart from [axes]
+  /// because a colour chip carries a swatch (`colorCode`).
+  List<VariantOption> get colorOptions {
+    final seen = <String>{};
+    final options = <VariantOption>[];
+    for (final variant in _variants) {
+      final color = variant.color;
+      // Authoring order is the merchant's order — never sorted alphabetically.
+      // The swatch is the first variant's of that colour.
+      if (color.trim().isEmpty || !seen.add(color)) continue;
+      options.add(
+        VariantOption(
           value: color,
-          colorCode: _variants
-              .firstWhere((v) => v.color.trim() == color)
-              .colorCode,
-          soldOut: _variants
-              .where((v) => v.color.trim() == color)
-              .every((v) => v.stock <= 0),
+          colorCode: variant.colorCode,
+          soldOut: isSoldOut(colourAxis, color),
         ),
-      )
-      .toList();
-
-  /// The size/unit row. Empty when no variant names a size.
-  List<VariantOption> get sizeOptions => _distinct((v) => v.name)
-      .map(
-        (size) => VariantOption(
-          value: size,
-          colorCode: '',
-          soldOut:
-              _variants.where((v) => v.name.trim() == size).every((v) => v.stock <= 0),
-        ),
-      )
-      .toList();
-
-  /// Selects the best variant for [color], keeping the current size when that
-  /// pair exists. Returns the variant now selected so the caller can react to a
-  /// sold-out landing (null when the product has no such colour).
-  Variant? selectColor(String color) => _selectAxis(
-        matches: (v) => v.color.trim() == color.trim(),
-        keeps: (v) => v.name.trim() == selectedSize,
       );
-
-  /// Selects the best variant for [size], keeping the current colour when that
-  /// pair exists.
-  Variant? selectSize(String size) => _selectAxis(
-        matches: (v) => v.name.trim() == size.trim(),
-        keeps: (v) => v.color.trim() == selectedColor,
-      );
-
-  Variant? _selectAxis({
-    required bool Function(Variant) matches,
-    required bool Function(Variant) keeps,
-  }) {
-    final candidates = <Variant>[..._variants.where(matches)];
-    if (candidates.isEmpty) return null;
-
-    final exact = <Variant>[...candidates.where(keeps)];
-    final pool = exact.isNotEmpty ? exact : candidates;
-    // Prefer something buyable, but only among variants that already carry the
-    // tapped value — the tapped axis is never silently overridden.
-    //
-    // Written as a loop rather than `firstWhere(..., orElse: …)` on purpose: the
-    // orElse closure's return type is checked against the list's REIFIED element
-    // type, so that form throws at runtime the moment this list is backed by
-    // subtype instances. A loop has no such trap.
-    var variant = pool.first;
-    for (final candidate in pool) {
-      if (candidate.stock > 0) {
-        variant = candidate;
-        break;
-      }
     }
-    selectVariant(variant);
+    return options;
+  }
+
+  /// The non-colour rows, one per unit group, axes and values in the admin's
+  /// order. A legacy product yields the single "Size" row over the variant
+  /// names, exactly as before. Blank values are dropped and an axis left with
+  /// none is omitted, which hides the row rather than rendering a header over
+  /// nothing.
+  List<VariantAxis> get axes => [
+        for (final row in variantAxisList(_variants))
+          if (row.values.any((value) => value.trim().isNotEmpty))
+            VariantAxis(
+              axis: row.axis,
+              values: [
+                for (final value in row.values)
+                  if (value.trim().isNotEmpty) value,
+              ],
+            ),
+      ];
+
+  /// Whether tapping [value] on [axis] lands on something buyable — false
+  /// greys the chip, which stays tappable.
+  ///
+  /// Uses the shared [chipState] rule (the website uses the same one): a row is
+  /// judged only against the rows ABOVE it — Colour on its own, Size against the
+  /// chosen colour, Layer against colour + size. So on White · 57, "Layer 3"
+  /// greys when White 57 has no Layer 3 in stock, while the colour swatches
+  /// never dim because of the size the shopper is on.
+  bool isAvailable(String axis, String value) =>
+      chipState(_variants, _selection, axis, value) == ChipState.available;
+
+  /// True when EVERY variant carrying [value] on [axis] is out of stock — the
+  /// value is gone outright, not just in the current combination.
+  bool isSoldOut(String axis, String value) =>
+      chipState(_variants, _selection, axis, value) == ChipState.soldOut;
+
+  /// Selects the variant for [value] on [axis], keeping the other picks when
+  /// that combination exists (see the note above). Returns the variant now
+  /// selected so the caller can react to a sold-out landing; null only when the
+  /// product has no variants.
+  Variant? selectAxis(String axis, String value) {
+    final next = {..._selection, axis: value};
+    final variant = resolveVariant(_variants, next, changedAxis: axis);
+    if (variant != null) selectVariant(variant);
     return variant;
   }
+
+  /// A colour tap — the same path as every other axis.
+  Variant? selectColor(String color) => selectAxis(colourAxis, color);
 
   /// Pages the gallery shows: every image, plus one for the product video when
   /// the link parses. The video page is the LAST index, so the bound below has

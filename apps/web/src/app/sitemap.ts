@@ -1,5 +1,6 @@
 import type { MetadataRoute } from 'next';
 import { getAllProductIdsForSitemap, getCategories } from '@/lib/data/catalog';
+import { getEnabledPolicies } from '@/lib/data/policies';
 
 /**
  * sitemap.xml — built from the live catalog rather than a checked-in list.
@@ -12,8 +13,8 @@ import { getAllProductIdsForSitemap, getCategories } from '@/lib/data/catalog';
  * a server route that re-runs on the same ISR window as the pages, so a product added at noon is in
  * the sitemap five minutes later without a rebuild.
  *
- * Only public catalog URLs appear here. Account, cart and login are excluded by construction — they
- * are not catalog, so there is no list to accidentally include them from.
+ * Only public catalog and policy URLs appear here. Account, cart and login are excluded by construction
+ * — they are neither, so there is no list to accidentally include them from.
  */
 /** Same 300s window as the catalog pages, as a literal — see lib/data/serverFirestore.ts. */
 export const revalidate = 300;
@@ -24,20 +25,28 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   // emitting nothing is better than emitting a file every crawler rejects.
   if (!siteUrl) return [];
 
-  const [categories, productIds] = await Promise.all([
+  const [categories, productIds, policies] = await Promise.all([
     getCategories(),
     getAllProductIdsForSitemap(),
+    getEnabledPolicies(),
   ]);
 
+  // No /privacy-policy or /terms entries: those are now 308 redirects (next.config.ts), and a sitemap
+  // that lists redirecting URLs is flagged in Search Console. Their targets appear as policies below.
   const staticRoutes: MetadataRoute.Sitemap = [
     { url: siteUrl, changeFrequency: 'daily', priority: 1 },
     { url: `${siteUrl}/categories`, changeFrequency: 'weekly', priority: 0.8 },
-    { url: `${siteUrl}/privacy-policy`, changeFrequency: 'yearly', priority: 0.2 },
-    { url: `${siteUrl}/terms`, changeFrequency: 'yearly', priority: 0.2 },
+    { url: `${siteUrl}/policies`, changeFrequency: 'monthly', priority: 0.2 },
   ];
 
   return [
     ...staticRoutes,
+    ...policies.map((p) => ({
+      url: `${siteUrl}/policies/${encodeURIComponent(p.id)}`,
+      lastModified: p.updatedAt?.toDate(),
+      changeFrequency: 'yearly' as const,
+      priority: 0.2,
+    })),
     ...categories.map((c) => ({
       url: `${siteUrl}/category/${encodeURIComponent(c.name)}`,
       changeFrequency: 'weekly' as const,

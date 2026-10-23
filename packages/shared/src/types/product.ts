@@ -8,12 +8,43 @@ import type { ProductStatus, StockStatus } from '../config/enums';
  * its own Price/Offer/stock (per-variant pricing, spec §1.5). `stockStatus`/`totalStock` are derived
  * server-side from variants (spec §1.6 auto-calc). Date fields use `Timestamp`.
  */
+/**
+ * One axis value of a variant — a unit from a Settings › Variables group, e.g. `{ group: 'Size', value: '57' }`
+ * or `{ group: 'Layer', value: '2' }`. The group name travels WITH the variant so storefronts can label the
+ * chip row without reading `variables/config` (admin-only).
+ */
+export interface VariantOption {
+  group: string;
+  value: string;
+}
+
 export interface VariantProps {
   id: string;
+  /**
+   * Display label of the non-colour part of the variant. For a single-axis variant it IS the axis value
+   * (e.g. "57", shown under "Size"). For a multi-axis variant it is DERIVED from `options` by
+   * `variantLabel` (e.g. "57 · Layer 2") and written alongside them, so every surface that only prints
+   * `name` — cart, order snapshot, invoice, inventory, reviews — keeps working unchanged.
+   */
   name: string;
+  /**
+   * One unit per Settings › Variables group, in group order — e.g. Size 57 + Layer 2. ABSENT on
+   * single-axis variants (every variant before multi-axis support): their `name` is the only axis.
+   * An array, not a map, so the axis order (Size before Layer) survives Firestore. Read it through
+   * `variantAxes` (utils/variantOptions), which folds the legacy case in.
+   */
+  options?: VariantOption[];
   color: string;
   colorCode: string;
-  /** Per-variant pricing (spec §1.5): MRP ≥ Offer ≥ Referral ≥ Commission. Images live on the product. */
+  /**
+   * The product-gallery photo that shows this variant — one of `ProductProps.images`, picked in the admin
+   * variant table. Picking a colour on the storefront slides the gallery to it. ABSENT when none was
+   * picked; a url no longer in `images` (photo removed) counts as absent. Read it through
+   * `variantImageIndex` (utils/variantImage), which also falls back to another size of the same colour,
+   * so the admin only has to set it once per colour.
+   */
+  imageUrl?: string;
+  /** Per-variant pricing (spec §1.5): MRP ≥ Offer ≥ Referral ≥ Commission. */
   mrp: number;
   offerPrice: number;
   referralPrice: number;
@@ -37,6 +68,16 @@ export interface VariantProps {
    * checking `isFlashSale`, and never treat its absence as ₹0.
    */
   flashSalePrice?: number;
+  /**
+   * Display position within the product, 0-based — set by the admin's ▲/▼ variant reorder. Variant 0
+   * is the product's default / "first" variant on every surface (card price, PDP pre-selection).
+   *
+   * ABSENT on variants written before reordering existed. Readers must never drop such a variant:
+   * sort with `sortVariants` (missing → after the ordered ones, `createdAt` order kept), and a
+   * `orderBy('sortOrder')` query needs a `createdAt` fallback because Firestore silently excludes
+   * documents lacking the orderBy field.
+   */
+  sortOrder?: number;
   createdAt: Timestamp;
 }
 

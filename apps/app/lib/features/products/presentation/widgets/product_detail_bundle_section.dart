@@ -154,7 +154,9 @@ class _BundleRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final variant = item.variant;
-    final price = variant?.effectivePrice;
+    final price = variant?.effectivePrice(
+      productInFlashSale: item.product.isFlashSale,
+    );
     final mrp = variant?.mrp;
 
     return DecoratedBox(

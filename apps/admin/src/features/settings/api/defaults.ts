@@ -1,4 +1,4 @@
-import type { GeneralSettingsProps } from '@barakath/shared/types';
+import type { GeneralSettingsProps, Msg91Settings } from '@barakath/shared/types';
 
 /**
  * The `general/config` document id and the default settings used before the doc exists (first run) or
@@ -41,6 +41,9 @@ export const DEFAULT_SETTINGS: GeneralSettingsProps = {
     razorpayConnected: false,
     walletPaymentsEnabled: false,
   },
+  // Legacy, read-only: Privacy / Terms now live in `policies/{id}` (Settings › Policies) and the admin no
+  // longer writes these maps. They stay because the shared GeneralSettingsProps still declares them (the
+  // app and website compile against it during the transition) and old app installs still read them.
   privacy: {
     privacyPolicy: '',
     privacyPolicyUpdatedAt: null,
@@ -54,6 +57,17 @@ export const DEFAULT_SETTINGS: GeneralSettingsProps = {
     helpWhatsApp: '',
     helpEmail: '',
   },
+  updatedAt: null,
+};
+
+/** Empty OTP settings — the `general/msg91` doc doesn't exist until the OTP tab is first saved. */
+export const DEFAULT_MSG91_SETTINGS: Msg91Settings = {
+  appWidgetId: '',
+  appTokenAuth: '',
+  webWidgetId: '',
+  webTokenAuth: '',
+  reviewLoginPhone: '',
+  reviewLoginOtp: '',
   updatedAt: null,
 };
 

@@ -244,7 +244,9 @@ class ProductListingProvider extends ChangeNotifier {
     if (_minRating != null && product.averageRating < _minRating!) return false;
     if (_priceMin == null && _priceMax == null) return true;
     final variant = _variants[product.id];
-    final price = variant?.effectivePrice ?? product.minPrice;
+    final price =
+        variant?.effectivePrice(productInFlashSale: product.isFlashSale) ??
+            product.minPrice;
     if (_priceMin != null && price < _priceMin!) return false;
     if (_priceMax != null && price > _priceMax!) return false;
     return true;

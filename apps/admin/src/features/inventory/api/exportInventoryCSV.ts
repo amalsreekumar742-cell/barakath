@@ -56,7 +56,7 @@ export const exportInventoryCSV = createAsyncThunk<number, InventoryFilters, { r
               productId: p.id,
               productName: p.name,
               productSku: p.sku,
-              sku: variantSku(p.sku, v.color, v.name),
+              sku: variantSku(p.sku, v.color, v.name, v.options),
               variantLabel: variantLabel(v.color, v.name),
               lowStockThreshold: p.lowStockThreshold ?? 0,
               variantId: v.id,

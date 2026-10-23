@@ -132,4 +132,42 @@ class OrderFormat {
       _ => value,
     };
   }
+
+  /// `paymentStatus`, lower-cased and trimmed for comparison.
+  static String _payment(Order order) =>
+      order.paymentStatus.trim().toLowerCase();
+
+  static bool _isCancelled(Order order) =>
+      OrderStatusX.from(order.status) == OrderStatus.cancelled;
+
+  /// The money is back with the customer — `paymentStatus` 'Refunded', which
+  /// `cancelOrder` / `processRefund` write ONLY once the refund actually went
+  /// through. The order being Cancelled is not enough on its own.
+  static bool isRefunded(Order order) => _payment(order) == 'refunded';
+
+  /// Cancelled while still 'Paid': the money was taken and has NOT come back
+  /// yet — the gateway refused the refund at cancel time, or the payment
+  /// landed after the checkout expired. Either way an admin owes a refund.
+  static bool isRefundPending(Order order) =>
+      _isCancelled(order) && _payment(order) == 'paid';
+
+  /// Where a completed refund went, worded for the order card. The wallet
+  /// share goes back to the wallet and the Razorpay share to its original
+  /// source, so a split payment just says "Refunded".
+  static String refundedTo(Order order) =>
+      switch (order.paymentMethod.trim().toLowerCase()) {
+        'wallet' => 'Refunded to wallet',
+        'both' => 'Refunded',
+        _ => 'Refunded to bank',
+      };
+
+  /// `paymentStatus` as the customer should read it. The raw value misleads
+  /// on a cancelled order: 'Paid' there means the refund is still owed, and
+  /// 'Pending' means it was never paid — not that a payment is on its way.
+  static String paymentStatus(Order order) {
+    if (isRefundPending(order)) return 'Refund pending';
+    if (_isCancelled(order) && _payment(order) == 'pending') return 'Not paid';
+    final raw = order.paymentStatus.trim();
+    return raw.isEmpty ? '—' : raw;
+  }
 }

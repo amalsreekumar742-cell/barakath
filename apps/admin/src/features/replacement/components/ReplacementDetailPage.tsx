@@ -161,13 +161,11 @@ const ReplacementDetailPage: FC = () => {
               </div>
               <div className="min-w-0 flex-1 space-y-2">
                 <p className="text-[15px] font-bold text-foreground">{replacement.productName}</p>
-                <div className="flex items-center gap-1.5 text-[13px] text-muted">
-                  <span
-                    className="h-3.5 w-3.5 rounded-full border border-border"
-                    style={{ backgroundColor: replacement.variantColor }}
-                  />
-                  {replacement.variantName}
-                </div>
+                {/* The colour as text, not a swatch: the request snapshots the colour NAME
+                    ("WHITE & GREY"), which is not a CSS colour — the dot rendered empty. */}
+                <p className="text-[13px] text-muted">
+                  {[replacement.variantColor, replacement.variantName].filter(Boolean).join(' · ') || '—'}
+                </p>
                 <p className="text-[13px] text-muted">
                   Quantity: <span className="font-semibold text-foreground">{replacement.quantity}</span>
                 </p>

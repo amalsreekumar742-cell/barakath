@@ -2589,6 +2589,21 @@
           "order": "ASCENDING"
         }
       ]
+    },
+    {
+      "//": "Policies (Settings › Policies → website footer/policy pages + app policy screens): status == 'enabled', orderBy order ASC, limit 50. The status filter is mandatory, not an optimisation — the rules allow public read only while enabled and are checked against the query, so an unfiltered customer list is rejected. The admin list (orderBy order, no filter) uses the automatic single-field index.",
+      "collectionGroup": "policies",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "status",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "order",
+          "order": "ASCENDING"
+        }
+      ]
     }
   ],
   "fieldOverrides": []

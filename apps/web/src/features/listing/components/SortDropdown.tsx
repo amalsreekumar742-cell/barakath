@@ -6,7 +6,7 @@ import type { ProductSort } from '@/lib/data/products';
 import { RESET_ON_FILTER_CHANGE, buildHref } from '../utils/urlParams';
 
 /**
- * SortDropdown — "Sort: Popularity ▾" (spec 3.6 design). A NATIVE `<select>` under the hood: the sort
+ * SortDropdown — "Sort: Newest ▾" (spec 3.6 design). A NATIVE `<select>` under the hood: the sort
  * options are a small, fixed, curated set (never a growable one), which is exactly the case
  * `src/components/form/Field.tsx`'s `Select` doc-comment carves out as correct for a native element —
  * this file builds its own so the pill styling (label + chevron inline, no separate field label) can
@@ -18,9 +18,10 @@ export interface SortDropdownProps {
   value: ProductSort;
 }
 
+/** Newest leads because it is the default (`parseListingParams`), matching the app's sort sheet. */
 const OPTIONS: { value: ProductSort; label: string }[] = [
-  { value: 'popularity', label: 'Popularity' },
   { value: 'newest', label: 'Newest' },
+  { value: 'popularity', label: 'Popularity' },
   { value: 'priceAsc', label: 'Price: Low to High' },
   { value: 'priceDesc', label: 'Price: High to Low' },
   { value: 'rating', label: 'Highest Rated' },

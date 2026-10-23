@@ -6,6 +6,7 @@ import '../../../../core/error/exceptions.dart';
 import '../../../reviews/data/models/review_model.dart';
 import '../models/product_model.dart';
 import '../models/variant_model.dart';
+import 'variant_order.dart';
 import '../../../../core/error/firebase_error_message.dart';
 
 /// The ONLY place the Product **Detail** screen touches Firestore.
@@ -19,10 +20,16 @@ abstract class ProductDetailRemoteDataSource {
   /// `products/{productId}`. Throws [ServerException] when the doc is missing.
   Future<ProductModel> getProduct(String productId);
 
-  /// `products/{productId}/variants` ordered by `createdAt` ascending, so the
-  /// first entry is the variant the merchant created first — the default
-  /// selection on the detail screen.
+  /// `products/{productId}/variants` in the admin's display order
+  /// ([VariantOrder.sort]) — the first entry is the default selection on the
+  /// detail screen, and the same variant every product card prices from.
   Future<List<VariantModel>> getVariants(String productId);
+
+  /// `products/{productId}/variants/{variantId}` — ONE doc by id, or null when
+  /// it no longer exists. For looking up a variant already known by id (buy
+  /// again): searching [getVariants] instead misses one past its cap or
+  /// without `createdAt` (an `orderBy` skips docs missing the field).
+  Future<VariantModel?> getVariant(String productId, String variantId);
 
   /// The bundle / "frequently bought together" products for [productIds]
   /// (capped at 5) paired with each one's first variant for price display.
@@ -40,10 +47,11 @@ class ProductDetailRemoteDataSourceImpl implements ProductDetailRemoteDataSource
 
   final FirebaseFirestore _firestore;
 
-  /// A product can realistically carry a few dozen variants; the cap keeps the
-  /// read bounded (no unbounded `.get()` — skill rule) without paginating a
-  /// selector the user expects to see in full.
-  static const int _variantLimit = 50;
+  /// A multi-axis product multiplies out (10 sizes × 3 layers × a few colours
+  /// is already 90+ variants); the cap keeps the read bounded (no unbounded
+  /// `.get()` — skill rule) without paginating a selector the user expects to
+  /// see in full.
+  static const int _variantLimit = 120;
 
   /// Firestore's `whereIn` accepts at most 30 values; the spec caps the bundle
   /// strip at 5 anyway.
@@ -68,16 +76,29 @@ class ProductDetailRemoteDataSourceImpl implements ProductDetailRemoteDataSource
   @override
   Future<List<VariantModel>> getVariants(String productId) async {
     try {
-      final snap = await _firestore
-          .collection(FirebaseCollections.products)
-          .doc(productId)
-          .collection(FirebaseCollections.variants)
+      // Queried by `createdAt` and sorted in memory, NOT `orderBy('sortOrder')`:
+      // variants that predate reordering have no `sortOrder`, and Firestore
+      // would silently drop them from an ordered query.
+      final snap = await _variantsOf(productId)
           .orderBy('createdAt')
           .limit(_variantLimit)
           .get();
-      return snap.docs.map(VariantModel.fromFirestore).toList();
+      return VariantOrder.sort(snap.docs.map(VariantModel.fromFirestore).toList());
     } on FirebaseException catch (e) {
       throw ServerException(FirebaseErrorMessage.of(e) ?? 'Could not load variants.', e.code);
+    }
+  }
+
+  @override
+  Future<VariantModel?> getVariant(String productId, String variantId) async {
+    // An empty id would make `.doc('')` throw an ArgumentError, not a
+    // FirebaseException — and it can't name a real variant anyway.
+    if (productId.isEmpty || variantId.isEmpty) return null;
+    try {
+      final doc = await _variantsOf(productId).doc(variantId).get();
+      return doc.exists ? VariantModel.fromFirestore(doc) : null;
+    } on FirebaseException catch (e) {
+      throw ServerException(FirebaseErrorMessage.of(e) ?? 'Could not load this variant.', e.code);
     }
   }
 
@@ -135,17 +156,13 @@ class ProductDetailRemoteDataSourceImpl implements ProductDetailRemoteDataSource
     }
   }
 
+  CollectionReference<Map<String, dynamic>> _variantsOf(String productId) => _firestore
+      .collection(FirebaseCollections.products)
+      .doc(productId)
+      .collection(FirebaseCollections.variants);
+
   /// The cheapest way to price a bundle tile: one variant, not the whole
-  /// subcollection.
-  Future<VariantModel?> _firstVariant(String productId) async {
-    final snap = await _firestore
-        .collection(FirebaseCollections.products)
-        .doc(productId)
-        .collection(FirebaseCollections.variants)
-        .orderBy('createdAt')
-        .limit(1)
-        .get();
-    if (snap.docs.isEmpty) return null;
-    return VariantModel.fromFirestore(snap.docs.first);
-  }
+  /// subcollection — picked by the same rule as every other product card.
+  Future<VariantModel?> _firstVariant(String productId) =>
+      VariantOrder.readFirst(_variantsOf(productId));
 }

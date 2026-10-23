@@ -1,8 +1,9 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { ShoppingBag, Truck } from 'lucide-react';
+import { AlertTriangle, ShoppingBag, Truck } from 'lucide-react';
 import { Button } from '@/components/Button';
 import { EmptyState } from '@/components/EmptyState';
 import { SkeletonText } from '@/components/Skeleton';
@@ -12,6 +13,7 @@ import { useRequireAuth } from '@/hooks/useRequireAuth';
 import { useAddresses } from '@/features/address/hooks/useAddresses';
 import { computeTotals } from '@/lib/commerce/totals';
 import { CouponPanel } from '@/features/cart/components/CouponPanel';
+import { useLiveStock, lineKey } from '@/features/cart/components/useLiveStock';
 import { placeOrder, confirmPayment, type PlaceOrderFailure } from '../api/checkoutThunks';
 import { fetchCheckoutSettings, openReconcile, closeReconcile, clearFailure } from '../stores/checkoutSlice';
 import { AddressBlock } from './AddressBlock';
@@ -46,6 +48,13 @@ export function CheckoutSection() {
   const checkout = useAppSelector((s) => s.checkout);
 
   const { addresses, loading: addressesLoading, mutating, add, remove } = useAddresses(uid);
+
+  // The same live refresh `/cart` runs, re-run here because `/checkout` is reachable without passing
+  // through the bag (a bookmark, a back-navigation, a tab left open) and this is the screen that takes
+  // the money. It rewrites stale prices/labels from the live variant and trims any quantity above the
+  // stock left, so `createPaymentOrder` neither re-prices the order into an "amount changed" prompt
+  // nor rejects it with "Only N left". Placing the order waits for it (see `canPlaceOrder`).
+  const { stockByKey, isChecking: isCheckingLines } = useLiveStock(cart.items);
 
   const [showConfirm, setShowConfirm] = useState(false);
   // The reconcile dialog's promise resolver — a closure, not durable state, so it lives in a ref
@@ -112,7 +121,11 @@ export function CheckoutSection() {
   });
   const selectedAddress = addresses.find((a) => a.id === cart.selectedAddressId) ?? null;
   const isBusy = checkout.isPlacingOrder || checkout.isConfirmingPayment;
-  const canPlaceOrder = cart.items.length > 0 && selectedAddress !== null && !isBusy;
+  // A sold-out line can't be bought and the server would reject the whole order over it — the bag is
+  // where the customer removes it (spec 2.11: greyed there, never auto-removed).
+  const hasOutOfStockItem = cart.items.some((i) => stockByKey[lineKey(i.productId, i.variantId)] === 0);
+  const canPlaceOrder =
+    cart.items.length > 0 && selectedAddress !== null && !isBusy && !isCheckingLines && !hasOutOfStockItem;
 
   /** Resolves once the customer answers the reconcile dialog — handed to `placeOrder` as `onReconcileRequired`. */
   function onReconcileRequired(server: { amount: number; displayed: number }): Promise<boolean> {
@@ -241,9 +254,18 @@ export function CheckoutSection() {
           totals={totals}
           couponCode={cart.appliedCoupon?.code ?? null}
           disabled={!canPlaceOrder}
-          loading={isBusy}
+          loading={isBusy || isCheckingLines}
           onPlaceOrder={() => setShowConfirm(true)}
         />
+
+        {hasOutOfStockItem && (
+          <p role="alert" className="flex items-center justify-center gap-1.5 text-xs font-medium text-error">
+            <AlertTriangle size={13} aria-hidden /> An item in your bag is out of stock.{' '}
+            <Link href="/cart" className="underline">
+              Review bag
+            </Link>
+          </p>
+        )}
 
         {checkout.lastFailure?.reason === 'server-error' && (
           <p role="alert" className="text-sm font-medium text-error">

@@ -14,7 +14,7 @@ export type {
   OrderShippingAddress,
   OrderStatusTimelineEntry,
 } from './order';
-export type { ProductProps, VariantProps, SpecificationProps } from './product';
+export type { ProductProps, VariantProps, VariantOption, SpecificationProps } from './product';
 export type { VariantCostProps, OrderCostProps, OrderCostLine } from './cost';
 export type { CategoryProps } from './category';
 export type { SubCategoryProps } from './subCategory';
@@ -29,6 +29,7 @@ export type {
   PrivacySettings,
   TermsSettings,
   ContactUsSettings,
+  Msg91Settings,
 } from './general';
 export type { UserProps, UserAddressProps } from './user';
 export type { WalletTransactionProps } from './wallet';
@@ -42,3 +43,4 @@ export type { BannerProps } from './banner';
 export type { FlashSaleProps, FlashSaleVariantPrice, FlashSaleProduct } from './flashSale';
 export type { AffiliateProductCommission } from './affiliateConfig';
 export type { NotificationProps } from './notification';
+export type { PolicyProps } from './policy';

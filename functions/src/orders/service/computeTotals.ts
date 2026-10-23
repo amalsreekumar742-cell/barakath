@@ -18,6 +18,36 @@ export function toPaisa(rupees: number): number {
 }
 
 /**
+ * The per-unit price a cart line is CHARGED at: the variant's flash-sale price while one applies,
+ * otherwise its `offerPrice` (already resolved by the caller from the same variant doc).
+ *
+ * WHY: checkout used to price every line at `offerPrice` only, while the app's Pay button and the web
+ *   cart show the flash price — so during a sale the customer was charged MORE than the figure they
+ *   tapped Pay on.
+ * WHY all three conditions:
+ *   - `product.isFlashSale === true` — flashSaleManager raises it for the sale window and lowers it
+ *     after; a variant's leftover `flashSalePrice` without it is not a live sale.
+ *   - a numeric `flashSalePrice > 0` — anything else is a missing / malformed price, never "free".
+ *   - strictly BELOW `offerPrice` — the flash price is snapshotted when the sale is created, so an
+ *     admin lowering `offerPrice` in place mid-sale can leave a HIGHER stale flash price behind. A flash
+ *     sale must never make an item dearer than its everyday price.
+ */
+export function chargedUnitPrice(
+  product: { isFlashSale?: unknown },
+  variant: { flashSalePrice?: unknown },
+  offerPrice: number,
+): number {
+  // Accept a numeric string too: the app's model parser coerces one, so it would DISPLAY that price.
+  const raw = variant.flashSalePrice;
+  const flash =
+    typeof raw === 'number' ? raw : typeof raw === 'string' && raw.trim() !== '' ? Number(raw) : NaN;
+  if (product.isFlashSale === true && Number.isFinite(flash) && flash > 0 && flash < offerPrice) {
+    return flash;
+  }
+  return offerPrice;
+}
+
+/**
  * Delivery charge: a combo product's own comboDeliveryCharge REPLACES the standard fee (spec §2.13);
  * otherwise the standard fee applies unless the subtotal clears the free-delivery threshold. When more
  * than one combo is present the largest comboDeliveryCharge wins (a single shipment).

@@ -96,7 +96,11 @@ export function OrderCard({ order, reordering, onReorder }: OrderCardProps) {
                 {reordering && <Loader2 className="size-3 animate-spin" aria-hidden />}
                 Reorder
               </button>
-              <Link href={`${detailHref}/return`} className="text-primary hover:underline">
+              {/* Order Detail, not `/return`: the return page needs the `productId` + `variantId` of ONE
+                  line and this card has no line chosen, so a bare `/return` always dead-ended on "That
+                  item is not part of this order". The detail page shows a Return action on each line
+                  that is actually eligible (see the header comment above). */}
+              <Link href={detailHref} className="text-primary hover:underline">
                 Return
               </Link>
             </>

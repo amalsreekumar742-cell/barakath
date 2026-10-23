@@ -23,6 +23,10 @@ export interface ResolvedItem {
   variantName: string;
   variantColor: string;
   mrp: number;
+  /**
+   * The per-unit price actually CHARGED — the flash-sale price while one applies (see
+   * `chargedUnitPrice`), else the variant's offerPrice. Written to the order item under this name.
+   */
   offerPrice: number;
   quantity: number;
   /** offerPrice × quantity (line subtotal). */

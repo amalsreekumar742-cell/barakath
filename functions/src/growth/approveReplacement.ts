@@ -5,6 +5,7 @@ import { Collections } from '../config/collections';
 import { validateAdmin } from '../utils/validateAuth';
 import { sendFCMToUser } from '../utils/sendFCM';
 import { creditWallet } from '../orders/service/wallet';
+import { round2 } from '../orders/service/computeTotals';
 import keywordsBuilder from '../utils/keywordsBuilder';
 import {
   computeReplacementRefund,
@@ -85,8 +86,6 @@ export const approveReplacement = onCall(
       userId?: string;
       status?: string;
       paymentStatus?: string;
-      grandTotal?: number;
-      replacementRefundedTotal?: number;
     };
 
     // Nothing to give back if the customer never paid, or if the order was already refunded in full by
@@ -101,6 +100,14 @@ export const approveReplacement = onCall(
       throw new HttpsError(
         'failed-precondition',
         'This order was cancelled and already refunded',
+      );
+    }
+    // A return is a post-delivery action (spec §2.18). The apps only offer it on a Delivered order,
+    // but that is a UI choice a crafted request ignores — so it is enforced here, where money moves.
+    if (originalOrder.status !== 'Delivered') {
+      throw new HttpsError(
+        'failed-precondition',
+        'Only a delivered order can be returned — this order has not been delivered yet',
       );
     }
 
@@ -123,26 +130,26 @@ export const approveReplacement = onCall(
       throw err;
     }
 
-    // Cap against what is left on the order, so several partial returns can never jointly refund more
-    // than was paid. The stored running total is read again inside the transaction below.
-    const grandTotal = originalOrder.grandTotal ?? 0;
-    const alreadyRefunded = originalOrder.replacementRefundedTotal ?? 0;
-    const refundAmount = Math.min(breakdown.refundAmount, Math.max(0, grandTotal - alreadyRefunded));
-    if (refundAmount <= 0) {
-      throw new HttpsError('failed-precondition', 'Nothing left to refund on this order');
-    }
-
     const userRef = db.collection(Collections.users).doc(customerId);
     const ledgerRef = db
       .collection(Collections.walletTransactions)
       .doc(`replacement_${replacementId}`);
+    // Every request raised against this order. Bounded: an order has a handful of lines, and one
+    // request per line is all the apps allow. Filtered in memory so no composite index is needed.
+    const siblingsQuery = db
+      .collection(Collections.replacements)
+      .where('orderId', '==', originalOrderId)
+      .limit(100);
+    const requestProductId = replacement.productId ?? '';
+    const requestVariantId = replacement.variantId ?? '';
 
-    const newBalance = await db.runTransaction(async (tx) => {
-      const [freshReplacement, freshLedger, userDoc, freshOrder] = await Promise.all([
+    const { newBalance, refundAmount } = await db.runTransaction(async (tx) => {
+      const [freshReplacement, freshLedger, userDoc, freshOrder, siblings] = await Promise.all([
         tx.get(replacementRef),
         tx.get(ledgerRef),
         tx.get(userRef),
         tx.get(orderRef),
+        tx.get(siblingsQuery),
       ]);
 
       // Re-read the status INSIDE the transaction: the read at the top of this function is a snapshot,
@@ -158,6 +165,43 @@ export const approveReplacement = onCall(
       if (!userDoc.exists) {
         throw new HttpsError('not-found', 'Customer not found');
       }
+      if (freshOrder.get('status') !== 'Delivered') {
+        throw new HttpsError(
+          'failed-precondition',
+          'Only a delivered order can be returned — this order has not been delivered yet',
+        );
+      }
+
+      // One refunded return per order line. The ledger guard above is per REQUEST, so a second
+      // request for the same line (raised from the other surface, or before the first was resolved)
+      // would otherwise pay out the same item twice. Read inside the transaction so two admins
+      // approving two such requests at once cannot both pass. Same line-matching rule as
+      // computeReplacementRefund: product + variant, or variant alone when productId is absent.
+      const duplicate = siblings.docs.find((d) => {
+        if (d.id === replacementId || d.get('status') !== 'Approved') return false;
+        if (String(d.get('variantId') ?? '') !== requestVariantId) return false;
+        const otherProductId = String(d.get('productId') ?? '');
+        return !requestProductId || !otherProductId || otherProductId === requestProductId;
+      });
+      if (duplicate) {
+        throw new HttpsError(
+          'failed-precondition',
+          `A return for this item on order #${originalOrderId} was already approved and refunded (request ${String(duplicate.get('requestId') ?? duplicate.id)})`,
+        );
+      }
+
+      // Cap against what is left on the order, so several partial returns can never jointly refund
+      // more than was paid FOR GOODS. Delivery is excluded: it is never refunded on a return (see
+      // computeReplacementRefund), so leaving it inside the cap let returns eat into it. Computed from
+      // the order read inside this transaction, so a concurrent approval's increment is seen.
+      const grandTotal = Number(freshOrder.get('grandTotal')) || 0;
+      const deliveryCharge = Number(freshOrder.get('deliveryCharge')) || 0;
+      const alreadyRefunded = Number(freshOrder.get('replacementRefundedTotal')) || 0;
+      const refundable = round2(Math.max(0, grandTotal - deliveryCharge - alreadyRefunded));
+      const amount = round2(Math.min(breakdown.refundAmount, refundable));
+      if (amount <= 0) {
+        throw new HttpsError('failed-precondition', 'Nothing left to refund on this order');
+      }
 
       const currentBalance = (userDoc.get('walletBalance') as number | undefined) ?? 0;
       const balanceAfter = creditWallet(
@@ -165,7 +209,7 @@ export const approveReplacement = onCall(
         userRef,
         customerId,
         currentBalance,
-        refundAmount,
+        amount,
         originalOrderId,
         `Refund for returned item in order #${originalOrderId}`,
         ledgerRef,
@@ -174,7 +218,7 @@ export const approveReplacement = onCall(
       tx.update(replacementRef, {
         status: 'Approved',
         adminNote: note,
-        refundAmount,
+        refundAmount: amount,
         refundedToWallet: true,
         walletTransactionId: ledgerRef.id,
         // Always '' now — no replacement order is created. Non-empty values survive only on requests
@@ -190,17 +234,17 @@ export const approveReplacement = onCall(
       // The timeline note reuses the order's CURRENT status so onOrderStatusUpdate stays a no-op and
       // the customer doesn't get a spurious "your order status changed" push.
       tx.update(orderRef, {
-        replacementRefundedTotal: FieldValue.increment(refundAmount),
+        replacementRefundedTotal: FieldValue.increment(amount),
         statusTimeline: FieldValue.arrayUnion({
           status: freshOrder.get('status') ?? originalOrder.status ?? '',
           // A Timestamp (not serverTimestamp) — FieldValue sentinels are illegal inside an array.
           timestamp: Timestamp.now(),
-          note: `₹${refundAmount} refunded to wallet for a returned item`,
+          note: `₹${amount} refunded to wallet for a returned item`,
         }),
         updatedAt: FieldValue.serverTimestamp(),
       });
 
-      return balanceAfter;
+      return { newBalance: balanceAfter, refundAmount: amount };
     });
 
     // Best-effort notification; never let a delivery failure undo the refund (already committed).

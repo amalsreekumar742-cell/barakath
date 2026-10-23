@@ -22,6 +22,7 @@ import {
   type QuerySnapshot,
 } from 'firebase/firestore';
 import { FirestoreCollections } from '@barakath/shared';
+import { sortVariants } from '@barakath/shared/utils/sortVariants';
 import type {
   BannerProps,
   CategoryProps,
@@ -206,27 +207,46 @@ export async function getProductById(productId: string): Promise<ProductProps | 
   return product.status === 'Active' ? product : null;
 }
 
+/** `products/{productId}/variants` — the one place this module builds that subcollection path. */
+function variantsOf(productId: string) {
+  return collection(serverDb, FirestoreCollections.products, productId, FirestoreCollections.variants);
+}
+
 /**
- * A product's variants — the subcollection `products/{id}/variants/{id}`.
+ * A product's variants — the subcollection `products/{id}/variants/{id}` — in the admin's chosen
+ * display order (`sortOrder`). Index 0 is the default the PDP pre-selects.
  *
  * WHY it matters that this is a subcollection: price, stock and per-variant images live ONLY here,
  * and there is no top-level `variants` collection. Reading the wrong path is how the app once
  * rendered a whole category at ₹0 — the query succeeded and returned nothing.
+ *
+ * WHY still queried by `createdAt` and sorted in memory rather than `orderBy('sortOrder')`: variants
+ * written before reordering existed have no `sortOrder`, and Firestore silently EXCLUDES documents
+ * lacking the orderBy field — the PDP would lose those variants outright. `sortVariants` puts the
+ * ordered ones first and keeps the rest in this `createdAt` order, the same rule every surface uses.
  */
 export async function getVariants(productId: string): Promise<VariantProps[]> {
   const snap = await getDocs(
-    query(
-      collection(
-        serverDb,
-        FirestoreCollections.products,
-        productId,
-        FirestoreCollections.variants,
-      ),
-      orderBy('createdAt'),
-      limit(Constants.MAX_VARIANTS),
-    ),
+    query(variantsOf(productId), orderBy('createdAt'), limit(Constants.MAX_VARIANTS)),
   );
-  return mapDocs<VariantProps>(snap);
+  return sortVariants(mapDocs<VariantProps>(snap));
+}
+
+/**
+ * A product's FIRST variant (lowest `sortOrder`) in one-document reads, or null when it has none.
+ *
+ * WHY a fallback rather than one query: `orderBy('sortOrder')` silently excludes variants with no
+ * `sortOrder` (everything written before reordering existed, until the backfill runs), so an empty
+ * result means "nobody has ordered this product yet", not "no variants". The `createdAt` read is the
+ * same default `getVariants` falls back to, so a card and its PDP agree on the default either way.
+ */
+async function getFirstVariant(productId: string): Promise<VariantProps | null> {
+  for (const field of ['sortOrder', 'createdAt'] as const) {
+    const snap = await getDocs(query(variantsOf(productId), orderBy(field), limit(1)));
+    const [variant] = mapDocs<VariantProps>(snap);
+    if (variant) return variant;
+  }
+  return null;
 }
 
 /**
@@ -237,7 +257,9 @@ export async function getVariants(productId: string): Promise<VariantProps[]> {
  * cannot be filtered by parent id (`documentId()` there matches the variant's own path segment, not
  * the product). The honest options are N small reads or fetching every variant in the database and
  * discarding most. `Promise.all` makes the N reads one round-trip wide, which is what actually
- * matters for time-to-first-paint; each read is `limit(1)`, so the cost is one document per card.
+ * matters for time-to-first-paint; each read is `limit(1)`, so the cost is one document per card (a
+ * second, equally small read only for a product whose variants have no `sortOrder` yet — see
+ * `getFirstVariant`).
  */
 export async function getFirstVariantByProduct(
   productIds: string[],
@@ -247,19 +269,7 @@ export async function getFirstVariantByProduct(
 
   await Promise.all(
     productIds.map(async (productId) => {
-      const snap = await getDocs(
-        query(
-          collection(
-            serverDb,
-            FirestoreCollections.products,
-            productId,
-            FirestoreCollections.variants,
-          ),
-          orderBy('createdAt'),
-          limit(1),
-        ),
-      );
-      const [variant] = mapDocs<VariantProps>(snap);
+      const variant = await getFirstVariant(productId);
       if (variant) result[productId] = variant;
     }),
   );

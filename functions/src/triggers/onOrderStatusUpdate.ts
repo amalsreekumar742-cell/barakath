@@ -52,7 +52,11 @@ export const onOrderStatusUpdate = onDocumentUpdated('orders/{orderId}', async (
       break;
     case 'Shipped':
       title = 'Order shipped';
-      body = `Your order #${orderId} has been shipped. Tracking ID: ${trackingId}`;
+      // The admin's shipment form (tracking + courier) is switched off, so most shipments carry no
+      // tracking ID — announce one only when it exists, never a dangling "Tracking ID: ".
+      body = trackingId
+        ? `Your order #${orderId} has been shipped. Tracking ID: ${trackingId}`
+        : `Your order #${orderId} has been shipped`;
       break;
     case 'Out for delivery':
       title = 'Out for delivery';

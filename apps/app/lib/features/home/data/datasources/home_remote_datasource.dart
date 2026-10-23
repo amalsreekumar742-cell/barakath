@@ -6,6 +6,7 @@ import '../../../../core/error/exceptions.dart';
 import '../../../../core/utils/model_parse.dart';
 import '../../../categories/data/models/category_model.dart';
 import '../../../products/data/models/product_model.dart';
+import '../../../products/data/datasources/variant_order.dart';
 import '../../../products/data/models/variant_model.dart';
 import '../models/banner_model.dart';
 import '../../../../core/error/firebase_error_message.dart';
@@ -106,7 +107,10 @@ class HomeRemoteDataSourceImpl implements HomeRemoteDataSource {
   @override
   Future<List<ProductModel>> getFlashSaleProducts({int limit = 6}) =>
       _products(
-        _activeProducts.where('isFlashSale', isEqualTo: true).limit(limit),
+        _activeProducts
+            .where('isFlashSale', isEqualTo: true)
+            .orderBy('createdAt', descending: true)
+            .limit(limit),
         'Could not load the flash sale.',
       );
 
@@ -197,17 +201,15 @@ class HomeRemoteDataSourceImpl implements HomeRemoteDataSource {
     }
   }
 
+  /// Picked by `VariantOrder.readFirst` — the cross-surface "first variant"
+  /// rule, so a home card prices from the same variant as listing and search.
   Future<MapEntry<String, VariantModel?>> _firstVariantOf(String productId) async {
-    final snap = await _firestore
-        .collection(FirebaseCollections.products)
-        .doc(productId)
-        .collection(FirebaseCollections.variants)
-        .orderBy('createdAt')
-        .limit(1)
-        .get();
-    return MapEntry(
-      productId,
-      snap.docs.isEmpty ? null : VariantModel.fromFirestore(snap.docs.first),
+    final variant = await VariantOrder.readFirst(
+      _firestore
+          .collection(FirebaseCollections.products)
+          .doc(productId)
+          .collection(FirebaseCollections.variants),
     );
+    return MapEntry(productId, variant);
   }
 }

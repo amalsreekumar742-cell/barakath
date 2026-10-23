@@ -4,12 +4,14 @@ import { getAuth } from 'firebase-admin/auth';
 import { getFirestore, FieldValue } from 'firebase-admin/firestore';
 import { Collections } from '../config/collections';
 import keywordsBuilder from '../utils/keywordsBuilder';
+import { OTP_REQUESTS_COLLECTION, OTP_REQUEST_TTL_MS, normalizeOtpSource } from './constants';
 import {
-  OTP_REQUESTS_COLLECTION,
-  OTP_REQUEST_TTL_MS,
-  normalizeOtpSource,
+  type OtpConfig,
+  getOtpConfig,
+  isReviewLogin,
+  isReviewOtp,
   resolveWidgetCredentials,
-} from './constants';
+} from './otpConfig';
 import { verifyOtp, normalizePhone, isSuccess } from './msg91Client';
 
 /**
@@ -43,31 +45,13 @@ export const verifyOTP = onCall(async (request) => {
     const db = getFirestore();
     const auth = getAuth();
 
-    // The pending request issued by authOTP — required by the widget verify call.
-    const reqRef = db.collection(OTP_REQUESTS_COLLECTION).doc(normalized.digits);
-    const reqSnap = await reqRef.get();
-    const pending = reqSnap.data();
-    const reqId = typeof pending?.reqId === 'string' ? pending.reqId : '';
-    const createdAtMs = typeof pending?.createdAtMs === 'number' ? pending.createdAtMs : 0;
+    const config = await getOtpConfig();
 
-    // Resolve the widget from the STORED source, not from anything the client sends now — the reqId
-    // above was issued by that widget and cannot be verified against another. Legacy pending requests
-    // written before this field existed have no `source`; normalizeOtpSource maps that to 'app'.
-    const { widgetId, tokenAuth } = resolveWidgetCredentials(normalizeOtpSource(pending?.source));
-
-    if (!reqId || Date.now() - createdAtMs > OTP_REQUEST_TTL_MS) {
-      // Nothing pending (or it aged out) — the client should request a fresh code.
-      logger.error(
-        `verifyOTP: no usable pending request for ${normalized.digits} — ` +
-          `exists=${reqSnap.exists} reqId=${reqId || '(none)'} ` +
-          `createdAtMs=${createdAtMs} ageMs=${createdAtMs ? Date.now() - createdAtMs : 'n/a'} ` +
-          `data=${JSON.stringify(pending ?? null)}`,
-      );
-      throw new HttpsError('failed-precondition', 'This code has expired. Please request a new OTP.');
-    }
-
-    const result = await verifyOtp(widgetId, tokenAuth, reqId, otp);
-    if (!isSuccess(result)) {
+    // The Play reviewer number has no MSG91 request (authOTP never sent one) — it checks a fixed code.
+    const verified = isReviewLogin(config, normalized.local)
+      ? isReviewOtp(config, otp)
+      : await verifyPendingRequest(config, normalized.digits, otp);
+    if (!verified) {
       // Wrong/expired code — not an error condition, a negative result the client shows inline.
       return { verified: false };
     }
@@ -78,9 +62,6 @@ export const verifyOTP = onCall(async (request) => {
     if (userSnap.empty) {
       userSnap = await usersRef.where('phone', '==', normalized.local).limit(1).get();
     }
-
-    // The code is spent — drop the pending request so it can't be replayed.
-    await reqRef.delete().catch(() => undefined);
 
     if (!userSnap.empty) {
       const doc = userSnap.docs[0];
@@ -126,3 +107,39 @@ export const verifyOTP = onCall(async (request) => {
     throw new HttpsError('internal', 'Could not verify the OTP. Please try again.');
   }
 });
+
+/**
+ * Verify `otp` against the MSG91 request authOTP parked for this phone, then drop that request so the
+ * code can't be replayed. Resolves false for a wrong code; throws when nothing usable is pending.
+ */
+async function verifyPendingRequest(config: OtpConfig, digits: string, otp: string): Promise<boolean> {
+  // The pending request issued by authOTP — required by the widget verify call.
+  const reqRef = getFirestore().collection(OTP_REQUESTS_COLLECTION).doc(digits);
+  const reqSnap = await reqRef.get();
+  const pending = reqSnap.data();
+  const reqId = typeof pending?.reqId === 'string' ? pending.reqId : '';
+  const createdAtMs = typeof pending?.createdAtMs === 'number' ? pending.createdAtMs : 0;
+
+  // Resolve the widget from the STORED source, not from anything the client sends now — the reqId
+  // above was issued by that widget and cannot be verified against another. Legacy pending requests
+  // written before this field existed have no `source`; normalizeOtpSource maps that to 'app'.
+  const { widgetId, tokenAuth } = resolveWidgetCredentials(config, normalizeOtpSource(pending?.source));
+
+  if (!reqId || Date.now() - createdAtMs > OTP_REQUEST_TTL_MS) {
+    // Nothing pending (or it aged out) — the client should request a fresh code.
+    logger.error(
+      `verifyOTP: no usable pending request for ${digits} — ` +
+        `exists=${reqSnap.exists} reqId=${reqId || '(none)'} ` +
+        `createdAtMs=${createdAtMs} ageMs=${createdAtMs ? Date.now() - createdAtMs : 'n/a'} ` +
+        `data=${JSON.stringify(pending ?? null)}`,
+    );
+    throw new HttpsError('failed-precondition', 'This code has expired. Please request a new OTP.');
+  }
+
+  const result = await verifyOtp(widgetId, tokenAuth, reqId, otp);
+  if (!isSuccess(result)) return false;
+
+  // The code is spent — drop the pending request so it can't be replayed.
+  await reqRef.delete().catch(() => undefined);
+  return true;
+}

@@ -197,6 +197,7 @@ class _BagPageState extends State<BagPage> {
               child: CartLineTile(
                 item: item,
                 variant: cart.variantFor(item),
+                unitPrice: cart.unitPriceFor(item),
                 onIncrement: () async {
                   final stock = cart.variantFor(item)?.stock ?? 0;
                   if (item.quantity >= stock) {

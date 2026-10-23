@@ -12,6 +12,7 @@ import OrderStatusBadge from '@/components/OrderStatusBadge';
 import { formatINR } from '@/utils/format';
 import { fetchOrderDetail } from '../api/fetchOrderDetail';
 import { updateOrderStatus } from '../api/updateOrderStatus';
+import { retryRefund } from '../api/retryRefund';
 import { resetOrderDetail } from '../stores/ordersSlice';
 import {
   FLOW_STEPS,
@@ -21,9 +22,12 @@ import {
   isStepComplete,
   isOrderPaid,
   unpaidAdvanceReason,
+  firstEntryByStatus,
 } from '../utils/orderFlow';
 import { PaymentMethodBadge, PaymentStatusBadge } from './PaymentBadges';
-import ShipmentModal from './ShipmentModal';
+// Shipment details (tracking ID + courier) are switched off for now — Ship is a plain confirm like
+// every other step. Kept commented, not deleted, so it can be turned back on.
+// import ShipmentModal from './ShipmentModal';
 import CancelOrderModal from './CancelOrderModal';
 
 const Card: FC<{ title: string; children: React.ReactNode; action?: React.ReactNode }> = ({
@@ -47,8 +51,8 @@ const flowIndex = (s: string) => FLOW_STEPS.indexOf(s as (typeof FLOW_STEPS)[num
 
 /**
  * OrderDetailPage — full order view + sequential status control (spec §1.7). The action area shows only
- * the single next valid step (never a dropdown): advancing runs a confirm; Ship opens the shipment
- * form; Cancel (Pending only) opens the cancel form. Timeline, items, payment and tracking read off the
+ * the single next valid step (never a dropdown): advancing runs a confirm (Ship included — the
+ * shipment form is switched off); Cancel (Pending only) opens the cancel form. Timeline, items, payment and tracking read off the
  * one order doc.
  */
 const OrderDetailPage: FC = () => {
@@ -60,8 +64,10 @@ const OrderDetailPage: FC = () => {
   );
 
   const [confirmAdvance, setConfirmAdvance] = useState(false);
-  const [shipOpen, setShipOpen] = useState(false);
+  // const [shipOpen, setShipOpen] = useState(false);
   const [cancelOpen, setCancelOpen] = useState(false);
+  const [confirmRetry, setConfirmRetry] = useState(false);
+  const [retrying, setRetrying] = useState(false);
 
   useEffect(() => {
     void dispatch(fetchOrderDetail(id));
@@ -80,6 +86,22 @@ const OrderDetailPage: FC = () => {
     setConfirmAdvance(false);
     if (updateOrderStatus.fulfilled.match(res)) toast.success(`Order status updated to ${next}`);
     else toast.error((res.payload as string) ?? 'Could not update status');
+  };
+
+  // A cancelled order whose Razorpay refund failed at cancel time (`gatewayRefundPending`) — retry it
+  // through the server, then re-read the order so the page shows what the server recorded.
+  const doRetryRefund = async () => {
+    if (!order) return;
+    setRetrying(true);
+    const res = await dispatch(retryRefund(order.id));
+    setRetrying(false);
+    setConfirmRetry(false);
+    if (retryRefund.fulfilled.match(res)) {
+      toast.success('Refund issued');
+      void dispatch(fetchOrderDetail(order.id));
+    } else {
+      toast.error(res.payload ?? 'Could not retry the refund');
+    }
   };
 
   const copy = (text: string) => {
@@ -125,21 +147,37 @@ const OrderDetailPage: FC = () => {
   }
 
   const action = nextActionLabel(order.status);
-  // Stock is reserved at checkout, before payment, and only dailyCleanup (which matches orders still
-  // at status 'Pending') gives it back. Advancing an unpaid order strands that stock for good and
-  // ships goods nobody paid for — so the advance button is disabled with the reason spelled out.
-  // Cancel stays enabled: it is the correct way to release an abandoned checkout.
+  // Unpaid checkouts live in `orderDrafts` until paid, so an unpaid order here is a legacy or
+  // Failed/Refunded document. Advancing it would ship goods nobody paid for — so the advance button is
+  // disabled with the reason spelled out. Cancel stays enabled: it is the correct way to clear one.
   const paid = isOrderPaid(order.paymentStatus);
   const blockedReason = paid ? null : unpaidAdvanceReason(order.paymentStatus);
   const shippedOrLater = flowIndex(order.status) >= flowIndex(OrderStatus.SHIPPED);
-  const timelineByStatus = new Map<string, OrderStatusTimelineEntry>(
-    (order.statusTimeline ?? []).map((e) => [e.status, e]),
-  );
+  // First entry per status: a later same-status entry (e.g. a return refund note) must not overwrite
+  // when the step actually happened — see firstEntryByStatus.
+  const timelineByStatus = firstEntryByStatus<OrderStatusTimelineEntry>(order.statusTimeline);
   const isCancelled = order.status === OrderStatus.CANCELLED;
   const cancelledEntry = timelineByStatus.get(OrderStatus.CANCELLED);
 
   return (
     <div className="p-6">
+      {/* Refund still owed: cancelled, but the Razorpay refund failed at cancel time. */}
+      {isCancelled && order.gatewayRefundPending && (
+        <div className="mb-4 flex flex-wrap items-center gap-3 rounded-xl border border-warning-subtle bg-warning-subtle/50 px-4 py-3">
+          <Icon name="AlertLine" size={18} className="shrink-0 text-warning" />
+          <p className="flex-1 text-[13px] text-foreground">
+            This order was cancelled but the Razorpay refund failed — {formatINR(order.grandTotal - (order.walletAmountUsed ?? 0))} is still owed to the customer.
+          </p>
+          <button
+            type="button"
+            onClick={() => setConfirmRetry(true)}
+            className="rounded-md bg-primary px-4 py-2 text-[13px] font-semibold text-white hover:bg-primary-dark"
+          >
+            Retry refund
+          </button>
+        </div>
+      )}
+
       {/* Top section */}
       <div className="mb-4 flex flex-wrap items-start justify-between gap-4 rounded-xl border border-border bg-surface p-5 shadow-sm">
         <div>
@@ -168,9 +206,8 @@ const OrderDetailPage: FC = () => {
               type="button"
               disabled={updateStatusLoading || !paid}
               title={blockedReason ?? undefined}
-              onClick={() =>
-                order.status === OrderStatus.PACKED ? setShipOpen(true) : setConfirmAdvance(true)
-              }
+              /* Was: Packed opened the shipment form (setShipOpen). Every step now confirms the same way. */
+              onClick={() => setConfirmAdvance(true)}
               className="inline-flex items-center gap-2 rounded-md bg-primary px-5 py-2.5 text-[14px] font-semibold text-white hover:bg-primary-dark disabled:cursor-not-allowed disabled:opacity-50"
             >
               {updateStatusLoading && <Icon name="Loader4Line" size={16} className="animate-spin" />}
@@ -277,13 +314,11 @@ const OrderDetailPage: FC = () => {
                   </div>
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-[13px] font-semibold text-foreground">{it.productName}</p>
-                    <div className="mt-0.5 flex items-center gap-1.5 text-[12px] text-muted">
-                      <span
-                        className="h-3 w-3 rounded-full border border-border"
-                        style={{ backgroundColor: it.variantColor }}
-                      />
-                      {it.variantColor} · {it.variantName}
-                    </div>
+                    {/* No swatch: order lines snapshot the colour NAME ("WHITE & GREY"), not its code,
+                        and a name is not a CSS colour — the dot rendered empty. */}
+                    <p className="mt-0.5 text-[12px] text-muted">
+                      {[it.variantColor, it.variantName].filter(Boolean).join(' · ') || '—'}
+                    </p>
                   </div>
                   <div className="text-right">
                     <p className="text-[13px] text-foreground">
@@ -333,8 +368,9 @@ const OrderDetailPage: FC = () => {
             </div>
           </Card>
 
-          {/* Tracking */}
-          {shippedOrLater && (
+          {/* Tracking — only orders shipped while the shipment form was on carry these; new ones would
+              render an empty "—" card. */}
+          {shippedOrLater && (order.trackingId || order.courierName) && (
             <Card title="Tracking">
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
@@ -372,16 +408,26 @@ const OrderDetailPage: FC = () => {
         onConfirm={advance}
         onCancel={() => setConfirmAdvance(false)}
       />
-      <ShipmentModal
+      {/* <ShipmentModal
         isOpen={shipOpen}
         orderId={order.id}
         onClose={() => setShipOpen(false)}
         onShipped={() => setShipOpen(false)}
+      /> */}
+      <ConfirmDialog
+        isOpen={confirmRetry}
+        title="Retry the refund?"
+        message="Razorpay will be asked again to refund this payment to the customer's original payment method."
+        confirmLabel="Retry refund"
+        loading={retrying}
+        onConfirm={() => void doRetryRefund()}
+        onCancel={() => setConfirmRetry(false)}
       />
       <CancelOrderModal
         isOpen={cancelOpen}
         orderId={order.id}
         paymentStatus={order.paymentStatus}
+        walletAmountUsed={order.walletAmountUsed}
         onClose={() => setCancelOpen(false)}
         onCancelled={() => setCancelOpen(false)}
       />

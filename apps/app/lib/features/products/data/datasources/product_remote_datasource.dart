@@ -6,6 +6,7 @@ import '../../../../core/error/exceptions.dart';
 import '../../domain/repositories/product_repository.dart';
 import '../models/product_model.dart';
 import '../models/variant_model.dart';
+import 'variant_order.dart';
 import '../../../../core/error/firebase_error_message.dart';
 
 /// The raw result of one listing query — models plus the Firestore cursor. Kept
@@ -127,17 +128,17 @@ class ProductRemoteDataSourceImpl implements ProductRemoteDataSource {
       // One tiny limit(1) query per product, issued in parallel. A collection
       // group query can't be used here because it cannot be constrained to an
       // arbitrary set of parent documents.
+      // `VariantOrder.readFirst` is the cross-surface "first variant" rule, so
+      // a card here prices from the same variant as home, search and detail.
       final results = await Future.wait(
         productIds.map((id) async {
-          final snap = await _firestore
-              .collection(FirebaseCollections.products)
-              .doc(id)
-              .collection(FirebaseCollections.variants)
-              .orderBy('createdAt')
-              .limit(1)
-              .get();
-          if (snap.docs.isEmpty) return null;
-          return MapEntry(id, VariantModel.fromFirestore(snap.docs.first));
+          final variant = await VariantOrder.readFirst(
+            _firestore
+                .collection(FirebaseCollections.products)
+                .doc(id)
+                .collection(FirebaseCollections.variants),
+          );
+          return variant == null ? null : MapEntry(id, variant);
         }),
       );
       return Map.fromEntries(results.whereType<MapEntry<String, VariantModel>>());

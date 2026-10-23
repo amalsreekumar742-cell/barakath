@@ -46,6 +46,11 @@ export const processRefund = onCall(async (request) => {
 
     const userId = String(order.userId ?? '');
     const walletAmountUsed = Number(order.walletAmountUsed) || 0;
+    // `cancelOrder` returns the wallet portion inside its own transaction even when the Razorpay refund
+    // fails — it then flags the order `gatewayRefundPending`. Retrying such an order must refund ONLY the
+    // gateway part; crediting the wallet again here would pay the wallet portion back twice.
+    const walletAlreadyReturned = order.gatewayRefundPending === true;
+    const walletToCredit = walletAlreadyReturned ? 0 : walletAmountUsed;
 
     const paymentQuery = await db
       .collection(Collections.payments)
@@ -61,36 +66,49 @@ export const processRefund = onCall(async (request) => {
     let refundId = '';
     if (razorpayAmountPaid > 0 && razorpayPaymentId) {
       const instance = await getRazorpayInstance();
-      const refund = await instance.payments.refund(razorpayPaymentId, {
-        amount: toPaisa(razorpayAmountPaid),
-      });
-      refundId = String(refund.id ?? '');
+      try {
+        const refund = await instance.payments.refund(razorpayPaymentId, {
+          amount: toPaisa(razorpayAmountPaid),
+        });
+        refundId = String(refund.id ?? '');
+      } catch (refundErr) {
+        // Razorpay errors are `{ error: { description } }`, not Error objects. Surface the gateway's own
+        // reason to the admin instead of a generic "Could not process the refund" — it is the only clue
+        // to whether a retry later can work (e.g. a test bank that does not support refunds).
+        const e = refundErr as { error?: { description?: unknown } };
+        const reason = typeof e?.error?.description === 'string' ? e.error.description : 'gateway error';
+        logger.error('processRefund: gateway refused the refund', { orderId, razorpayPaymentId, reason });
+        throw new HttpsError('failed-precondition', `Razorpay refused the refund: ${reason}`);
+      }
     }
 
     await db.runTransaction(async (tx) => {
       // reads first
       const userRef = userId ? db.collection(Collections.users).doc(userId) : null;
       let currentBalance = 0;
-      if (userRef && walletAmountUsed > 0) {
+      if (userRef && walletToCredit > 0) {
         const userSnap = await tx.get(userRef);
         currentBalance = Number(userSnap.data()?.walletBalance) || 0;
       }
 
       // writes
-      if (userRef && walletAmountUsed > 0) {
-        creditWallet(tx, userRef, userId, currentBalance, walletAmountUsed, orderId, `Refund for order ${orderId}`);
+      if (userRef && walletToCredit > 0) {
+        creditWallet(tx, userRef, userId, currentBalance, walletToCredit, orderId, `Refund for order ${orderId}`);
       }
       if (payDoc) {
         tx.update(payDoc.ref, {
           status: 'Refunded',
           refundId,
+          // The whole amount the customer has now got back, wallet portion included either way.
           refundAmount: razorpayAmountPaid + walletAmountUsed,
           refundedAt: FieldValue.serverTimestamp(),
+          gatewayRefundPending: FieldValue.delete(),
           updatedAt: FieldValue.serverTimestamp(),
         });
       }
       tx.update(orderRef, {
         paymentStatus: 'Refunded',
+        gatewayRefundPending: FieldValue.delete(),
         updatedAt: FieldValue.serverTimestamp(),
       });
     });

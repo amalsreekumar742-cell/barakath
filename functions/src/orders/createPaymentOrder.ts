@@ -10,7 +10,12 @@ import {
   getRazorpaySecrets,
   isWalletEnabled,
 } from './service/configReader';
-import { computeOrderTotals, toPaisa, round2 } from './service/computeTotals';
+import {
+  computeOrderTotals,
+  chargedUnitPrice,
+  toPaisa,
+  round2,
+} from './service/computeTotals';
 import {
   findCouponByCode,
   countUserCouponUsage,
@@ -92,6 +97,15 @@ export const createPaymentOrder = onCall(async (request) => {
         throw new HttpsError('not-found', `A product in your cart is no longer available.`);
       }
       const p = productSnap.data() ?? {};
+      const productName = String((p as { name?: unknown }).name ?? '');
+      // An archived product is hidden from every catalogue query (`status == 'Active'`), but a cart
+      // line or a stale product page still carries its id — and this used to sell it anyway.
+      if ((p as { status?: unknown }).status !== 'Active') {
+        throw new HttpsError(
+          'failed-precondition',
+          `${productName || 'An item in your cart'} is no longer available.`,
+        );
+      }
       const variantSnap = await productSnap.ref
         .collection(Collections.variants)
         .doc(item.variantId)
@@ -104,10 +118,11 @@ export const createPaymentOrder = onCall(async (request) => {
       if (stock < item.quantity) {
         throw new HttpsError(
           'failed-precondition',
-          `Only ${stock} left of ${String((p as { name?: unknown }).name ?? 'an item')}.`,
+          `Only ${stock} left of ${productName || 'an item'}.`,
         );
       }
       const offerPrice = Number((v as { offerPrice?: unknown }).offerPrice) || 0;
+      const unitPrice = chargedUnitPrice(p, v, offerPrice);
       const images = Array.isArray((p as { images?: unknown }).images)
         ? ((p as { images: unknown[] }).images as unknown[])
         : [];
@@ -131,7 +146,7 @@ export const createPaymentOrder = onCall(async (request) => {
 
       resolved.push({
         productId: item.productId,
-        productName: String((p as { name?: unknown }).name ?? ''),
+        productName,
         productImage:
           (typeof images[0] === 'string' ? (images[0] as string) : undefined) ??
           String((p as { thumbnail?: unknown }).thumbnail ?? ''),
@@ -142,9 +157,13 @@ export const createPaymentOrder = onCall(async (request) => {
         variantName: String((v as { name?: unknown }).name ?? ''),
         variantColor: String((v as { color?: unknown }).color ?? ''),
         mrp: Number((v as { mrp?: unknown }).mrp) || 0,
-        offerPrice,
+        // The per-unit price ACTUALLY CHARGED (flash price when one applies). Everything downstream
+        // reads it that way: the line subtotal, GST, the coupon base, the order item's `offerPrice`
+        // (which the return-refund calc treats as "what this unit cost the customer") and the
+        // orderCosts selling price.
+        offerPrice: unitPrice,
         quantity: item.quantity,
-        subtotal: offerPrice * item.quantity,
+        subtotal: unitPrice * item.quantity,
         gstPercentage,
         purchasePrice,
         costKnown,

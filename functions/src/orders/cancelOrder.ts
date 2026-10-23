@@ -4,7 +4,6 @@ import { getFirestore, FieldValue, Timestamp } from 'firebase-admin/firestore';
 import { Collections } from '../config/collections';
 import { getRazorpayInstance } from '../config/razorpay';
 import { validateAuth } from '../utils/validateAuth';
-import { sendFCMToUser } from '../utils/sendFCM';
 import { readProductStock, writeStockDelta, type StockLine } from './service/stock';
 import { findCouponByCode, decrementCouponUsage } from './service/coupon';
 import { creditWallet } from './service/wallet';
@@ -13,7 +12,9 @@ import { toPaisa } from './service/computeTotals';
 /**
  * cancelOrder — cancels a still-Pending order (spec §1.7, §2.18). Atomically restores stock, reverses
  * any coupon redemption, credits any wallet amount back, and (if the order was paid via Razorpay) issues
- * a gateway refund; then marks the order Cancelled and notifies the customer.
+ * a gateway refund; then marks the order Cancelled. The customer is notified by `onOrderStatusUpdate`
+ * (push + in-app notification) reacting to the Cancelled transition — NOT from here: this function used
+ * to push as well, so every cancellation reached the customer twice.
  *
  * WHO MAY CALL: an admin (`admin:true` claim), OR the customer who placed the order — spec §2.18 gives
  *   the customer a "Cancel order" action while it is still Pending. This used to be `validateAdmin`
@@ -27,9 +28,20 @@ import { toPaisa } from './service/computeTotals';
  * WHY only status === 'Pending': once an order is Accepted/Packed/Shipped it is in fulfilment; undoing
  *   stock/refunds then would corrupt operations. The refund runs BEFORE the Firestore transaction because
  *   an external API call cannot live inside a transaction (which may retry).
+ * WHY the cancel CLAIM: because the refund has to run outside the transaction, the Pending check used
+ *   to sit outside it too — so two concurrent calls (a double-tap, or the customer and an admin at the
+ *   same moment) both passed it, and BOTH restored stock, credited the wallet and gave back the coupon
+ *   slot. A short claim transaction now stamps `cancelClaimedAt` on the order before any money moves;
+ *   a second caller that finds a live claim is refused. The claim expires after CANCEL_CLAIM_TTL_MS so
+ *   a crashed attempt can never wedge an order un-cancellable, and it is cleared on completion or on
+ *   any failure after it was taken.
  *
  * Request:  { orderId, cancelReason }   Response: { success: true }
  */
+
+/** How long a cancel claim blocks a second attempt. Comfortably longer than a Razorpay refund call. */
+const CANCEL_CLAIM_TTL_MS = 2 * 60 * 1000;
+
 /**
  * Razorpay SDK errors arrive as `{ statusCode, error: { code, description } }`, not as Error objects,
  * so a plain `String(err)` yields "[object Object]". Pull out the description a human can act on.
@@ -54,21 +66,53 @@ export const cancelOrder = onCall(async (request) => {
     throw new HttpsError('invalid-argument', 'orderId is required.');
   }
   const orderId = data.orderId;
+  const orderRef = db.collection(Collections.orders).doc(orderId);
+
+  // Claim bookkeeping, read by the catch block: a claim this call took must be released if anything
+  // after it fails, and a claim some OTHER call holds must never be touched.
+  let claimed = false;
+  let completed = false;
+  let refundId = '';
 
   try {
-    const orderRef = db.collection(Collections.orders).doc(orderId);
-    const orderSnap = await orderRef.get();
-    if (!orderSnap.exists) throw new HttpsError('not-found', 'Order not found.');
-    const order = orderSnap.data() ?? {};
+    // ---- 1. CLAIM the cancellation (before any money moves) ---------------------------------------
+    // Everything the rest of the function decides is taken from THIS snapshot, read inside the
+    // transaction that took the claim — not from an unguarded read that a concurrent call could share.
+    const order = await db.runTransaction(async (tx) => {
+      const snap = await tx.get(orderRef);
+      if (!snap.exists) throw new HttpsError('not-found', 'Order not found.');
+      const o = snap.data() ?? {};
 
-    // Ownership gate. A non-admin may cancel only their own order; the uid comes
-    // from the verified token. Deliberately the SAME message and code as a
-    // missing order would give, so this cannot be used to probe which order ids
-    // exist.
-    const ownsOrder = String(order.userId ?? '') === callerUid;
-    if (!isAdmin && !ownsOrder) {
-      throw new HttpsError('not-found', 'Order not found.');
-    }
+      // Ownership gate. A non-admin may cancel only their own order; the uid comes
+      // from the verified token. Deliberately the SAME message and code as a
+      // missing order would give, so this cannot be used to probe which order ids
+      // exist.
+      const ownsOrder = String(o.userId ?? '') === callerUid;
+      if (!isAdmin && !ownsOrder) {
+        throw new HttpsError('not-found', 'Order not found.');
+      }
+
+      if (o.status !== 'Pending') {
+        throw new HttpsError('failed-precondition', 'Only a Pending order can be cancelled.');
+      }
+
+      const claimedAt = o.cancelClaimedAt as Timestamp | undefined;
+      if (
+        claimedAt &&
+        typeof claimedAt.toMillis === 'function' &&
+        Date.now() - claimedAt.toMillis() < CANCEL_CLAIM_TTL_MS
+      ) {
+        throw new HttpsError(
+          'failed-precondition',
+          'This order is already being cancelled. Please wait a moment and refresh.',
+        );
+      }
+
+      // No status change, so onOrderStatusUpdate treats this write as a no-op.
+      tx.update(orderRef, { cancelClaimedAt: Timestamp.now() });
+      return o;
+    });
+    claimed = true;
 
     // The reason is customer-supplied text only when an admin sends it; a
     // customer cancelling their own order gets a fixed label, so the timeline
@@ -78,10 +122,6 @@ export const cancelOrder = onCall(async (request) => {
           ? data.cancelReason.trim()
           : 'Cancelled by admin')
       : 'Cancelled by customer';
-
-    if (order.status !== 'Pending') {
-      throw new HttpsError('failed-precondition', 'Only a Pending order can be cancelled.');
-    }
 
     const wasPaid = order.paymentStatus === 'Paid';
     // A failed payment was already reversed by the webhook (stock restored, coupon/wallet returned);
@@ -112,7 +152,7 @@ export const cancelOrder = onCall(async (request) => {
     const razorpayPaymentId = String(payment.razorpayPaymentId ?? '');
     const razorpayAmountPaid = Number(payment.razorpayAmountPaid) || 0;
 
-    // Razorpay refund BEFORE the transaction (external call can't be transactional).
+    // ---- 2. Razorpay refund BEFORE the transaction (external call can't be transactional) ---------
     //
     // A GATEWAY FAILURE MUST NOT ABORT THE CANCELLATION. This used to throw straight out of the
     // function, so any Razorpay error — a declined refund, a timeout, an insufficient balance on the
@@ -121,7 +161,6 @@ export const cancelOrder = onCall(async (request) => {
     // The cancellation itself is entirely ours to perform; only the money movement depends on
     // Razorpay. So we cancel regardless and record the refund as OUTSTANDING, leaving `paymentStatus`
     // as 'Paid' (never 'Refunded' — that would be a lie) so an admin can retry it via processRefund.
-    let refundId = '';
     let gatewayRefundFailed = false;
     let gatewayRefundError = '';
     if (wasPaid && razorpayPaymentId && razorpayAmountPaid > 0) {
@@ -146,9 +185,19 @@ export const cancelOrder = onCall(async (request) => {
     // Locate the coupon (by code) once, outside the transaction.
     const coupon = couponCode ? await findCouponByCode(couponCode) : null;
 
+    // ---- 3. Atomic reversal + status flip --------------------------------------------------------
     await db.runTransaction(async (tx) => {
-      // reads first
-      const stockMap = needsReversal ? await readProductStock(tx, productIds) : null;
+      // READS FIRST. Re-read the order: the claim shuts out a second cancelOrder, but the order can
+      // still have been moved on (e.g. Accepted from the admin status screen) since it was taken.
+      const fresh = await tx.get(orderRef);
+      if (fresh.get('status') !== 'Pending') {
+        throw new HttpsError('failed-precondition', 'Only a Pending order can be cancelled.');
+      }
+      // skipMissing: a product deleted since the order was placed must not block handing back the
+      // wallet amount and coupon slot — and the gateway refund above has already been issued.
+      const stockMap = needsReversal
+        ? await readProductStock(tx, productIds, { skipMissing: true })
+        : null;
       let currentBalance = 0;
       const userRef = userId ? db.collection(Collections.users).doc(userId) : null;
       if (needsReversal && userRef && walletAmountUsed > 0) {
@@ -180,6 +229,8 @@ export const cancelOrder = onCall(async (request) => {
             ? `${cancelReason} — REFUND OUTSTANDING: the ₹${razorpayAmountPaid} gateway refund failed (${gatewayRefundError}). Retry it from Payments.`
             : cancelReason,
         }),
+        // The claim has done its job; a Cancelled order can never be claimed again anyway.
+        cancelClaimedAt: FieldValue.delete(),
         updatedAt: FieldValue.serverTimestamp(),
       });
 
@@ -197,19 +248,31 @@ export const cancelOrder = onCall(async (request) => {
         });
       }
     });
-
-    // Best-effort push (must never fail the cancellation).
-    if (userId) {
-      await sendFCMToUser(
-        userId,
-        'Order cancelled',
-        `Your order #${orderId} has been cancelled.`,
-        { orderId },
-      );
-    }
+    completed = true;
 
     return { success: true };
   } catch (err) {
+    if (claimed && !completed) {
+      if (refundId) {
+        // Money left through Razorpay but the order was NOT cancelled. Nothing here can undo a
+        // gateway refund, so say so loudly — someone has to reconcile this order by hand.
+        logger.error('cancelOrder: gateway refund ISSUED but the cancellation did not commit', {
+          orderId,
+          refundId,
+          err,
+        });
+      }
+      // Release our claim so the order can be cancelled again straight away rather than after the
+      // TTL. Best-effort: if this fails too, the claim simply expires on its own.
+      try {
+        await orderRef.update({ cancelClaimedAt: FieldValue.delete() });
+      } catch (clearErr) {
+        logger.warn('cancelOrder: could not release the cancel claim (it will expire)', {
+          orderId,
+          clearErr,
+        });
+      }
+    }
     if (err instanceof HttpsError) throw err;
     logger.error('cancelOrder failed', err);
     throw new HttpsError('internal', 'Could not cancel the order.');

@@ -169,6 +169,16 @@ import '../../features/orders/presentation/providers/order_detail_provider.dart'
     as _i462;
 import '../../features/orders/presentation/providers/orders_provider.dart'
     as _i388;
+import '../../features/policies/data/datasources/policy_remote_datasource.dart'
+    as _i337;
+import '../../features/policies/data/repositories/policy_repository_impl.dart'
+    as _i214;
+import '../../features/policies/domain/repositories/policy_repository.dart'
+    as _i923;
+import '../../features/policies/domain/usecases/get_policies.dart' as _i243;
+import '../../features/policies/domain/usecases/get_policy.dart' as _i136;
+import '../../features/policies/presentation/providers/policies_provider.dart'
+    as _i375;
 import '../../features/products/data/datasources/product_detail_remote_datasource.dart'
     as _i871;
 import '../../features/products/data/datasources/product_remote_datasource.dart'
@@ -187,6 +197,8 @@ import '../../features/products/domain/usecases/get_first_variants.dart'
     as _i357;
 import '../../features/products/domain/usecases/get_product_detail.dart'
     as _i892;
+import '../../features/products/domain/usecases/get_product_variant.dart'
+    as _i366;
 import '../../features/products/domain/usecases/get_product_variants.dart'
     as _i301;
 import '../../features/products/domain/usecases/get_products.dart' as _i143;
@@ -373,6 +385,8 @@ extension GetItInjectableX on _i174.GetIt {
               gh<_i974.FirebaseFirestore>(),
               gh<_i809.FirebaseFunctions>(),
             ));
+    gh.lazySingleton<_i337.PolicyRemoteDataSource>(
+        () => _i337.PolicyRemoteDataSourceImpl(gh<_i974.FirebaseFirestore>()));
     gh.lazySingleton<_i26.CheckoutRemoteDataSource>(
         () => _i26.CheckoutRemoteDataSourceImpl(
               gh<_i809.FirebaseFunctions>(),
@@ -567,6 +581,8 @@ extension GetItInjectableX on _i174.GetIt {
         () => _i357.GetFirstVariants(gh<_i963.ProductRepository>()));
     gh.factory<_i143.GetProducts>(
         () => _i143.GetProducts(gh<_i963.ProductRepository>()));
+    gh.lazySingleton<_i923.PolicyRepository>(
+        () => _i214.PolicyRepositoryImpl(gh<_i337.PolicyRemoteDataSource>()));
     gh.lazySingleton<_i674.SettingsRepository>(() =>
         _i955.SettingsRepositoryImpl(gh<_i140.SettingsRemoteDataSource>()));
     gh.lazySingleton<_i543.OrderRepository>(
@@ -634,6 +650,14 @@ extension GetItInjectableX on _i174.GetIt {
         () => _i1048.HasExistingReview(gh<_i985.ReviewRepository>()));
     gh.factory<_i225.SubmitReview>(
         () => _i225.SubmitReview(gh<_i985.ReviewRepository>()));
+    gh.factory<_i243.GetPolicies>(
+        () => _i243.GetPolicies(gh<_i923.PolicyRepository>()));
+    gh.factory<_i136.GetPolicy>(
+        () => _i136.GetPolicy(gh<_i923.PolicyRepository>()));
+    gh.factory<_i375.PoliciesProvider>(() => _i375.PoliciesProvider(
+          gh<_i243.GetPolicies>(),
+          gh<_i136.GetPolicy>(),
+        ));
     gh.factory<_i741.PlaceOrder>(
         () => _i741.PlaceOrder(gh<_i498.CheckoutRepository>()));
     gh.factory<_i741.VerifyPayment>(
@@ -725,6 +749,8 @@ extension GetItInjectableX on _i174.GetIt {
         () => _i598.GetBundleProducts(gh<_i550.ProductDetailRepository>()));
     gh.factory<_i892.GetProductDetail>(
         () => _i892.GetProductDetail(gh<_i550.ProductDetailRepository>()));
+    gh.factory<_i366.GetProductVariant>(
+        () => _i366.GetProductVariant(gh<_i550.ProductDetailRepository>()));
     gh.factory<_i301.GetProductVariants>(
         () => _i301.GetProductVariants(gh<_i550.ProductDetailRepository>()));
     gh.factory<_i17.GetRecentProductReviews>(() =>
@@ -746,12 +772,6 @@ extension GetItInjectableX on _i174.GetIt {
           gh<_i160.WatchWishlistProductIds>(),
           gh<_i1071.AddToWishlist>(),
           gh<_i28.RemoveFromWishlist>(),
-        ));
-    gh.factory<_i388.OrdersProvider>(() => _i388.OrdersProvider(
-          gh<_i941.GetOrders>(),
-          gh<_i892.GetProductDetail>(),
-          gh<_i301.GetProductVariants>(),
-          gh<_i965.GetReturnStatuses>(),
         ));
     gh.factory<_i506.NotificationsProvider>(() => _i506.NotificationsProvider(
           gh<_i412.GetBroadcastNotifications>(),
@@ -778,6 +798,12 @@ extension GetItInjectableX on _i174.GetIt {
         ));
     gh.factory<_i985.ReplacementProvider>(
         () => _i985.ReplacementProvider(gh<_i1013.SubmitReplacementRequest>()));
+    gh.factory<_i388.OrdersProvider>(() => _i388.OrdersProvider(
+          gh<_i941.GetOrders>(),
+          gh<_i892.GetProductDetail>(),
+          gh<_i366.GetProductVariant>(),
+          gh<_i965.GetReturnStatuses>(),
+        ));
     gh.factory<_i919.ProfileProvider>(() => _i919.ProfileProvider(
           gh<_i472.WatchUser>(),
           gh<_i78.UpdateProfile>(),

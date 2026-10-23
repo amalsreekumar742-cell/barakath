@@ -49,6 +49,8 @@ const AffiliatePage = lazy(() => import('@/features/affiliate/components/Affilia
 const AllocateAffiliatePage = lazy(
   () => import('@/features/affiliate/components/AllocateAffiliatePage'),
 );
+const AffiliatesListPage = lazy(() => import('@/features/affiliate/components/AffiliatesListPage'));
+const AffiliateDetailPage = lazy(() => import('@/features/affiliate/components/AffiliateDetailPage'));
 const BannersPage = lazy(() => import('@/features/banners/components/BannersPage'));
 const AddBannerPage = lazy(() => import('@/features/banners/components/AddBannerPage'));
 const EditBannerPage = lazy(() => import('@/features/banners/components/EditBannerPage'));
@@ -73,6 +75,7 @@ const CreateSubAdminPage = lazy(
 );
 const EditSubAdminPage = lazy(() => import('@/features/subAdmin/components/EditSubAdminPage'));
 const SettingsPage = lazy(() => import('@/features/settings/components/SettingsPage'));
+const PolicyEditorPage = lazy(() => import('@/features/settings/components/PolicyEditorPage'));
 
 // Real element per built path; everything else falls back to the "Coming soon" placeholder.
 const BUILT: Record<string, ReactNode> = {
@@ -147,6 +150,9 @@ const protectedChildren = [
   { path: 'spinner-campaigns/:id', element: <CampaignDetailPage /> },
   // Affiliate allocate (not a sidebar item).
   { path: 'affiliate/allocate', element: <AllocateAffiliatePage /> },
+  // Affiliates list + one affiliate's ledger (opened from the "Active affiliates" card).
+  { path: 'affiliate/affiliates', element: <AffiliatesListPage /> },
+  { path: 'affiliate/affiliates/:userId', element: <AffiliateDetailPage /> },
   // Banner add/edit. Static 'add' outranks the dynamic ':id/edit'.
   { path: 'banners/add', element: <AddBannerPage /> },
   { path: 'banners/:id/edit', element: <EditBannerPage /> },
@@ -161,6 +167,10 @@ const protectedChildren = [
   { path: 'sub-admin/:id/edit', element: <EditSubAdminPage /> },
   // Adjust stock (not a sidebar item).
   { path: 'inventory/adjust', element: <AdjustStockPage /> },
+  // Settings › Policies add/edit (not sidebar items; guarded by the Settings module via the `/settings`
+  // prefix). Static 'new' outranks the dynamic ':policyId'.
+  { path: 'settings/policies/new', element: <PolicyEditorPage /> },
+  { path: 'settings/policies/:policyId', element: <PolicyEditorPage /> },
 ];
 
 const router = createBrowserRouter([

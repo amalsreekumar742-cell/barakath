@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import Image from 'next/image';
 import { Mail, MessageCircle, Phone } from 'lucide-react';
-import type { GeneralSettingsProps } from '@barakath/shared';
+import type { GeneralSettingsProps, PolicyProps } from '@barakath/shared';
 import { Constants } from '@/config/constants';
 
 /**
@@ -9,8 +9,8 @@ import { Constants } from '@/config/constants';
  * (account) page from the group layout.
  *
  * WHY a Server Component (no 'use client'): it is static chrome plus a handful of external links; the
- * `settings` it needs are already read once in the group layout and handed down, so the footer never
- * fetches and its links land in the crawled HTML.
+ * `settings` and `policies` it needs are already read once in StorefrontShell and handed down, so the
+ * footer never fetches and its links land in the crawled HTML.
  *
  * WHY every `settings` access is optional-chained: the live `general/config` document currently has
  * NO `contactus` map (only variables/delivery/payment/updatedAt), even though the TYPE declares it.
@@ -19,9 +19,14 @@ import { Constants } from '@/config/constants';
  */
 export interface FooterProps {
   settings: GeneralSettingsProps | null;
+  /**
+   * Enabled policies in the admin's order (Settings › Policies). The query already filters to enabled,
+   * so the footer renders whatever it is given.
+   */
+  policies: PolicyProps[];
 }
 
-/** A single Shop / Legal link — kept as data so the two columns render from one map each. */
+/** A single Shop link — kept as data so the column renders from one map. */
 interface FooterLink {
   label: string;
   href: string;
@@ -33,11 +38,6 @@ const SHOP_LINKS: FooterLink[] = [
   { label: 'Wishlist', href: '/wishlist' },
 ];
 
-const LEGAL_LINKS: FooterLink[] = [
-  { label: 'Privacy policy', href: '/privacy-policy' },
-  { label: 'Terms & conditions', href: '/terms' },
-];
-
 /**
  * `tel:` accepts a leading `+` and digits only — a space or bracket in the URI makes some
  * browsers drop the link entirely. Admins type support numbers free-form (e.g. "+91 8590 941583"),
@@ -45,7 +45,7 @@ const LEGAL_LINKS: FooterLink[] = [
  */
 const telHref = (raw: string) => raw.replace(/[^\d+]/g, '');
 
-export function Footer({ settings }: FooterProps) {
+export function Footer({ settings, policies }: FooterProps) {
   const contact = settings?.contactus;
   // Trim so a whitespace-only value counts as empty — the admin form can save " " for an untouched
   // field, and a blank "Call us" row is worse than no row.
@@ -59,8 +59,8 @@ export function Footer({ settings }: FooterProps) {
   return (
     // Desktop only. The Flutter app has no footer, and a four-column link block sitting directly
     // above a fixed bottom tab bar reads as dead space on a phone. Its links are not lost: the
-    // Profile tab (`features/account/components/ProfileScreen.tsx`) carries help, privacy policy and
-    // terms, which is where the app puts them too.
+    // Profile tab (`features/account/components/ProfileScreen.tsx`) carries help and a "Policies" row
+    // to /policies, which is where the app puts them too.
     //
     // WHY `hidden lg:block` rather than not rendering it below 1024px: `hidden` is a CSS rule, so the
     // markup — and every link in it — stays in the server HTML. Google indexes mobile-first, and
@@ -147,18 +147,27 @@ export function Footer({ settings }: FooterProps) {
           )}
         </div>
 
-        {/* Legal / company */}
-        <nav aria-label="Legal">
+        {/* Company — every enabled policy, in the admin's order. Before the policies migration has run
+            (or if every policy is disabled) the list is empty, so it degrades to a note like the
+            Support column rather than a heading over nothing. */}
+        <nav aria-label="Policies">
           <h2 className="text-[13px] font-semibold text-white">Company</h2>
-          <ul className="mt-3 space-y-2.5 text-[13px] text-white/72">
-            {LEGAL_LINKS.map((link) => (
-              <li key={link.href}>
-                <Link href={link.href} className="transition-colors hover:text-white">
-                  {link.label}
-                </Link>
-              </li>
-            ))}
-          </ul>
+          {policies.length > 0 ? (
+            <ul className="mt-3 space-y-2.5 text-[13px] text-white/72">
+              {policies.map((policy) => (
+                <li key={policy.id}>
+                  <Link
+                    href={`/policies/${encodeURIComponent(policy.id)}`}
+                    className="transition-colors hover:text-white"
+                  >
+                    {policy.name}
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="mt-3 text-[13px] text-white/60">Policies coming soon.</p>
+          )}
         </nav>
       </div>
 

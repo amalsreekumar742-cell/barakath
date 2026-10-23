@@ -14,7 +14,7 @@ import { fetchInvoiceBusiness, generateInvoiceCall, type InvoiceBusiness } from 
 import { SummaryRow } from '@/features/orders/components/SummaryRow';
 import { formatDate, money, orderReference, paymentMethodLabel } from '@/features/orders/utils/orderFormat';
 import { OrderStatus } from '@barakath/shared';
-import { gstBreakdown } from '@barakath/shared/utils/gstBreakdown';
+import { gstBreakdown, gstPresentation } from '@barakath/shared/utils/gstBreakdown';
 
 const EMPTY_BUSINESS: InvoiceBusiness = { name: 'Barakath', address: '', gstin: '', trn: '', gstPercentage: 0 };
 
@@ -104,7 +104,11 @@ export default function InvoicePage() {
 
   const invoiceNo = `INV-${order.id.slice(0, 8).toUpperCase()}`;
   const method = paymentMethodLabel(order);
-  const taxable = order.grandTotal - (order.gstAmount || 0);
+  // The shared `gstPresentation`, not `grandTotal − gstAmount`: a gst-inclusive order (every order
+  // since 2026-08-04) taxes `subtotal − gstAmount`, and the old formula dragged the coupon and the
+  // delivery fee into the taxable value. The app's invoice and the admin's tax invoice call the same
+  // helper, so all three state the same split for the same order.
+  const taxable = gstPresentation(order).taxableValue;
   // Rate-wise GST, one CGST/SGST pair per rate on the order. Mirrors the deployed
   // `generateInvoicePDF` Cloud Function's own derivation exactly
   // (`functions/src/utility/generateInvoicePDF.ts` + its `service/gstBreakdown.ts`), so the

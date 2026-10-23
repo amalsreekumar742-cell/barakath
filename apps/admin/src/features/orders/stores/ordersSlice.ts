@@ -6,6 +6,7 @@ import { fetchOrders } from '../api/fetchOrders';
 import { fetchOrderDetail } from '../api/fetchOrderDetail';
 import { fetchOrderStatusCounts } from '../api/fetchOrderStatusCounts';
 import { updateOrderStatus } from '../api/updateOrderStatus';
+import { bulkUpdateOrderStatus } from '../api/bulkUpdateOrderStatus';
 import { exportOrdersCSV } from '../api/exportOrdersCSV';
 import type { OrderFilters, OrderStatusCounts } from '../types';
 
@@ -35,6 +36,11 @@ interface OrdersState {
   detailError: string | null;
 
   updateStatusLoading: boolean;
+  /**
+   * Progress of a running bulk status action (null when none). Counted off each per-order
+   * `updateOrderStatus` settling, so the bulk thunk needs no progress callback of its own.
+   */
+  bulkProgress: { done: number; total: number } | null;
   exportLoading: boolean;
 }
 
@@ -61,6 +67,7 @@ const initialState: OrdersState = {
   detailLoading: false,
   detailError: null,
   updateStatusLoading: false,
+  bulkProgress: null,
   exportLoading: false,
 };
 
@@ -161,6 +168,7 @@ const ordersSlice = createSlice({
       })
       .addCase(updateOrderStatus.fulfilled, (s, a) => {
         s.updateStatusLoading = false;
+        if (s.bulkProgress) s.bulkProgress.done += 1;
         const { order, previousStatus } = a.payload;
         const i = s.orders.findIndex((o) => o.id === order.id);
         if (i !== -1) s.orders[i] = order;
@@ -175,6 +183,18 @@ const ordersSlice = createSlice({
       })
       .addCase(updateOrderStatus.rejected, (s) => {
         s.updateStatusLoading = false;
+        if (s.bulkProgress) s.bulkProgress.done += 1;
+      })
+
+      // --- bulk status update (progress only; each order patches itself via the cases above) ---
+      .addCase(bulkUpdateOrderStatus.pending, (s, a) => {
+        s.bulkProgress = { done: 0, total: a.meta.arg.orders.length };
+      })
+      .addCase(bulkUpdateOrderStatus.fulfilled, (s) => {
+        s.bulkProgress = null;
+      })
+      .addCase(bulkUpdateOrderStatus.rejected, (s) => {
+        s.bulkProgress = null;
       })
 
       // --- export ---

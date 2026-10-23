@@ -14,6 +14,7 @@ import '../../../../core/widgets/circle_back_button.dart';
 import '../../../address/domain/entities/address.dart';
 import '../../../address/presentation/providers/address_provider.dart';
 import '../../../auth/presentation/providers/auth_provider.dart';
+import '../../../cart/domain/entities/cart_item.dart';
 import '../../../cart/presentation/providers/cart_provider.dart';
 import '../../../cart/presentation/widgets/price_summary.dart';
 import '../../../settings/presentation/providers/general_settings_provider.dart';
@@ -441,6 +442,18 @@ class _ItemsSection extends StatelessWidget {
   final bool expanded;
   final VoidCallback onToggle;
 
+  /// The LIVE variant's size and colour, matching the bag row. The line's
+  /// `variantName`/`variantColor` are snapshots from add-to-bag, so an admin
+  /// edit made in place since (same variant id) would otherwise show a label
+  /// for a unit that no longer exists. Snapshot only until the read lands.
+  List<String> _variantLabel(CartItem item) {
+    final live = cart.variantFor(item);
+    return [
+      live?.name ?? item.variantName,
+      live?.color ?? item.variantColor,
+    ].map((part) => part.trim()).where((part) => part.isNotEmpty).toList();
+  }
+
   @override
   Widget build(BuildContext context) {
     final items = cart.items;
@@ -488,7 +501,12 @@ class _ItemsSection extends StatelessWidget {
                             fontSize: 13, fontWeight: FontWeight.w600),
                       ),
                       Text(
-                        '${item.variantName} · Qty ${item.quantity}',
+                        [
+                          ..._variantLabel(item),
+                          'Qty ${item.quantity}',
+                        ].join(' · '),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                         style: const TextStyle(
                             fontSize: 11, color: AppColors.textSecondary),
                       ),
@@ -496,7 +514,7 @@ class _ItemsSection extends StatelessWidget {
                   ),
                 ),
                 Text(
-                  '₹${((cart.variantFor(item)?.effectivePrice ?? 0) * item.quantity).toStringAsFixed(0)}',
+                  '₹${((cart.unitPriceFor(item) ?? 0) * item.quantity).toStringAsFixed(0)}',
                   style: const TextStyle(
                       fontSize: 13, fontWeight: FontWeight.w700),
                 ),

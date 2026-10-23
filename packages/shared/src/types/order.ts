@@ -87,6 +87,11 @@ export interface OrderProps {
    * never jointly refund more than `grandTotal`. Absent on orders with no approved return.
    */
   replacementRefundedTotal?: number;
+  /**
+   * Set by `cancelOrder` when the order was cancelled but the Razorpay refund FAILED — the money is still
+   * owed (`paymentStatus` stays 'Paid'). Cleared by `processRefund` once a retry succeeds. Server-written.
+   */
+  gatewayRefundPending?: boolean;
   isComboOrder: boolean;
   keywords: string[];
   createdAt: Timestamp;

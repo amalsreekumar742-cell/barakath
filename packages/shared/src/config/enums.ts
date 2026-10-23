@@ -235,6 +235,16 @@ export const NotificationTargetType = {
 } as const;
 export type NotificationTargetType = (typeof NotificationTargetType)[keyof typeof NotificationTargetType];
 
+/**
+ * PolicyStatus — whether a policy (`policies/{id}`) is shown to customers. Disabled hides it from the
+ * website and app but keeps it in the admin; policies are never deleted.
+ */
+export const PolicyStatus = {
+  ENABLED: 'enabled',
+  DISABLED: 'disabled',
+} as const;
+export type PolicyStatus = (typeof PolicyStatus)[keyof typeof PolicyStatus];
+
 /** The deep-link a notification opens when tapped (spec §1.18). */
 export const NotificationLinkType = {
   PRODUCT: 'Product',

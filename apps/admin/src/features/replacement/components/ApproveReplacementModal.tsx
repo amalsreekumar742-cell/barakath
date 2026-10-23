@@ -1,6 +1,7 @@
 import { type FC, useMemo, useState } from 'react';
 import toast from 'react-hot-toast';
 import { computeReplacementRefund } from '@barakath/shared/utils/replacementRefund';
+import { isGstInclusive } from '@barakath/shared/utils/gstBreakdown';
 import { useAppDispatch, useAppSelector } from '@/stores/store';
 import Modal from '@/components/Modal';
 import Icon from '@/components/icons/Icon';
@@ -33,6 +34,10 @@ const ApproveReplacementModal: FC<Props> = ({ isOpen, replacementId, onClose, on
 
   // Preview only — null when the original order is missing, in which case the server will reject the
   // approval anyway and we simply don't promise an amount.
+  //
+  // The WHOLE order goes in (not a hand-picked subset) so the helper always sees every field its
+  // contract reads — notably `gstInclusive`: on a GST-inclusive order the tax is already inside the
+  // line price, so nothing is added on top. Picking fields here would silently drop a new one.
   const preview = useMemo(() => {
     if (!detail?.order || !detail.replacement) return null;
     try {
@@ -45,6 +50,9 @@ const ApproveReplacementModal: FC<Props> = ({ isOpen, replacementId, onClose, on
       return null;
     }
   }, [detail]);
+  // Decides the breakdown wording only: "+ GST" would be false on an inclusive order, whose price
+  // already carries the tax (pre-2026-08-04 orders have no flag and read as exclusive).
+  const gstInclusive = detail?.order ? isGstInclusive(detail.order) : false;
 
   const close = () => {
     setAdminNote('');
@@ -99,9 +107,10 @@ const ApproveReplacementModal: FC<Props> = ({ isOpen, replacementId, onClose, on
         {preview && (
           <p className="mt-2 text-[12px] text-faint">
             {preview.quantity} × item {formatINRExact(preview.lineGross)}
+            {gstInclusive && <> (GST included)</>}
             {preview.couponShare > 0 && <> − coupon share {formatINRExact(preview.couponShare)}</>}
-            {preview.gstShare > 0 && <> + GST {formatINRExact(preview.gstShare)}</>}. Delivery is not
-            refunded.
+            {!gstInclusive && preview.gstShare > 0 && <> + GST {formatINRExact(preview.gstShare)}</>}.
+            Delivery is not refunded.
           </p>
         )}
 

@@ -1,4 +1,5 @@
 import type { StockStatus } from '@barakath/shared/config/enums';
+import type { VariantOption } from '@barakath/shared/types';
 
 /**
  * Active list filters (spec §1.5 Filters Panel). All optional; an unset filter is not applied.
@@ -28,15 +29,31 @@ export interface ImageDraft {
 /**
  * A variant being edited in the product form BEFORE the product is saved (spec §1.5). Nothing is
  * written to Firestore until the whole product is saved; `isNew` distinguishes create-vs-update and a
- * real Firestore id (edit) from a temp uuid (add). Images live on the PRODUCT (right-side gallery),
- * not the variant (spec §1.5 / design).
+ * real Firestore id (edit) from a temp uuid (add). Images live on the PRODUCT (right-side gallery);
+ * a variant only points at one of them ([imageId]).
  */
 export interface VariantDraft {
   id: string;
   isNew: boolean;
+  /**
+   * Display label of the non-colour part. For a new row it is `variantLabel(options)` ("57 · Layer 2");
+   * an existing row keeps the name it was saved with.
+   */
   name: string;
+  /**
+   * One unit per Settings › Variables group, in group order — see `VariantProps.options`. Set on every
+   * row added from the picker (even a Size-only one); absent on legacy variants loaded without it, which
+   * the save then leaves without it.
+   */
+  options?: VariantOption[];
   color: string;
   colorCode: string;
+  /**
+   * The product photo that shows this variant, as the [ImageDraft] `id` — NOT a url, because a photo
+   * added in this session has no url until the save uploads it. Resolved to `VariantProps.imageUrl` on
+   * save; an id no longer in the gallery (photo removed) saves as no link.
+   */
+  imageId?: string;
   /**
    * Purchase payment — what the business pays per unit. Persisted to `variantCosts/{variantId}`, NOT
    * to the variant document, because variants are world-readable and this is the margin. See
@@ -56,11 +73,18 @@ export interface VariantDraft {
    */
   gstPercentage: number | null;
   stock: number;
+  /**
+   * The stock as LOADED, for existing variants only (absent on new ones). The save writes `stock` only
+   * when it differs from this, so orders placed while the form was open are not overwritten by the
+   * form's stale copy — see `planVariantStock`.
+   */
+  originalStock?: number;
 }
 
 /**
  * A variant on its way to Firestore. Identical to [VariantDraft] except that "inherit the shop
- * default" has already been resolved, so the write path can never persist an ambiguous rate.
+ * default" has already been resolved, so the write path can never persist an ambiguous rate. Array
+ * order is the saved display order (`VariantProps.sortOrder` = index).
  */
 export type VariantToSave = Omit<VariantDraft, 'gstPercentage'> & { gstPercentage: number };
 

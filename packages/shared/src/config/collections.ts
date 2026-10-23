@@ -96,6 +96,11 @@ export const FirestoreCollections = {
   flashSales: 'flashSales',
   /** Push/broadcast notifications composed in admin, sent via FCM (spec §1.18). */
   notifications: 'notifications',
+  /**
+   * Customer-facing policies (Privacy, Terms, Refund…), one doc each — Settings › Policies. Public read
+   * when `status == 'enabled'`; admin write; never deleted. Replaces `general/config.privacy`/`.terms`.
+   */
+  policies: 'policies',
 } as const;
 
 export type FirestoreCollectionName =
@@ -126,6 +131,8 @@ export const FirestoreDocs = {
   generalConfig: 'config',
   /** general/secrets — API keys. ADMIN ONLY; never referenced from a client bundle. */
   generalSecrets: 'secrets',
+  /** general/msg91 — MSG91 OTP widget credentials + Play reviewer login. ADMIN ONLY (Settings › OTP). */
+  generalMsg91: 'msg91',
   /** variables/config — master colour swatches and variant groups for the product form. */
   variablesConfig: 'config',
 } as const;

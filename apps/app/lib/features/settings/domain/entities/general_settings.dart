@@ -26,7 +26,12 @@ class DeliverySlab extends Equatable {
 /// The `general/config` settings document (spec §1.21) as a pure domain entity.
 ///
 /// The app reads the slices it needs for checkout math (delivery/GST), payment
-/// (Razorpay) and the legal/help screens. Money/counter maps are server-owned.
+/// (Razorpay) and the help screen. Money/counter maps are server-owned.
+///
+/// The legal text is NOT here any more: privacy policy and terms moved to the
+/// `policies` collection (one doc per policy — see `features/policies`), so
+/// the admin can publish any number of policies and the old `privacy`/`terms`
+/// maps on this document are no longer read.
 class GeneralSettings extends Equatable {
   const GeneralSettings({
     required this.standardDeliveryFee,
@@ -37,10 +42,6 @@ class GeneralSettings extends Equatable {
     required this.razorpayKeyId,
     required this.razorpayConnected,
     required this.walletPaymentsEnabled,
-    required this.privacyPolicy,
-    required this.termsAndConditions,
-    required this.privacyPolicyUpdatedAt,
-    required this.termsUpdatedAt,
     required this.helpPhone,
     required this.helpWhatsApp,
     required this.helpEmail,
@@ -60,12 +61,6 @@ class GeneralSettings extends Equatable {
   final String razorpayKeyId;
   final bool razorpayConnected;
   final bool walletPaymentsEnabled;
-
-  // privacy / terms maps
-  final String privacyPolicy;
-  final String termsAndConditions;
-  final DateTime? privacyPolicyUpdatedAt;
-  final DateTime? termsUpdatedAt;
 
   // contactus map
   final String helpPhone;
@@ -89,10 +84,6 @@ class GeneralSettings extends Equatable {
     razorpayKeyId: '',
     razorpayConnected: false,
     walletPaymentsEnabled: false,
-    privacyPolicy: '',
-    termsAndConditions: '',
-    privacyPolicyUpdatedAt: null,
-    termsUpdatedAt: null,
     helpPhone: '',
     helpWhatsApp: '',
     helpEmail: '',
@@ -125,10 +116,6 @@ class GeneralSettings extends Equatable {
         razorpayKeyId,
         razorpayConnected,
         walletPaymentsEnabled,
-        privacyPolicy,
-        termsAndConditions,
-        privacyPolicyUpdatedAt,
-        termsUpdatedAt,
         helpPhone,
         helpWhatsApp,
         helpEmail,

@@ -76,7 +76,10 @@ export const discardOrderDraft = onCall(async (request): Promise<{ released: boo
       // landed in the seconds since. Releasing a paid checkout would be the worst outcome here.
       if (fresh.get('status') !== 'Pending' || fresh.get('paymentStatus') !== 'Pending') return;
 
-      const stockMap = stockLines.length ? await readProductStock(tx, productIds) : null;
+      // skipMissing: a product deleted since checkout must not block handing back the wallet/coupon.
+      const stockMap = stockLines.length
+        ? await readProductStock(tx, productIds, { skipMissing: true })
+        : null;
       const userRef = db.collection(Collections.users).doc(uid);
       let currentBalance = 0;
       if (walletUsed > 0) {

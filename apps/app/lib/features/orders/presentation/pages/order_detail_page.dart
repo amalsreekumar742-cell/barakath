@@ -373,6 +373,11 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
     // COD is removed from the product — [OrderFormat.paymentMethod] returns null
     // for a Cash-on-Delivery value and the row is simply not rendered.
     final method = OrderFormat.paymentMethod(order);
+    // Read through OrderFormat, not raw: a cancelled order still marked
+    // 'Paid' owes a refund, and showing it as a green "Paid" hid that.
+    final refundPending = OrderFormat.isRefundPending(order);
+    final settled = OrderFormat.isRefunded(order) ||
+        (!refundPending && order.paymentStatus.trim().toLowerCase() == 'paid');
 
     return SectionCard(
       title: 'Payment',
@@ -381,10 +386,12 @@ class _OrderDetailPageState extends State<OrderDetailPage> {
           if (method != null) KeyValueRow(label: 'Method', value: method),
           KeyValueRow(
             label: 'Status',
-            value: order.paymentStatus,
-            valueColor: order.paymentStatus.toLowerCase() == 'paid'
-                ? AppColors.semanticSuccess
-                : null,
+            value: OrderFormat.paymentStatus(order),
+            valueColor: refundPending
+                ? AppColors.goldStrong
+                : settled
+                    ? AppColors.semanticSuccess
+                    : null,
           ),
           if (order.razorpayPaymentId.isNotEmpty)
             KeyValueRow(

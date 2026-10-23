@@ -63,3 +63,7 @@ Thumbs.db
 
 # Testing
 coverage/
+
+# Vite writes a bundled copy of vite.config.ts while loading it and normally deletes it; an
+# interrupted build/test leaves it behind. It holds absolute local paths — never commit it.
+vite.config.*.timestamp-*

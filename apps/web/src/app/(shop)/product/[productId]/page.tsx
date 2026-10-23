@@ -11,6 +11,8 @@ import { Gallery } from '@/features/product/components/Gallery';
 import { MobileGallery } from '@/features/product/components/MobileGallery';
 import { YoutubeEmbed } from '@/features/product/components/YoutubeEmbed';
 import { ProductExperience } from '@/features/product/components/ProductExperience';
+import { GalleryFocusProvider } from '@/features/product/components/GalleryFocus';
+import { variantImageIndex } from '@barakath/shared/utils/variantImage';
 import { DescriptionSection } from '@/features/product/components/DescriptionSection';
 import { SpecificationsTable } from '@/features/product/components/SpecificationsTable';
 import { ReviewsSection } from '@/features/product/components/ReviewsSection';
@@ -115,6 +117,9 @@ export default async function ProductPage({ params }: PageProps) {
   // for the same class of bug.
   const { createdAt: _createdAt, updatedAt: _updatedAt, ...clientProduct } = product;
   const clientVariants = variants.map(({ createdAt: _variantCreatedAt, ...v }) => v);
+  // The galleries open on the default variant's photo, so the server HTML already matches the
+  // pre-selected colour; later colour picks steer them through GalleryFocusProvider.
+  const initialImageIndex = variantImageIndex(variants, defaultVariant, product.images) ?? 0;
 
   return (
     // `has-sticky-cta` reserves room for the pinned Add-to-bag bar (globals.css). It stacks with the
@@ -132,27 +137,30 @@ export default async function ProductPage({ params }: PageProps) {
         <Breadcrumb items={crumbs} showBack={false} />
       </div>
 
-      <MobileGallery
-        images={product.images}
-        productName={product.name}
-        productId={product.id}
-        videoUrl={product.youtubeVideoLink}
-        onSale={product.isFlashSale}
-      />
-
-      <div className="grid grid-cols-1 gap-10 px-4 lg:grid-cols-2 lg:px-0">
-        {/* Desktop keeps the thumbnail-rail gallery and the video as a separate block below it. */}
-        <div className="hidden flex-col gap-4 lg:flex">
-          <Gallery images={product.images} productName={product.name} />
-          {product.youtubeVideoLink && <YoutubeEmbed url={product.youtubeVideoLink} />}
-        </div>
-
-        <ProductExperience
-          product={clientProduct}
-          variants={clientVariants}
-          activeFlashSaleEndMillis={activeFlashSale ? activeFlashSale.endDate.toMillis() : null}
+      <GalleryFocusProvider>
+        <MobileGallery
+          images={product.images}
+          productName={product.name}
+          productId={product.id}
+          videoUrl={product.youtubeVideoLink}
+          onSale={product.isFlashSale}
+          initialIndex={initialImageIndex}
         />
-      </div>
+
+        <div className="grid grid-cols-1 gap-10 px-4 lg:grid-cols-2 lg:px-0">
+          {/* Desktop keeps the thumbnail-rail gallery and the video as a separate block below it. */}
+          <div className="hidden flex-col gap-4 lg:flex">
+            <Gallery images={product.images} productName={product.name} initialIndex={initialImageIndex} />
+            {product.youtubeVideoLink && <YoutubeEmbed url={product.youtubeVideoLink} />}
+          </div>
+
+          <ProductExperience
+            product={clientProduct}
+            variants={clientVariants}
+            activeFlashSaleEndMillis={activeFlashSale ? activeFlashSale.endDate.toMillis() : null}
+          />
+        </div>
+      </GalleryFocusProvider>
 
       {/* `px-4` here because `main` no longer pads on mobile — the gallery above is full-bleed. */}
       <div className="mt-14 flex flex-col gap-12 px-4 lg:px-0">

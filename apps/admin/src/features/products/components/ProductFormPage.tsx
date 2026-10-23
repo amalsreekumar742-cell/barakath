@@ -1,4 +1,4 @@
-import { type FC, type ReactNode, type FocusEvent, type ChangeEvent, useEffect, useRef, useState } from 'react';
+import { type FC, type ReactNode, type FocusEvent, type ChangeEvent, type KeyboardEvent, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -7,11 +7,13 @@ import { v4 as uuid } from 'uuid';
 import toast from 'react-hot-toast';
 import Skeleton from 'react-loading-skeleton';
 import { ProductStatus } from '@barakath/shared/config/enums';
-import type { SpecificationProps } from '@barakath/shared/types';
+import type { SpecificationProps, VariantOption } from '@barakath/shared/types';
+import { axisLabel, variantLabel } from '@barakath/shared/utils/variantOptions';
 import { useAppDispatch, useAppSelector } from '@/stores/store';
 import Icon from '@/components/icons/Icon';
 import SearchSelect from '@/components/SearchSelect';
 import ImageCropperModal from '@/components/ImageCropperModal';
+import ConfirmDialog from '@/components/ConfirmDialog';
 import { formatINR } from '@/utils/format';
 import { fetchCategoriesForFilter } from '../api/fetchCategoriesForFilter';
 import { fetchProductDetail } from '../api/fetchProductDetail';
@@ -23,11 +25,62 @@ import { updateProduct } from '../api/updateProduct';
 import { resetProductDetail } from '../stores/productsSlice';
 import { fetchGeneralSettings } from '@/features/settings/api/fetchGeneralSettings';
 import ProductPicker from './ProductPicker';
-import { VariantColorPicker, VariantUnitPicker } from './VariantVariablePickers';
+import { VariantColorPicker, VariantImagePicker, VariantUnitPicker } from './VariantVariablePickers';
 import { fetchVariantCosts } from '../api/variantCosts';
+import {
+  validateVariant,
+  parseVariantFields,
+  isVariantRepurpose,
+  type VariantFieldsInput,
+} from '../utils/validateVariant';
 import type { VariantDraft, ImageDraft, FBTItem } from '../types';
 
-const EMPTY_NV = { color: '', colorCode: '#0f7a5a', name: '', purchasePrice: '', mrp: '', offerPrice: '', referralPrice: '', commission: '', gstPercentage: '', stock: '' };
+/**
+ * The add row's inputs. `options` holds one picked unit per Settings group (VariantUnitPicker); the
+ * variant's `name` is derived from them on add, so it is not an input of its own.
+ */
+const EMPTY_NV = {
+  color: '',
+  colorCode: '#0f7a5a',
+  options: [] as VariantOption[],
+  /** The linked gallery photo's draft id — see VariantDraft.imageId. */
+  imageId: undefined as string | undefined,
+  purchasePrice: '',
+  mrp: '',
+  offerPrice: '',
+  referralPrice: '',
+  commission: '',
+  gstPercentage: '',
+  stock: '',
+};
+
+/** The in-place edit row's text inputs (prices + stock). Colour and variant are edited through their
+ *  pickers and held beside these in the `editing` state. */
+type EditFields = Omit<VariantFieldsInput, 'color' | 'name' | 'options'>;
+
+/** Stable empty fallback for the settings selector (a fresh `[]` per render would re-render forever). */
+const EMPTY_GROUPS: { name: string; units: string[] }[] = [];
+
+/** The one row open for in-place editing: its text inputs plus its colour, unit and photo picks. */
+interface EditState {
+  id: string;
+  fields: EditFields;
+  color: string;
+  colorCode: string;
+  options: VariantOption[];
+  imageId?: string;
+}
+
+/** Edit-row inputs, in table column order. */
+const EDIT_COLUMNS: readonly { key: keyof EditFields; placeholder: string; label: string }[] = [
+  { key: 'purchasePrice', placeholder: '₹ Purchase', label: 'Purchase payment' },
+  { key: 'mrp', placeholder: '₹ Actual', label: 'Actual price' },
+  { key: 'offerPrice', placeholder: '₹ Selling', label: 'Selling price' },
+  { key: 'referralPrice', placeholder: '₹ Ref buying', label: 'Ref buying price' },
+  { key: 'commission', placeholder: 'Comm.', label: 'Commission' },
+  { key: 'gstPercentage', placeholder: 'GST %', label: 'GST percentage' },
+  { key: 'stock', placeholder: 'Stock', label: 'Stock' },
+];
 
 /**
  * Fields the add-row keeps after a variant is added, so a product whose variants differ only by
@@ -74,11 +127,12 @@ const ProductFormPage: FC = () => {
   const detail = useAppSelector((s) => s.products.productDetail);
   const detailLoading = useAppSelector((s) => s.products.detailLoading);
   const saving = useAppSelector((s) => (isEdit ? s.products.updateLoading : s.products.createLoading));
+  // Stamped on the stock-audit docs an edit-mode save writes for changed variant stocks.
+  const admin = useAppSelector((s) => s.currentAdmin.admin);
   // Variant axes come from Settings › Variables (spec §1.21 / design 04): the Colour swatches + the
   // variant-group names (e.g. Size) feed this section's pickers and the "From Settings" helper chips.
-  const variantGroupNames = useAppSelector(
-    (s) => s.settings.settings?.variables.variantGroups.map((g) => g.name) ?? [],
-  );
+  const variantGroups = useAppSelector((s) => s.settings.settings?.variables.variantGroups ?? EMPTY_GROUPS);
+  const variantGroupNames = variantGroups.map((g) => g.name);
 
   const {
     register,
@@ -112,6 +166,16 @@ const ProductFormPage: FC = () => {
   const [cropperSrc, setCropperSrc] = useState<string | null>(null);
   const [dragIndex, setDragIndex] = useState<number | null>(null);
   const [nv, setNv] = useState(EMPTY_NV); // inline "new variant" row
+  /** The one variant row open for in-place editing, with its raw input values. */
+  const [editing, setEditing] = useState<EditState | null>(null);
+  /** Open while ✓ waits on "change this saved variant's colour/size?" — see applyEdit. */
+  const [confirmRepurpose, setConfirmRepurpose] = useState(false);
+  /**
+   * False until the edit page's purchase-price read settles. Editing is held until then: the edit row
+   * copies the draft's purchase price when it opens, so opening it early would capture the 0
+   * placeholder and ✓ would then save that 0 over the real cost.
+   */
+  const [costsReady, setCostsReady] = useState(!isEdit);
   const [skuChecking, setSkuChecking] = useState(false);
   const imageFileRef = useRef<HTMLInputElement>(null);
   const addRowRef = useRef<HTMLTableRowElement>(null); // header "Add variant" scrolls the add-row into view
@@ -147,14 +211,21 @@ const ProductFormPage: FC = () => {
     setIsCombo(p.isCombo);
     setReplacementAvailable(p.replacementAvailable);
     setSpecifications(p.specifications ?? []);
-    setImages((p.images ?? []).map((url) => ({ id: uuid(), url })));
+    // Drafted first: each variant's photo link is held as one of THESE draft ids, not as a url.
+    const imageDrafts: ImageDraft[] = (p.images ?? []).map((url) => ({ id: uuid(), url }));
+    setImages(imageDrafts);
     setVariants(
       detail.variants.map((v) => ({
         id: v.id,
         isNew: false,
         name: v.name,
+        // Carried so the save writes them back unchanged and the duplicate check compares by axis.
+        // A legacy variant has none and stays that way.
+        ...(v.options?.length ? { options: v.options } : {}),
         color: v.color,
         colorCode: v.colorCode,
+        // A url no longer in the gallery finds no draft and loads as "no photo".
+        imageId: v.imageUrl ? imageDrafts.find((d) => d.url === v.imageUrl)?.id : undefined,
         // Filled in by the variantCosts read below — it is a separate, admin-only document.
         purchasePrice: 0,
         mrp: v.mrp,
@@ -164,14 +235,19 @@ const ProductFormPage: FC = () => {
         // null (not 0) when the variant predates per-variant rates — see VariantDraft.
         gstPercentage: typeof v.gstPercentage === 'number' ? v.gstPercentage : null,
         stock: v.stock,
+        // The save compares against this so an untouched stock is never written back — see
+        // VariantDraft.originalStock.
+        originalStock: v.stock,
       })),
     );
     // Purchase prices are NOT on the variant documents (they would be world-readable there), so they
     // need their own read. Patched in rather than awaited so the form is usable immediately.
-    void fetchVariantCosts(detail.variants.map((v) => v.id)).then((costs) => {
-      if (costs.size === 0) return;
-      setVariants((prev) => prev.map((v) => ({ ...v, purchasePrice: costs.get(v.id) ?? v.purchasePrice })));
-    });
+    void fetchVariantCosts(detail.variants.map((v) => v.id))
+      .then((costs) => {
+        if (costs.size === 0) return;
+        setVariants((prev) => prev.map((v) => ({ ...v, purchasePrice: costs.get(v.id) ?? v.purchasePrice })));
+      })
+      .finally(() => setCostsReady(true));
     if (p.categoryId) void loadSubCategories(p.categoryId).then((subs) => setSubOptions(subs.map((s) => ({ value: s.id, label: s.name }))));
     if (p.isCombo && p.frequentlyBoughtTogether?.length) void loadProductsByIds(p.frequentlyBoughtTogether).then(setFbt);
   }, [detail, id, isEdit, reset]);
@@ -226,22 +302,34 @@ const ProductFormPage: FC = () => {
     setDragIndex(null);
   };
   const imgSrc = (img: ImageDraft) => img.url ?? (img.blob ? URL.createObjectURL(img.blob) : '');
+  /** The gallery as the variant rows' photo pickers offer it — memoised so a blob's object url is made
+   *  once per gallery change, not once per row per render. */
+  const pickerImages = useMemo(
+    () => images.map((img) => ({ id: img.id, src: img.url ?? (img.blob ? URL.createObjectURL(img.blob) : '') })),
+    [images],
+  );
+  /** A row's linked photo, or undefined when it has none or the photo was removed from the gallery. */
+  const linkedImage = (imageId?: string) => pickerImages.find((img) => img.id === imageId);
 
   // Inline "Add variant" row (spec §1.5 / design 04 — variants added inline, not in a modal).
   const addInlineVariant = () => {
-    const mrp = Number(nv.mrp), offer = Number(nv.offerPrice);
-    const referral = Number(nv.referralPrice || 0), commission = Number(nv.commission || 0), stock = Number(nv.stock || 0);
-    const purchasePrice = Number(nv.purchasePrice || 0), gstPercentage = Number(nv.gstPercentage || 0);
-    if (!nv.color.trim() || !nv.name.trim()) return toast.error('Color and variant are required');
-    if (!(mrp > 0) || !(offer > 0)) return toast.error('Enter actual and selling price');
-    if (offer > mrp) return toast.error('Selling price must be ≤ Actual');
-    if (referral > offer) return toast.error('Ref buying price must be ≤ Selling price');
-    if (commission > referral) return toast.error('Commission must be ≤ Ref buying price');
-    if (purchasePrice < 0) return toast.error('Purchase payment cannot be negative');
-    if (gstPercentage < 0 || gstPercentage > 100) return toast.error('GST must be between 0 and 100');
+    // `name` is DERIVED from the picks ("57 · Layer 2") so every surface that only prints a name keeps
+    // working; `options` is stored even for a single pick, so the storefront knows its group.
+    const input = { ...nv, name: variantLabel(nv.options) };
+    const error = validateVariant(input, variants);
+    if (error) return toast.error(error);
     setVariants((prev) => [
       ...prev,
-      { id: uuid(), isNew: true, name: nv.name.trim(), color: nv.color.trim(), colorCode: nv.colorCode, purchasePrice, mrp, offerPrice: offer, referralPrice: referral, commission, gstPercentage, stock },
+      {
+        id: uuid(),
+        isNew: true,
+        name: input.name,
+        options: nv.options,
+        color: nv.color.trim(),
+        colorCode: nv.colorCode,
+        imageId: nv.imageId,
+        ...parseVariantFields(input),
+      },
     ]);
     // Keep the pricing fields for the next row (see CARRY_OVER) — the common case is several sizes
     // of one product sharing everything but colour and size. Clearing all of it forced a full retype
@@ -251,6 +339,97 @@ const ProductFormPage: FC = () => {
   const removeVariant = (vid: string) => {
     if (variants.length <= 1) return toast.error('Minimum one variant required');
     setVariants((prev) => prev.filter((v) => v.id !== vid));
+  };
+
+  // ▲/▼ reorder (spec §1.22: no drag-reorder for lists). The array order IS the saved `sortOrder`,
+  // and position #1 is the product's default variant on every surface.
+  const moveVariant = (index: number, delta: -1 | 1) =>
+    setVariants((prev) => {
+      const target = index + delta;
+      if (target < 0 || target >= prev.length) return prev;
+      const next = [...prev];
+      [next[index], next[target]] = [next[target]!, next[index]!];
+      return next;
+    });
+
+  /**
+   * The picks a legacy row (no `options`, just a name like "57") opens with: its name as a unit of the
+   * Settings group that holds it, so the admin only has to ADD the new axis (e.g. Layer 2) instead of
+   * re-picking the size. Empty when no group holds it — the row then keeps its name unless re-picked.
+   */
+  const legacyPicks = (name: string): VariantOption[] => {
+    const key = name.trim().toLowerCase();
+    const group = variantGroups.find((g) => g.units.some((u) => u.trim().toLowerCase() === key));
+    const unit = group?.units.find((u) => u.trim().toLowerCase() === key);
+    return group && unit ? [{ group: group.name, value: unit }] : [];
+  };
+
+  // In-place edit of a variant — prices, stock, colour and variant (Size / Layer…). Editing (rather
+  // than delete + re-add) keeps the variant's id, which saved carts, flash sales and the stock history
+  // reference. Past orders keep the label they snapshotted at checkout, but anything still LIVE follows
+  // the id — so changing a saved variant's colour/units asks first (see isVariantRepurpose).
+  const startEdit = (v: VariantDraft) => {
+    if (editing) return; // one row at a time — the other rows' edit buttons are disabled too
+    setEditing({
+      id: v.id,
+      color: v.color,
+      colorCode: v.colorCode,
+      options: v.options?.length ? v.options : legacyPicks(v.name),
+      imageId: v.imageId,
+      fields: {
+        purchasePrice: String(v.purchasePrice),
+        mrp: String(v.mrp),
+        offerPrice: String(v.offerPrice),
+        referralPrice: String(v.referralPrice),
+        commission: String(v.commission),
+        gstPercentage: v.gstPercentage === null ? '' : String(v.gstPercentage),
+        stock: String(v.stock),
+      },
+    });
+  };
+  /**
+   * ✓ on the edit row. `confirmed` is true only from the repurpose dialog: an already-SAVED variant whose
+   * colour or units change keeps its id, so shoppers' bags and open orders for it would silently follow
+   * the change — the admin confirms that first. Rows added in this session (`isNew`) have no such
+   * history, and price/stock-only edits never prompt.
+   */
+  const applyEdit = (confirmed = false) => {
+    if (!editing) return;
+    const v = variants.find((x) => x.id === editing.id);
+    if (!v) return setEditing(null);
+    // No unit picked on a legacy row = its variant is left as it was (name kept, still single-axis).
+    const options = editing.options.length ? editing.options : v.options;
+    const name = editing.options.length ? variantLabel(editing.options) : v.name;
+    const input = { ...editing.fields, color: editing.color, name, options };
+    // Against the OTHER rows only — the row is allowed to equal its own previous self.
+    const error = validateVariant(input, variants.filter((x) => x.id !== v.id));
+    if (error) return toast.error(error);
+    if (!confirmed && !v.isNew && isVariantRepurpose(v, input)) return setConfirmRepurpose(true);
+    const parsed = parseVariantFields(input);
+    // A legacy variant's GST left blank stays "shop default" (null) instead of being pinned to 0 —
+    // the same distinction VariantDraft.gstPercentage draws.
+    const gstPercentage = editing.fields.gstPercentage.trim() === '' && v.gstPercentage === null ? null : parsed.gstPercentage;
+    // `originalStock` survives the spread, so the save still knows what the stock was at load time.
+    setVariants((prev) =>
+      prev.map((x) =>
+        x.id === v.id
+          ? { ...x, ...parsed, gstPercentage, color: editing.color.trim(), colorCode: editing.colorCode, name, options, imageId: editing.imageId }
+          : x,
+      ),
+    );
+    setEditing(null);
+  };
+  const setEditField = (key: keyof EditFields, value: string) =>
+    setEditing((e) => (e ? { ...e, fields: { ...e.fields, [key]: value } } : e));
+  const onEditKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
+    // Enter inside the <form> would submit the whole product; in an edit cell it means "apply".
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      applyEdit();
+    } else if (e.key === 'Escape') {
+      e.preventDefault();
+      setEditing(null);
+    }
   };
 
   const addSpec = () => specifications.length < MAX_SPECS && setSpecifications((p) => [...p, { key: '', value: '' }]);
@@ -265,6 +444,14 @@ const ProductFormPage: FC = () => {
   };
 
   const onSubmit = async (values: FormValues) => {
+    // An open edit row holds values that are not in `variants` yet — saving now would silently drop
+    // them, so make the admin apply (✓) or discard (✕) first.
+    if (editing) return toast.error('Finish editing the variant first');
+    // Purchase prices are patched in by a separate read after the form opens (see hydration above);
+    // until it lands every variant holds a 0 placeholder, and the save writes each variant's cost —
+    // a quick save would zero the real purchase prices behind the profit report.
+    if (isEdit && !costsReady) return toast.error('Purchase prices are still loading — try again in a moment');
+    if (isEdit && !admin) return toast.error('Your admin profile is still loading — try again');
     if (!categoryId || !subCategoryId) return toast.error('Select a category and sub-category');
     if (images.length === 0) return toast.error('Add at least one product image');
     if (variants.length === 0) return toast.error('Add at least one variant');
@@ -292,7 +479,9 @@ const ProductFormPage: FC = () => {
       variants: variants.map((v) => ({ ...v, gstPercentage: v.gstPercentage ?? globalGstPct })),
     };
 
-    const res = isEdit ? await dispatch(updateProduct({ id: id!, ...common })) : await dispatch(createProduct(common));
+    const res = isEdit
+      ? await dispatch(updateProduct({ id: id!, ...common, adjustedBy: admin!.id, adjustedByName: admin!.fullName }))
+      : await dispatch(createProduct(common));
     if (updateProduct.fulfilled.match(res) || createProduct.fulfilled.match(res)) {
       toast.success(isEdit ? 'Product updated' : 'Product created');
       navigate('/products');
@@ -464,21 +653,36 @@ const ProductFormPage: FC = () => {
                 )}
               </div>
               <p className="text-[12px] text-faint">
+                Variant takes one unit per group — e.g. Size 57 + Layer 2. Leave a group blank when it
+                doesn&apos;t apply to the product.
+              </p>
+              <p className="text-[12px] text-faint">
                 Price varies per variant — set purchase payment, actual, selling, ref buying, commission
                 &amp; GST for each (Actual ≥ Selling ≥ Ref buying ≥ Commission). Purchase payment is
                 internal: it drives the profit report and is never shown to customers.
               </p>
+              <p className="text-[12px] text-faint">
+                Row order is the display order — #1 is the product&apos;s default variant (its card
+                price, pre-selected on the product page). Edit a row to change its prices or stock
+                without replacing the variant.
+              </p>
+              <p className="text-[12px] text-faint">
+                Photo: the product image that shows this colour — picking the colour in the app or on
+                the website slides the gallery to it. Set it once per colour; its other sizes use it too.
+              </p>
             </div>
             <div className="overflow-x-auto rounded-lg border border-border">
-              {/* Sized so the ten columns fit without scrolling on a normal desktop; narrower than
-                  that the pinned action column keeps Add/Delete reachable. */}
-              <table className="w-full min-w-[960px] text-[13px]">
+              {/* Sized so the twelve columns fit without scrolling on a normal desktop; narrower than
+                  that the pinned action column keeps Add/Edit/Delete reachable. */}
+              <table className="w-full min-w-[1180px] text-[13px]">
                 <thead className="bg-subtle/50 text-left text-[11px] uppercase tracking-wide text-faint">
                   <tr>
+                    <th className="px-3 py-2 font-semibold">#</th>
                     {/* Labels only — the Firestore field names behind them (mrp / offerPrice /
                         referralPrice / commission) are unchanged, so no document is rewritten. */}
                     <th className="px-3 py-2 font-semibold">Color</th>
                     <th className="px-3 py-2 font-semibold">Variant</th>
+                    <th className="px-3 py-2 font-semibold">Photo</th>
                     <th className="px-3 py-2 font-semibold">Purchase payment (₹)</th>
                     <th className="px-3 py-2 font-semibold">Actual (₹)</th>
                     <th className="px-3 py-2 font-semibold">Selling price (₹)</th>
@@ -495,37 +699,152 @@ const ProductFormPage: FC = () => {
                   </tr>
                 </thead>
                 <tbody>
-                  {variants.map((v) => (
-                    <tr key={v.id} className="group border-t border-border">
-                      <td className="px-3 py-2">
-                        <span className="inline-flex items-center gap-1.5 text-foreground">
-                          <span className="h-3 w-3 rounded-full border border-border" style={{ backgroundColor: v.colorCode }} />
-                          {v.color}
-                        </span>
-                      </td>
-                      <td className="px-3 py-2 text-muted">{v.name}</td>
-                      <td className="px-3 py-2 text-muted">{formatINR(v.purchasePrice)}</td>
-                      <td className="px-3 py-2 text-muted">{formatINR(v.mrp)}</td>
-                      <td className="px-3 py-2 font-semibold text-primary">{formatINR(v.offerPrice)}</td>
-                      <td className="px-3 py-2 font-semibold text-gold-strong">{formatINR(v.referralPrice)}</td>
-                      <td className="px-3 py-2 text-muted">{formatINR(v.commission)}</td>
-                      <td className="px-3 py-2 text-muted">
-                        {v.gstPercentage ?? globalGstPct}%
-                        {v.gstPercentage === null && (
-                          <span className="ml-1 text-[11px] text-faint">(shop default)</span>
+                  {variants.map((v, i) => {
+                    const edit = editing?.id === v.id ? editing : null;
+                    const photo = linkedImage(v.imageId);
+                    return (
+                      <tr key={v.id} className={`group border-t border-border ${edit ? 'bg-subtle/30' : ''}`}>
+                        <td className="px-2 py-2">
+                          <div className="flex items-center gap-0.5">
+                            <span className="w-7 text-[12px] font-semibold text-faint">#{i + 1}</span>
+                            <button type="button" onClick={() => moveVariant(i, -1)} disabled={i === 0} className={moveBtnCls} aria-label="Move variant up">
+                              <Icon name="ArrowUpLine" size={14} />
+                            </button>
+                            <button type="button" onClick={() => moveVariant(i, 1)} disabled={i === variants.length - 1} className={moveBtnCls} aria-label="Move variant down">
+                              <Icon name="ArrowDownLine" size={14} />
+                            </button>
+                          </div>
+                        </td>
+                        {edit ? (
+                          <>
+                            <td className="px-2 py-2">
+                              <VariantColorPicker
+                                value={edit.color}
+                                colorCode={edit.colorCode}
+                                onSelect={(color, colorCode) => setEditing((e) => (e ? { ...e, color, colorCode } : e))}
+                              />
+                            </td>
+                            <td className="px-2 py-2">
+                              <VariantUnitPicker
+                                value={edit.options}
+                                onChange={(options) => setEditing((e) => (e ? { ...e, options } : e))}
+                              />
+                            </td>
+                            <td className="px-2 py-2">
+                              <VariantImagePicker
+                                value={edit.imageId}
+                                images={pickerImages}
+                                onSelect={(imageId) => setEditing((e) => (e ? { ...e, imageId } : e))}
+                              />
+                            </td>
+                          </>
+                        ) : (
+                          <>
+                        <td className="px-3 py-2">
+                          <span className="inline-flex items-center gap-1.5 text-foreground">
+                            <span className="h-3 w-3 rounded-full border border-border" style={{ backgroundColor: v.colorCode }} />
+                            {v.color}
+                          </span>
+                        </td>
+                        <td className="px-3 py-2 text-muted">
+                          {/* One pill per picked unit, labelled with its group, so Size 57 and Layer 2
+                              read as two axes. A legacy row has only its name. */}
+                          {v.options?.length ? (
+                            <span className="flex flex-wrap gap-1" title={v.name}>
+                              {v.options.map((o) => (
+                                <span
+                                  key={o.group}
+                                  className="inline-flex items-center gap-1 whitespace-nowrap rounded-pill border border-border bg-subtle px-1.5 py-0.5 text-[11px] font-semibold text-foreground"
+                                >
+                                  <span className="font-normal text-faint">{axisLabel(o.group)}</span>
+                                  {o.value}
+                                </span>
+                              ))}
+                            </span>
+                          ) : (
+                            v.name
+                          )}
+                        </td>
+                        <td className="px-3 py-2">
+                          {photo ? (
+                            <span className="inline-flex items-center gap-1.5 text-muted">
+                              <img src={photo.src} alt="" className="h-7 w-7 rounded border border-border object-cover" />
+                              #{pickerImages.indexOf(photo) + 1}
+                            </span>
+                          ) : (
+                            <span className="text-faint">—</span>
+                          )}
+                        </td>
+                          </>
                         )}
-                      </td>
-                      <td className="px-3 py-2 text-muted">{v.stock}</td>
-                      <td className="sticky right-0 z-10 border-l border-border bg-surface px-3 py-2 text-right group-hover:bg-subtle">
-                        <button type="button" onClick={() => removeVariant(v.id)} className="rounded-md p-1.5 text-muted hover:bg-error-subtle hover:text-error" aria-label="Delete variant">
-                          <Icon name="CloseLine" size={16} />
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
+                        {edit ? (
+                          EDIT_COLUMNS.map((c) => (
+                            <td key={c.key} className="px-2 py-2">
+                              <input
+                                type="number"
+                                value={edit.fields[c.key]}
+                                onChange={(e) => setEditField(c.key, e.target.value)}
+                                onKeyDown={onEditKeyDown}
+                                placeholder={c.placeholder}
+                                aria-label={c.label}
+                                className={cellCls}
+                              />
+                            </td>
+                          ))
+                        ) : (
+                          <>
+                            <td className="px-3 py-2 text-muted">{formatINR(v.purchasePrice)}</td>
+                            <td className="px-3 py-2 text-muted">{formatINR(v.mrp)}</td>
+                            <td className="px-3 py-2 font-semibold text-primary">{formatINR(v.offerPrice)}</td>
+                            <td className="px-3 py-2 font-semibold text-gold-strong">{formatINR(v.referralPrice)}</td>
+                            <td className="px-3 py-2 text-muted">{formatINR(v.commission)}</td>
+                            <td className="px-3 py-2 text-muted">
+                              {v.gstPercentage ?? globalGstPct}%
+                              {v.gstPercentage === null && (
+                                <span className="ml-1 text-[11px] text-faint">(shop default)</span>
+                              )}
+                            </td>
+                            <td className="px-3 py-2 text-muted">{v.stock}</td>
+                          </>
+                        )}
+                        {edit ? (
+                          <td className="sticky right-0 z-10 border-l border-border bg-subtle px-2 py-2 text-right">
+                            <div className="flex items-center justify-end gap-0.5">
+                              <button type="button" onClick={() => applyEdit()} className="rounded-md p-1.5 text-primary hover:bg-primary-subtle" aria-label="Apply variant changes">
+                                <Icon name="CheckLine" size={16} />
+                              </button>
+                              <button type="button" onClick={() => setEditing(null)} className="rounded-md p-1.5 text-muted hover:bg-surface hover:text-foreground" aria-label="Discard variant changes">
+                                <Icon name="CloseLine" size={16} />
+                              </button>
+                            </div>
+                          </td>
+                        ) : (
+                          <td className="sticky right-0 z-10 border-l border-border bg-surface px-2 py-2 text-right group-hover:bg-subtle">
+                            <div className="flex items-center justify-end gap-0.5">
+                              <button
+                                type="button"
+                                onClick={() => startEdit(v)}
+                                disabled={!!editing || !costsReady}
+                                title={editing ? 'Finish editing the open variant first' : undefined}
+                                className="rounded-md p-1.5 text-muted enabled:hover:bg-primary-subtle enabled:hover:text-primary disabled:cursor-not-allowed disabled:opacity-40"
+                                aria-label="Edit variant"
+                              >
+                                <Icon name="EditLine" size={16} />
+                              </button>
+                              <button type="button" onClick={() => removeVariant(v.id)} className="rounded-md p-1.5 text-muted hover:bg-error-subtle hover:text-error" aria-label="Delete variant">
+                                <Icon name="CloseLine" size={16} />
+                              </button>
+                            </div>
+                          </td>
+                        )}
+                      </tr>
+                    );
+                  })}
 
                   {/* Inline add row */}
                   <tr ref={addRowRef} className="border-t border-border bg-subtle/30">
+                    {/* Where the new row will land — always appended at the end. */}
+                    <td className="px-3 py-2 text-[12px] font-semibold text-faint">#{variants.length + 1}</td>
                     <td className="px-2 py-2">
                       <VariantColorPicker
                         value={nv.color}
@@ -534,7 +853,10 @@ const ProductFormPage: FC = () => {
                       />
                     </td>
                     <td className="px-2 py-2">
-                      <VariantUnitPicker value={nv.name} onSelect={(name) => setNv((s) => ({ ...s, name }))} />
+                      <VariantUnitPicker value={nv.options} onChange={(options) => setNv((s) => ({ ...s, options }))} />
+                    </td>
+                    <td className="px-2 py-2">
+                      <VariantImagePicker value={nv.imageId} images={pickerImages} onSelect={(imageId) => setNv((s) => ({ ...s, imageId }))} />
                     </td>
                     <td className="px-2 py-2"><input type="number" value={nv.purchasePrice} onChange={(e) => setNv((s) => ({ ...s, purchasePrice: e.target.value }))} placeholder="₹ Purchase" className={cellCls} /></td>
                     <td className="px-2 py-2"><input type="number" value={nv.mrp} onChange={(e) => setNv((s) => ({ ...s, mrp: e.target.value }))} placeholder="₹ Actual" className={cellCls} /></td>
@@ -630,6 +952,18 @@ const ProductFormPage: FC = () => {
       {cropperSrc && (
         <ImageCropperModal isOpen={!!cropperSrc} src={cropperSrc} aspectRatio={1} onCancel={() => setCropperSrc(null)} onCropped={onImageCropped} />
       )}
+      {/* Cancel keeps the edit row open, so the admin can revert the pick or add a new row instead. */}
+      <ConfirmDialog
+        isOpen={confirmRepurpose}
+        title="Change this variant's colour/size?"
+        message="Shoppers' bags and open orders for it will follow the change. To sell it as a new item instead, add a new row."
+        confirmLabel="Change variant"
+        onConfirm={() => {
+          setConfirmRepurpose(false);
+          applyEdit(true);
+        }}
+        onCancel={() => setConfirmRepurpose(false)}
+      />
     </form>
   );
 };
@@ -638,6 +972,8 @@ const inputCls =
   'w-full rounded-md border border-border-strong bg-surface px-3 py-2.5 text-[14px] outline-none placeholder:text-faint focus:border-primary focus:ring-2 focus:ring-primary/20';
 const cellCls =
   'w-full min-w-[56px] rounded-md border border-border-strong bg-surface px-2 py-1.5 text-[13px] outline-none placeholder:text-faint focus:border-primary';
+const moveBtnCls =
+  'rounded p-0.5 text-muted enabled:hover:bg-subtle enabled:hover:text-foreground disabled:cursor-not-allowed disabled:opacity-30';
 
 const Card: FC<{ title: string; action?: ReactNode; children: ReactNode }> = ({ title, action, children }) => (
   <div className="rounded-xl border border-border bg-surface p-5 shadow-sm">

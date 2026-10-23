@@ -1,5 +1,5 @@
 import { type FC, useEffect, useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   createColumnHelper,
   flexRender,
@@ -12,16 +12,23 @@ import 'react-datepicker/dist/react-datepicker.css';
 import { format } from 'date-fns';
 import { Timestamp } from 'firebase/firestore';
 import type { OrderProps } from '@barakath/shared/types';
-import { OrderStatus } from '@barakath/shared/config/enums';
+import toast from 'react-hot-toast';
+import { OrderStatus, PaymentStatus } from '@barakath/shared/config/enums';
 import { useAppDispatch, useAppSelector } from '@/stores/store';
 import Icon from '@/components/icons/Icon';
+import ConfirmDialog from '@/components/ConfirmDialog';
 import OrderStatusBadge from '@/components/OrderStatusBadge';
 import { formatINR } from '@/utils/format';
 import { fetchOrders } from '../api/fetchOrders';
 import { fetchOrderStatusCounts } from '../api/fetchOrderStatusCounts';
 import { exportOrdersCSV } from '../api/exportOrdersCSV';
+import { bulkUpdateOrderStatus, type BulkUpdateOrderStatusResult } from '../api/bulkUpdateOrderStatus';
 import { setStatusFilter, setOrderSearch, setOrderDateRange } from '../stores/ordersSlice';
+import { bulkActionLabel, isBulkActionable, isBulkSelectable, isOrderPaid, nextStatus } from '../utils/orderFlow';
 import { PaymentMethodBadge, PaymentStatusBadge } from './PaymentBadges';
+import BulkActionBar from './BulkActionBar';
+import BulkCancelModal from './BulkCancelModal';
+import BulkResultModal from './BulkResultModal';
 import type { OrderStatusCounts } from '../types';
 
 const columnHelper = createColumnHelper<OrderProps>();
@@ -39,7 +46,8 @@ const TABS: { label: string; value: string; key: keyof OrderStatusCounts }[] = [
 
 /**
  * OrdersPage — the order list with status tabs, search, date-range filter and CSV export (spec §1.7).
- * Tabs show live counts; changing tab/search/date resets the list and refetches page one.
+ * Tabs show live counts; changing tab/search/date resets the list and refetches page one. Rows can be
+ * ticked (same status only) to advance or cancel several orders at once from the bulk bar.
  */
 const OrdersPage: FC = () => {
   const dispatch = useAppDispatch();
@@ -54,9 +62,92 @@ const OrdersPage: FC = () => {
     filters,
     statusCounts,
     exportLoading,
+    bulkProgress,
   } = useAppSelector((s) => s.orders);
 
   const [searchInput, setSearchInput] = useState('');
+
+  // WHY the URL owns the status tab: the Dashboard's "Pending orders" card links to
+  // `/orders?status=Pending`, and a refresh / back press must land on the same tab. Redux still holds
+  // the filter (the fetch reads it), but it is driven FROM the URL — an unknown value falls back to All.
+  const [searchParams, setSearchParams] = useSearchParams();
+  const rawStatus = searchParams.get('status') ?? '';
+  const urlStatus = TABS.some((t) => t.value === rawStatus) ? rawStatus : '';
+
+  useEffect(() => {
+    if (urlStatus !== filters.status) dispatch(setStatusFilter(urlStatus));
+  }, [dispatch, urlStatus, filters.status]);
+
+  const selectTab = (value: string) => setSearchParams(value ? { status: value } : {});
+
+  // --- Bulk selection (same-status only — see isBulkSelectable) ---
+  const [selected, setSelected] = useState<Record<string, OrderProps>>({});
+  const [confirmBulkAdvance, setConfirmBulkAdvance] = useState(false);
+  const [bulkCancelOpen, setBulkCancelOpen] = useState(false);
+  const [bulkResult, setBulkResult] = useState<BulkUpdateOrderStatusResult | null>(null);
+
+  const selectedOrders = Object.values(selected);
+  const selectionStatus = selectedOrders[0]?.status ?? null;
+  // The header checkbox needs ONE status to select: the selection's, else the open tab's. On "All" with
+  // nothing ticked yet there is no single status, so it stays disabled until a row is ticked.
+  const headerStatus = selectionStatus ?? (filters.status || null);
+  const headerCandidates = headerStatus
+    ? orders.filter((o) => o.status === headerStatus && isBulkActionable(o.status))
+    : [];
+  const allHeaderSelected = headerCandidates.length > 0 && headerCandidates.every((o) => selected[o.id]);
+
+  // A filter change swaps the list out from under the selection — drop it rather than act on rows the
+  // admin can no longer see.
+  useEffect(() => {
+    setSelected({});
+  }, [filters]);
+
+  const toggleOrder = (o: OrderProps) =>
+    setSelected((prev) => {
+      const next = { ...prev };
+      if (next[o.id]) delete next[o.id];
+      else next[o.id] = o;
+      return next;
+    });
+
+  const toggleAll = () =>
+    setSelected((prev) => {
+      if (allHeaderSelected) {
+        const next = { ...prev };
+        headerCandidates.forEach((o) => delete next[o.id]);
+        return next;
+      }
+      return { ...prev, ...Object.fromEntries(headerCandidates.map((o) => [o.id, o])) };
+    });
+
+  const runBulk = async (action: 'advance' | 'cancel', cancelReason?: string) => {
+    setConfirmBulkAdvance(false);
+    setBulkCancelOpen(false);
+    const res = await dispatch(
+      bulkUpdateOrderStatus({
+        orders: selectedOrders.map((o) => ({ id: o.id, status: o.status })),
+        action,
+        cancelReason,
+      }),
+    );
+    setSelected({});
+    if (!bulkUpdateOrderStatus.fulfilled.match(res)) {
+      toast.error('Could not update the selected orders');
+      return;
+    }
+    const { succeeded, failed } = res.payload;
+    if (succeeded.length > 0)
+      toast.success(`${succeeded.length} order${succeeded.length === 1 ? '' : 's'} updated`);
+    if (failed.length > 0) setBulkResult(res.payload);
+    // Updated orders have moved to another status, so the current tab's page one and the tab counts
+    // are both stale — refetch rather than patch.
+    void dispatch(fetchOrderStatusCounts());
+    void dispatch(fetchOrders({ filters, cursor: null }));
+  };
+
+  const unpaidSelected = selectedOrders.filter((o) => !isOrderPaid(o.paymentStatus)).length;
+  const paidSelected = selectedOrders.filter((o) => o.paymentStatus === PaymentStatus.PAID).length;
+  const bulkNext = selectionStatus ? nextStatus(selectionStatus) : null;
 
   useEffect(() => {
     void dispatch(fetchOrderStatusCounts());
@@ -64,7 +155,10 @@ const OrdersPage: FC = () => {
   }, [dispatch]);
 
   useEffect(() => {
+    // Wait until Redux has caught up with the URL — otherwise a deep link fetches All first, then the tab.
+    if (filters.status !== urlStatus) return;
     void dispatch(fetchOrders({ filters, cursor: null }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dispatch, filters]);
 
   useEffect(() => {
@@ -153,7 +247,7 @@ const OrdersPage: FC = () => {
             <button
               key={tab.label}
               type="button"
-              onClick={() => dispatch(setStatusFilter(tab.value))}
+              onClick={() => selectTab(tab.value)}
               className={`shrink-0 whitespace-nowrap border-b-2 px-3.5 py-2.5 text-[13px] font-semibold transition-colors ${
                 active ? 'border-primary text-primary' : 'border-transparent text-muted hover:text-foreground'
               }`}
@@ -228,6 +322,18 @@ const OrdersPage: FC = () => {
         </button>
       </div>
 
+      {selectionStatus && (
+        <BulkActionBar
+          count={selectedOrders.length}
+          status={selectionStatus}
+          unpaidCount={unpaidSelected}
+          progress={bulkProgress}
+          onAdvance={() => setConfirmBulkAdvance(true)}
+          onCancel={() => setBulkCancelOpen(true)}
+          onClear={() => setSelected({})}
+        />
+      )}
+
       {/* Body */}
       {loading ? (
         <div className="space-y-3">
@@ -261,6 +367,17 @@ const OrdersPage: FC = () => {
             <thead className="border-b border-border bg-subtle/50">
               {table.getHeaderGroups().map((hg) => (
                 <tr key={hg.id}>
+                  <th className="w-10 py-3 pl-5 pr-0 text-left">
+                    <input
+                      type="checkbox"
+                      aria-label="Select all orders on this page"
+                      title={headerStatus ? undefined : 'Open a status tab, or tick an order first'}
+                      checked={allHeaderSelected}
+                      disabled={headerCandidates.length === 0 || bulkProgress !== null}
+                      onChange={toggleAll}
+                      className="h-4 w-4 cursor-pointer accent-primary disabled:cursor-not-allowed disabled:opacity-40"
+                    />
+                  </th>
                   {hg.headers.map((h) => (
                     <th
                       key={h.id}
@@ -273,19 +390,44 @@ const OrdersPage: FC = () => {
               ))}
             </thead>
             <tbody>
-              {table.getRowModel().rows.map((row) => (
-                <tr
-                  key={row.id}
-                  onClick={() => navigate(`/orders/${row.original.id}`)}
-                  className="cursor-pointer border-b border-border last:border-0 hover:bg-subtle/40"
-                >
-                  {row.getVisibleCells().map((cell) => (
-                    <td key={cell.id} className="px-5 py-3">
-                      {flexRender(cell.column.columnDef.cell, cell.getContext())}
+              {table.getRowModel().rows.map((row) => {
+                const o = row.original;
+                const selectable = isBulkSelectable(o.status, selectionStatus);
+                const isSelected = !!selected[o.id];
+                return (
+                  <tr
+                    key={row.id}
+                    onClick={() => navigate(`/orders/${o.id}`)}
+                    className={`cursor-pointer border-b border-border last:border-0 hover:bg-subtle/40 ${
+                      isSelected ? 'bg-primary-subtle/60' : ''
+                    }`}
+                  >
+                    {/* stopPropagation: ticking a box must not open the order. */}
+                    <td className="w-10 py-3 pl-5 pr-0" onClick={(e) => e.stopPropagation()}>
+                      <input
+                        type="checkbox"
+                        aria-label={`Select order ${o.id}`}
+                        title={
+                          selectable || isSelected
+                            ? undefined
+                            : isBulkActionable(o.status)
+                              ? 'Select orders with the same status'
+                              : `${o.status} orders have no further action`
+                        }
+                        checked={isSelected}
+                        disabled={(!selectable && !isSelected) || bulkProgress !== null}
+                        onChange={() => toggleOrder(o)}
+                        className="h-4 w-4 cursor-pointer accent-primary disabled:cursor-not-allowed disabled:opacity-40"
+                      />
                     </td>
-                  ))}
-                </tr>
-              ))}
+                    {row.getVisibleCells().map((cell) => (
+                      <td key={cell.id} className="px-5 py-3">
+                        {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                      </td>
+                    ))}
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
 
@@ -307,6 +449,30 @@ const OrdersPage: FC = () => {
           )}
         </div>
       )}
+
+      <ConfirmDialog
+        isOpen={confirmBulkAdvance}
+        title={`${selectionStatus ? bulkActionLabel(selectionStatus) : ''}?`}
+        message={`This will move ${selectedOrders.length} order${selectedOrders.length === 1 ? '' : 's'} to "${
+          bulkNext ?? ''
+        }". Each customer is notified.${unpaidSelected > 0 ? ` ${unpaidSelected} unpaid will be skipped.` : ''}`}
+        confirmLabel="Confirm"
+        onConfirm={() => void runBulk('advance')}
+        onCancel={() => setConfirmBulkAdvance(false)}
+      />
+      <BulkCancelModal
+        isOpen={bulkCancelOpen}
+        count={selectedOrders.length}
+        paidCount={paidSelected}
+        onClose={() => setBulkCancelOpen(false)}
+        onConfirm={(reason) => void runBulk('cancel', reason)}
+      />
+      <BulkResultModal
+        isOpen={bulkResult !== null}
+        succeededCount={bulkResult?.succeeded.length ?? 0}
+        failed={bulkResult?.failed ?? []}
+        onClose={() => setBulkResult(null)}
+      />
     </div>
   );
 };
