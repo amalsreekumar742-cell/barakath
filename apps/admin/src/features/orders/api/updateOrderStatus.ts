@@ -1,5 +1,5 @@
 import { createAsyncThunk } from '@reduxjs/toolkit';
-import { doc, getDoc, writeBatch, serverTimestamp, Timestamp } from 'firebase/firestore';
+import { doc, getDoc, runTransaction, serverTimestamp, Timestamp } from 'firebase/firestore';
 import { httpsCallable } from 'firebase/functions';
 import { FirestoreCollections } from '@barakath/shared/config/collections';
 import { OrderStatus } from '@barakath/shared/config/enums';
@@ -16,6 +16,12 @@ export interface UpdateOrderStatusInput {
   courierName?: string;
   cancelReason?: string;
 }
+
+/**
+ * Mirrors CANCEL_CLAIM_TTL_MS in functions/src/orders/cancelOrder.ts. A claim younger than this means a
+ * cancellation — and its gateway refund — is in flight; an older one is from a crashed attempt.
+ */
+const CANCEL_CLAIM_TTL_MS = 2 * 60 * 1000;
 
 export interface UpdateOrderStatusResult {
   order: OrderProps;
@@ -46,6 +52,13 @@ export interface UpdateOrderStatusResult {
  *
  * WHY a client `Timestamp.now()` in the timeline (not serverTimestamp): Firestore forbids the
  * serverTimestamp sentinel inside an array element, so each timeline entry stamps the client time.
+ *
+ * WHY an advance is a transaction that honours `cancelClaimedAt`: cancelOrder claims a Pending order,
+ * issues the Razorpay refund, and only then flips it to Cancelled — re-checking Pending first. An
+ * advance landing in that window made the cancel abort AFTER the refund, leaving an Accepted order
+ * whose payment had been returned. Reading the claim in the same transaction as the write makes the
+ * two exclusive: either the advance commits first (the claim then finds Accepted and refuses) or the
+ * claim does (the advance is refused here).
  */
 export const updateOrderStatus = createAsyncThunk<
   UpdateOrderStatusResult,
@@ -78,36 +91,45 @@ export const updateOrderStatus = createAsyncThunk<
       return { order: { ...cancelled.data(), id: cancelled.id } as OrderProps, previousStatus: current };
     }
 
-    // --- Advance: validate the transition ---
-    if (!isOrderPaid(order.paymentStatus)) return rejectWithValue(unpaidAdvanceReason(order.paymentStatus));
-    if (input.newStatus !== nextStatus(current))
-      return rejectWithValue(`Cannot move from "${current}" to "${input.newStatus}"`);
+    // --- Advance: validate the transition on the transaction's own read, then write ---
     // Shipment details are switched off for now (the shipment form is commented out), so Ship no
     // longer requires them. Re-enable together with ShipmentModal.
     // if (input.newStatus === OrderStatus.SHIPPED && (!input.trackingId?.trim() || !input.courierName?.trim()))
     //   return rejectWithValue('Tracking ID and courier name are required to ship');
+    let previousStatus = current;
+    await runTransaction(db, async (tx) => {
+      const fresh = await tx.get(orderRef);
+      if (!fresh.exists()) throw new Error('Order not found');
+      const live = fresh.data() as OrderProps & { cancelClaimedAt?: Timestamp };
+      previousStatus = live.status;
 
-    const batch = writeBatch(db);
-    const timelineEntry = {
-      status: input.newStatus,
-      timestamp: Timestamp.now(),
-      note: input.note ?? '',
-    };
-    const orderUpdate: Record<string, unknown> = {
-      status: input.newStatus,
-      statusTimeline: [...(order.statusTimeline ?? []), timelineEntry],
-      updatedAt: serverTimestamp(),
-    };
-    if (input.newStatus === OrderStatus.SHIPPED) {
-      // Only when supplied — a plain Ship leaves the checkout's empty defaults in place.
-      if (input.trackingId?.trim()) orderUpdate.trackingId = input.trackingId.trim();
-      if (input.courierName?.trim()) orderUpdate.courierName = input.courierName.trim();
-    }
-    batch.update(orderRef, orderUpdate);
-    await batch.commit();
+      if (!isOrderPaid(live.paymentStatus)) throw new Error(unpaidAdvanceReason(live.paymentStatus));
+      if (input.newStatus !== nextStatus(live.status))
+        throw new Error(`Cannot move from "${live.status}" to "${input.newStatus}"`);
+      const claimedAt = live.cancelClaimedAt;
+      if (claimedAt && Date.now() - claimedAt.toMillis() < CANCEL_CLAIM_TTL_MS)
+        throw new Error('This order is being cancelled. Refresh in a moment.');
+
+      const timelineEntry = {
+        status: input.newStatus,
+        timestamp: Timestamp.now(),
+        note: input.note ?? '',
+      };
+      const orderUpdate: Record<string, unknown> = {
+        status: input.newStatus,
+        statusTimeline: [...(live.statusTimeline ?? []), timelineEntry],
+        updatedAt: serverTimestamp(),
+      };
+      if (input.newStatus === OrderStatus.SHIPPED) {
+        // Only when supplied — a plain Ship leaves the checkout's empty defaults in place.
+        if (input.trackingId?.trim()) orderUpdate.trackingId = input.trackingId.trim();
+        if (input.courierName?.trim()) orderUpdate.courierName = input.courierName.trim();
+      }
+      tx.update(orderRef, orderUpdate);
+    });
 
     const updated = await getDoc(orderRef);
-    return { order: { ...updated.data(), id: updated.id } as OrderProps, previousStatus: current };
+    return { order: { ...updated.data(), id: updated.id } as OrderProps, previousStatus };
   } catch (err) {
     return rejectWithValue(
       isCancel

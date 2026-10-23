@@ -52,6 +52,10 @@ interface AffiliateState {
   affiliateDetail: UserProps | null;
   affiliateDetailLoading: boolean;
   affiliateDetailError: string | null;
+  // The thunk requestId whose response may land. Opening another affiliate (or leaving) changes it, so a
+  // slow read for the previous affiliate can't overwrite the one now on screen.
+  affiliateDetailRequestId: string | null;
+  ledgerRequestId: string | null;
   ledger: AffiliateTransactionProps[];
   ledgerLastVisible: any;
   ledgerHasMore: boolean;
@@ -99,6 +103,8 @@ const initialState: AffiliateState = {
   affiliateDetail: null,
   affiliateDetailLoading: false,
   affiliateDetailError: null,
+  affiliateDetailRequestId: null,
+  ledgerRequestId: null,
   ledger: [],
   ledgerLastVisible: null,
   ledgerHasMore: false,
@@ -164,6 +170,12 @@ const affiliateSlice = createSlice({
     resetAffiliateDetail(s) {
       s.affiliateDetail = null;
       s.affiliateDetailError = null;
+      // Any read still in flight belongs to the affiliate being left — drop its response.
+      s.affiliateDetailRequestId = null;
+      s.ledgerRequestId = null;
+      s.affiliateDetailLoading = false;
+      s.ledgerLoading = false;
+      s.ledgerLoadingMore = false;
       s.ledger = [];
       s.ledgerLastVisible = null;
       s.ledgerHasMore = false;
@@ -207,21 +219,25 @@ const affiliateSlice = createSlice({
       })
 
       // --- affiliate detail ---
-      .addCase(fetchAffiliateDetail.pending, (s) => {
+      .addCase(fetchAffiliateDetail.pending, (s, a) => {
+        s.affiliateDetailRequestId = a.meta.requestId;
         s.affiliateDetailLoading = true;
         s.affiliateDetailError = null;
       })
       .addCase(fetchAffiliateDetail.fulfilled, (s, a) => {
+        if (a.meta.requestId !== s.affiliateDetailRequestId) return;
         s.affiliateDetailLoading = false;
         s.affiliateDetail = a.payload;
       })
       .addCase(fetchAffiliateDetail.rejected, (s, a) => {
+        if (a.meta.requestId !== s.affiliateDetailRequestId) return;
         s.affiliateDetailLoading = false;
         s.affiliateDetailError = a.payload ?? 'Failed to load affiliate';
       })
 
       // --- affiliate ledger ---
       .addCase(fetchAffiliateTransactions.pending, (s, a) => {
+        s.ledgerRequestId = a.meta.requestId;
         if (a.meta.arg.cursor) s.ledgerLoadingMore = true;
         else {
           s.ledgerLoading = true;
@@ -229,6 +245,7 @@ const affiliateSlice = createSlice({
         }
       })
       .addCase(fetchAffiliateTransactions.fulfilled, (s, a) => {
+        if (a.meta.requestId !== s.ledgerRequestId) return;
         const isFirst = !a.meta.arg.cursor;
         s.ledgerLoading = false;
         s.ledgerLoadingMore = false;
@@ -237,6 +254,7 @@ const affiliateSlice = createSlice({
         s.ledgerHasMore = a.payload.hasMore;
       })
       .addCase(fetchAffiliateTransactions.rejected, (s, a) => {
+        if (a.meta.requestId !== s.ledgerRequestId) return;
         s.ledgerLoading = false;
         s.ledgerLoadingMore = false;
         s.ledgerError = a.payload ?? 'Failed to load transactions';
