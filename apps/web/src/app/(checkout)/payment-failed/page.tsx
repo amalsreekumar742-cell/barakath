@@ -32,6 +32,10 @@ import { OrderExpiryCountdown } from '@/components/OrderExpiryCountdown';
 
 const LOOKUP_RETRY_DELAYS_MS = [500]; // one retry — this page's own content is still useful without it
 
+/** Unconfirmed mode: re-check for the settled order every 4s for a minute. */
+const UNCONFIRMED_POLL_MS = 4000;
+const UNCONFIRMED_POLLS = 15;
+
 type ViewState = 'checking' | 'ready';
 
 /**
@@ -50,6 +54,10 @@ function PaymentFailedContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const orderId = searchParams.get('orderId');
+  // Set by CheckoutSection when Razorpay reported SUCCESS but our confirmation call failed. Money may
+  // well have moved, so this is "not confirmed yet", not "failed": razorpayWebhook settles it
+  // server-side. Retrying here could charge the customer twice, so that mode points at My Orders.
+  const unconfirmed = searchParams.get('unconfirmed') === '1';
 
   const [state, setState] = useState<ViewState>(orderId ? 'checking' : 'ready');
   const [secondaryLine, setSecondaryLine] = useState<string | null>(null);
@@ -108,6 +116,30 @@ function PaymentFailedContent() {
     };
   }, [orderId, router]);
 
+  // Unconfirmed: the webhook usually settles within seconds — keep watching for the paid order and
+  // move to the success page the moment it exists, rather than leaving the customer on a failure page.
+  useEffect(() => {
+    if (!orderId || !unconfirmed) return;
+    let polls = 0;
+    const timer = setInterval(async () => {
+      polls += 1;
+      if (polls > UNCONFIRMED_POLLS) {
+        clearInterval(timer);
+        return;
+      }
+      try {
+        const snap = await getDoc(doc(db, FirestoreCollections.orders, orderId));
+        if (snap.exists() && (snap.data() as OrderProps).paymentStatus === 'Paid') {
+          clearInterval(timer);
+          router.replace(`/order-success?orderId=${encodeURIComponent(snap.id)}`);
+        }
+      } catch {
+        // Transient read failure — the next poll tries again.
+      }
+    }, UNCONFIRMED_POLL_MS);
+    return () => clearInterval(timer);
+  }, [orderId, unconfirmed, router]);
+
   if (state === 'checking') {
     return <PaymentFailedSkeleton />;
   }
@@ -118,23 +150,33 @@ function PaymentFailedContent() {
         <XCircle className="size-10" strokeWidth={1.75} aria-hidden />
       </span>
       <h1 className="mt-6 font-display text-[28px] font-semibold tracking-tight text-foreground">
-        Payment failed
+        {unconfirmed ? 'Payment not confirmed yet' : 'Payment failed'}
       </h1>
       <p className="mt-2 max-w-sm text-[15px] leading-relaxed text-muted">
-        Your payment could not be processed. No amount has been deducted.
+        {unconfirmed
+          ? 'We couldn’t confirm your payment. If money was deducted, your order is confirmed ' +
+            'automatically within a few minutes — check My Orders before paying again.'
+          : 'Your payment could not be processed. No amount has been deducted.'}
       </p>
       {secondaryLine && <p className="mt-1 max-w-sm text-sm text-faint">{secondaryLine}</p>}
 
       {/* The original order is still holding its items in stock until it expires — say so, with the
-          real deadline, rather than letting it disappear silently. */}
-      {expiryFromMs !== null && (
+          real deadline, rather than letting it disappear silently. Not while unconfirmed: a countdown
+          to "pay before…" would push the customer to pay a second time. */}
+      {expiryFromMs !== null && !unconfirmed && (
         <OrderExpiryCountdown createdAtMs={expiryFromMs} className="mt-4 max-w-sm text-left" />
       )}
 
       <div className="mt-7 flex flex-wrap items-center justify-center gap-3">
-        <Button variant="primary" size="lg" onClick={() => router.push('/cart')}>
-          Retry Payment
-        </Button>
+        {unconfirmed ? (
+          <Button variant="primary" size="lg" onClick={() => router.push('/account/orders')}>
+            View My Orders
+          </Button>
+        ) : (
+          <Button variant="primary" size="lg" onClick={() => router.push('/cart')}>
+            Retry Payment
+          </Button>
+        )}
         <Link
           href="/cart"
           className="inline-flex h-12 items-center justify-center rounded-lg border border-border-strong bg-surface px-6 text-[15px] font-medium text-foreground transition hover:bg-subtle"

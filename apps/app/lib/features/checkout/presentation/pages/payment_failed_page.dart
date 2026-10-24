@@ -55,6 +55,12 @@ class _PaymentFailedPageState extends State<PaymentFailedPage> {
     final order =
         await context.read<CheckoutProvider>().loadOrderForRetry(widget.orderId);
     if (!mounted || order == null) return;
+    // The payment went through after all (razorpayWebhook or a late
+    // verifyPayment settled it) — never offer Retry on a paid order.
+    if (order.isPaid) {
+      context.go('/order-success?orderId=${order.orderId}');
+      return;
+    }
     setState(() {
       _orderCreatedAt = order.createdAt;
       // Already swept — the countdown widget renders its own "released" copy.
@@ -79,6 +85,10 @@ class _PaymentFailedPageState extends State<PaymentFailedPage> {
     if (!mounted) return;
     setState(() => _retrying = false);
 
+    if (order != null && order.isPaid) {
+      context.go('/order-success?orderId=${order.orderId}');
+      return;
+    }
     if (order == null || order.razorpayOrderId == null || order.amount <= 0) {
       AppToast.error(context,checkout.error ?? 'This order can no longer be paid online');
       return;
@@ -179,7 +189,9 @@ class _PaymentFailedPageState extends State<PaymentFailedPage> {
               ),
               const SizedBox(height: 8),
               const Text(
-                'If any amount was deducted it will be refunded within 5–7 business days.',
+                'If any amount was deducted, your order is confirmed automatically '
+                'within a few minutes — check My Orders. If it can\'t be completed, '
+                'the amount is refunded.',
                 textAlign: TextAlign.center,
                 style: TextStyle(fontSize: 13, color: AppColors.muted),
               ),

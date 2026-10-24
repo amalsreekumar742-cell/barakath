@@ -9,6 +9,7 @@ import { readProductStock, writeStockDelta, type StockLine } from '../orders/ser
 import { promoteDraftToOrder } from '../orders/service/promoteDraft';
 import { findCouponByCode, decrementCouponUsage } from '../orders/service/coupon';
 import { creditWallet } from '../orders/service/wallet';
+import { settleWalletTopUp } from '../wallet/service/settleTopUp';
 
 /**
  * razorpayWebhook — Razorpay's server pushes payment lifecycle events here (spec §5.3 #13).
@@ -97,8 +98,29 @@ export const razorpayWebhook = onRequest({ cors: true }, async (req, res) => {
       docData = orderQuery.docs[0]?.data();
     }
     if (!docRef || !docData) {
-      // Unknown checkout — acknowledge (nothing to do); avoids endless retries.
-      res.status(200).json({ received: true, note: 'order not found' });
+      // Not a checkout — it may be a wallet top-up (createWalletTopUpOrder). Credit it here so a
+      // customer whose app closed (or lost its network) before verifyWalletTopUp ran is not left
+      // charged with nothing in their wallet. A failed top-up reserved nothing, so there is nothing
+      // to reverse — Razorpay may still capture a later attempt against the same order.
+      const topUpQuery = await db
+        .collection(Collections.walletTopUps)
+        .where('razorpayOrderId', '==', razorpayOrderId)
+        .limit(1)
+        .get();
+      const topUp = topUpQuery.docs[0];
+      if (topUp && event === 'payment.captured') {
+        const settled = await settleWalletTopUp(topUp.ref, {
+          razorpayPaymentId,
+          settledVia: 'webhook',
+        });
+        res.status(200).json({
+          received: true,
+          outcome: settled.alreadySettled ? 'top-up already settled' : 'top-up credited',
+        });
+        return;
+      }
+      // Unknown checkout (or a failed top-up) — acknowledge; avoids endless retries.
+      res.status(200).json({ received: true, note: topUp ? 'top-up payment failed' : 'order not found' });
       return;
     }
     const orderRef = docRef;

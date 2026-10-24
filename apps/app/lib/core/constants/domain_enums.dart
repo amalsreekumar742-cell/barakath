@@ -315,6 +315,9 @@ enum NotificationDeepLink {
   order,
   wallet,
   coupons,
+
+  /// Withdrawal approved/rejected (system-sent) — opens the affiliate wallet.
+  affiliate,
 }
 
 extension NotificationDeepLinkX on NotificationDeepLink {
@@ -327,6 +330,7 @@ extension NotificationDeepLinkX on NotificationDeepLink {
         NotificationDeepLink.order => 'Order',
         NotificationDeepLink.wallet => 'Wallet',
         NotificationDeepLink.coupons => 'Coupons',
+        NotificationDeepLink.affiliate => 'Affiliate',
       };
 
   /// Does this destination need a `referenceId` to be meaningful? A Product

@@ -89,19 +89,25 @@ export const updateDeliveryTax = createAsyncThunk<
   }
 });
 
-/** Payment Gateway tab (Razorpay credentials + toggles). */
+/** Payment Gateway tab (Razorpay credentials, webhook secret + toggles). */
 export const updatePaymentGateway = createAsyncThunk<
   GeneralSettingsProps,
   {
     razorpayKeyId: string;
     razorpayKeySecret: string;
+    /** Blank = keep the saved one (write-only, like the key secret). */
+    razorpayWebhookSecret: string;
     razorpayConnected: boolean;
     walletPaymentsEnabled: boolean;
   },
   { rejectValue: string }
 >('settings/updatePaymentGateway', async (input, { rejectWithValue }) => {
   try {
-    const { razorpayKeySecret, ...publishable } = input;
+    const { razorpayKeySecret, razorpayWebhookSecret, ...publishable } = input;
+    const secretsPatch: Record<string, unknown> = {};
+    if (razorpayKeySecret.trim()) secretsPatch.razorpayKeySecret = razorpayKeySecret.trim();
+    // razorpayWebhook verifies every event's HMAC with this; it rejects all events while it is unset.
+    if (razorpayWebhookSecret.trim()) secretsPatch.razorpayWebhookSecret = razorpayWebhookSecret.trim();
 
     // The SECRET goes to its own admin-only document. `general/config` is world-readable — the customer
     // app reads delivery/GST/support/version from it before sign-in — so a secret stored there would be
@@ -112,14 +118,21 @@ export const updatePaymentGateway = createAsyncThunk<
     // field is blank on every revisit. Writing that blank through would silently wipe a working gateway
     // the moment someone toggled wallet payments. Blank means "leave it alone".
     // TODO: move to a Cloud Function for production — secrets should not be written from a client at all.
-    if (razorpayKeySecret.trim()) {
+    if (Object.keys(secretsPatch).length) {
       await setDoc(
         doc(db, FirestoreCollections.general, SECRETS_DOC_ID),
-        { razorpayKeySecret: razorpayKeySecret.trim(), updatedAt: serverTimestamp() },
+        { ...secretsPatch, updatedAt: serverTimestamp() },
         { merge: true },
       );
     }
-    return await writeAndRead({ payment: { ...publishable } });
+    // The public doc only learns THAT a webhook secret exists (for the tab's status chip), never its
+    // value. Omitted when no new secret was typed, so the merge keeps the stored flag.
+    return await writeAndRead({
+      payment: {
+        ...publishable,
+        ...(razorpayWebhookSecret.trim() ? { razorpayWebhookConfigured: true } : {}),
+      },
+    });
   } catch (err) {
     return rejectWithValue(err instanceof Error ? err.message : 'Could not save payment gateway');
   }

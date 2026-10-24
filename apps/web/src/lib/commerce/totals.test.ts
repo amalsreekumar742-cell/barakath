@@ -34,7 +34,13 @@ function item(overrides: Partial<CartItem> = {}): CartItem {
 
 const settings: TotalsSettings = {
   delivery: { standardDeliveryFee: 60, freeDeliveryThreshold: 1000, gstPercentage: 5, gstin: '', pricesIncludeTax: false },
-  payment: { razorpayKeyId: '', razorpayKeySecret: '', razorpayConnected: true, walletPaymentsEnabled: true },
+  payment: {
+    razorpayKeyId: '',
+    razorpayKeySecret: '',
+    razorpayConnected: true,
+    walletPaymentsEnabled: true,
+    razorpayWebhookConfigured: false,
+  },
 };
 
 describe('computeTotals — delivery', () => {

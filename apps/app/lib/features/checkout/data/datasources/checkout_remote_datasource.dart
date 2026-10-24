@@ -130,6 +130,7 @@ class CheckoutRemoteDataSourceImpl implements CheckoutRemoteDataSource {
         // Needed by the payment-expiry countdown on PaymentFailedPage.
         createdAt: ModelParse.dateTime(data['createdAt']),
         status: ModelParse.toStr(data['status']),
+        paymentStatus: ModelParse.toStr(data['paymentStatus']),
       );
     } on FirebaseException catch (e) {
       throw ServerException(FirebaseErrorMessage.of(e) ?? 'Could not load that order.', e.code);

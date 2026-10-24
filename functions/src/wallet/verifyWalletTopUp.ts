@@ -1,11 +1,12 @@
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import { logger } from 'firebase-functions/v2';
-import { getFirestore, FieldValue } from 'firebase-admin/firestore';
+import { getFirestore } from 'firebase-admin/firestore';
 import { createHmac, timingSafeEqual } from 'crypto';
 import { Collections } from '../config/collections';
 import { getGeneralConfig, getSecretsDoc } from '../config/razorpay';
 import { validateAuth } from '../utils/validateAuth';
 import { getRazorpaySecrets } from '../orders/service/configReader';
+import { settleWalletTopUp } from './service/settleTopUp';
 
 /**
  * verifyWalletTopUp — the customer's handoff after the Razorpay sheet reports success for a wallet
@@ -21,11 +22,10 @@ import { getRazorpaySecrets } from '../orders/service/configReader';
  *   Razorpay order — it says nothing about its value — so trusting a client-sent amount would let a
  *   modified app pay ₹1 and credit itself ₹10,000.
  *
- * WHY the whole credit sits in ONE transaction keyed on the top-up's status: this endpoint is retried in
- *   practice — a flaky network after the Razorpay sheet closes is normal, and the app may well call it
- *   twice for one payment. `FieldValue.increment` is atomic but NOT idempotent, so a second call would
- *   cheerfully credit the money again. Flipping Pending → Paid inside the same transaction that performs
- *   the credit makes the second attempt a no-op that returns the same balance.
+ * WHY the credit goes through settleWalletTopUp: this endpoint is retried in practice (a flaky network
+ *   after the Razorpay sheet closes is normal), and razorpayWebhook settles the same top-up when the app
+ *   never gets this far. That helper credits inside one transaction keyed on the top-up's status, so
+ *   whichever path runs second is a no-op that returns the same balance.
  *
  * AUTH: validateAuth, plus an explicit owner check — a signature is not a claim of ownership, so a
  *   caller must not be able to settle someone else's top-up into their own balance.
@@ -94,54 +94,11 @@ export const verifyWalletTopUp = onCall(async (request) => {
       throw new HttpsError('permission-denied', 'This top-up belongs to another account.');
     }
 
-    const userRef = db.collection(Collections.users).doc(uid);
-    const txnRef = db.collection(Collections.walletTransactions).doc();
-
-    const settled = await db.runTransaction(async (tx) => {
-      const [freshTopUp, userDoc] = await Promise.all([tx.get(topUpDoc.ref), tx.get(userRef)]);
-      const recorded = Number(freshTopUp.get('amount')) || 0;
-
-      // Already settled — report the balance as it stands rather than crediting
-      // a second time. This is the retry path, not an error.
-      if (freshTopUp.get('status') === 'Paid') {
-        return {
-          amount: recorded,
-          newBalance: (userDoc.get('walletBalance') as number | undefined) ?? 0,
-        };
-      }
-      if (!userDoc.exists) throw new HttpsError('not-found', 'User not found.');
-
-      const amount = recorded;
-      if (amount <= 0) {
-        throw new HttpsError('failed-precondition', 'This top-up has no amount recorded.');
-      }
-
-      const currentBalance = (userDoc.get('walletBalance') as number | undefined) ?? 0;
-      const updatedBalance = Math.round((currentBalance + amount) * 100) / 100;
-
-      tx.set(txnRef, {
-        userId: uid,
-        type: 'Credit',
-        amount,
-        // Spec §4.9 lists this source; before this function nothing ever wrote it.
-        source: 'UPI top-up',
-        description: 'Money added to wallet',
-        orderId: '',
-        balanceAfter: updatedBalance,
-        createdAt: FieldValue.serverTimestamp(),
-      });
-      tx.update(userRef, {
-        walletBalance: FieldValue.increment(amount),
-        updatedAt: FieldValue.serverTimestamp(),
-      });
-      tx.update(freshTopUp.ref, {
-        status: 'Paid',
-        razorpayPaymentId: paymentId,
-        razorpaySignature: signature,
-        updatedAt: FieldValue.serverTimestamp(),
-      });
-
-      return { amount, newBalance: updatedBalance };
+    // Idempotent against a retry of this call AND against razorpayWebhook having settled it first.
+    const settled = await settleWalletTopUp(topUpDoc.ref, {
+      razorpayPaymentId: paymentId,
+      razorpaySignature: signature,
+      settledVia: 'client',
     });
 
     return { verified: true, amount: settled.amount, newBalance: settled.newBalance };

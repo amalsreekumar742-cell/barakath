@@ -115,9 +115,11 @@ const TOP_UP_FAILURE_MESSAGES: Record<TopUpFailureReason, string> = {
   dismissed: 'Payment was not completed.',
   'payment-failed': 'Your payment could not be completed. No money was taken.',
   'gateway-unavailable': 'Could not load the payment gateway. Check your connection and try again.',
+  // Razorpay reported success but the server could not confirm it here. If the gateway really charged
+  // the customer, razorpayWebhook credits the top-up server-side within moments.
   'not-verified':
-    'We could not confirm that payment. If money left your account it will be returned, or contact ' +
-    'support with your payment id.',
+    'We could not confirm that payment yet. If money left your account, it will be added to your ' +
+    'wallet automatically within a few minutes.',
   'server-error': 'Could not start the top-up. Please try again.',
 };
 
@@ -185,11 +187,17 @@ export const topUpWallet = createAsyncThunk<
       { razorpay_order_id: string; razorpay_payment_id: string; razorpay_signature: string },
       VerifyWalletTopUpResponse
     >(functions, CloudFunctions.verifyWalletTopUp);
-    const verifyRes = await verifyCall({
-      razorpay_order_id: razorpaySuccess.razorpay_order_id,
-      razorpay_payment_id: razorpaySuccess.razorpay_payment_id,
-      razorpay_signature: razorpaySuccess.razorpay_signature,
-    });
+    let verifyRes: Awaited<ReturnType<typeof verifyCall>>;
+    try {
+      verifyRes = await verifyCall({
+        razorpay_order_id: razorpaySuccess.razorpay_order_id,
+        razorpay_payment_id: razorpaySuccess.razorpay_payment_id,
+        razorpay_signature: razorpaySuccess.razorpay_signature,
+      });
+    } catch {
+      // The money may already have moved — this is the not-yet-confirmed case, not "try again".
+      return rejectWithValue({ reason: 'not-verified', message: TOP_UP_FAILURE_MESSAGES['not-verified'] });
+    }
 
     if (!verifyRes.data.verified) {
       return rejectWithValue({ reason: 'not-verified', message: TOP_UP_FAILURE_MESSAGES['not-verified'] });
