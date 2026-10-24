@@ -40,7 +40,7 @@ import { getProductsByIds, getSubCategories } from './catalog';
 // ---------------------------------------------------------------------------
 
 /** The sort keys the listing/search UIs offer. */
-export type ProductSort = 'popularity' | 'newest' | 'priceAsc' | 'priceDesc' | 'rating';
+export type ProductSort = 'popularity' | 'oldest' | 'newest' | 'priceAsc' | 'priceDesc' | 'rating';
 
 /**
  * Each sort key mapped to the Firestore ordering it needs.
@@ -54,10 +54,14 @@ export type ProductSort = 'popularity' | 'newest' | 'priceAsc' | 'priceDesc' | '
  * screen. `firestore.indexes.json` carries a DEDICATED descending `minPrice` composite index per filter
  * combination for this — verified live that an ascending index does NOT serve a descending orderBy on
  * the same field once there's an equality-pinned prefix (`status`, category/flag equalities); each
- * direction needs its own index.
+ * direction needs its own index. The same holds for `oldest`/`newest` on `createdAt`.
+ *
+ * WHY `oldest` exists: it is upload order — the first product the admin added leads — and it is the
+ * default on a category page (see `parseListingParams`).
  */
 const SORT: Record<ProductSort, { field: string; direction: 'asc' | 'desc' }> = {
   popularity: { field: 'totalReviews', direction: 'desc' },
+  oldest: { field: 'createdAt', direction: 'asc' },
   newest: { field: 'createdAt', direction: 'desc' },
   priceAsc: { field: 'minPrice', direction: 'asc' },
   priceDesc: { field: 'minPrice', direction: 'desc' },

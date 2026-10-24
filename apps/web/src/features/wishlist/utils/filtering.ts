@@ -81,6 +81,8 @@ export function sortWishlistItems(items: ProductProps[], sort: ProductSort): Pro
   switch (sort) {
     case 'popularity':
       return sorted.sort((a, b) => b.totalReviews - a.totalReviews);
+    case 'oldest':
+      return sorted.sort((a, b) => a.createdAt.toMillis() - b.createdAt.toMillis());
     case 'newest':
       return sorted.sort((a, b) => b.createdAt.toMillis() - a.createdAt.toMillis());
     case 'priceAsc':

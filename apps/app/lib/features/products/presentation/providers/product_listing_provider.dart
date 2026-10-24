@@ -41,7 +41,7 @@ class ProductListingProvider extends ChangeNotifier {
   // --- Filter state ----------------------------------------------------------
   String? _categoryId;
   String? _subCategory;
-  ProductSort _sortBy = ProductSort.newest;
+  ProductSort _sortBy = ProductSort.oldest;
   double? _priceMin;
   double? _priceMax;
 
@@ -81,6 +81,12 @@ class ProductListingProvider extends ChangeNotifier {
 
   bool get hasActiveFilters => activeFilterCount > 0;
 
+  /// A category opens in upload order — the first product the admin added
+  /// leads. New Arrivals and Flash Sale stay newest-first so their "View All"
+  /// starts with the same products as the home row that linked there.
+  ProductSort get _defaultSort =>
+      _newArrivalsOnly || _flashSaleOnly ? ProductSort.newest : ProductSort.oldest;
+
   Variant? variantFor(String productId) => _variants[productId];
 
   /// Start a listing: REPLACES the whole filter set (a null argument clears
@@ -94,7 +100,7 @@ class ProductListingProvider extends ChangeNotifier {
     String? subCategory,
     bool newArrivalsOnly = false,
     bool flashSaleOnly = false,
-    ProductSort sortBy = ProductSort.newest,
+    ProductSort? sortBy,
     double? priceMin,
     double? priceMax,
   }) async {
@@ -102,7 +108,7 @@ class ProductListingProvider extends ChangeNotifier {
     _subCategory = subCategory;
     _newArrivalsOnly = newArrivalsOnly;
     _flashSaleOnly = flashSaleOnly;
-    _sortBy = sortBy;
+    _sortBy = sortBy ?? _defaultSort;
     _priceMin = priceMin;
     _priceMax = priceMax;
     await resetAndFetch();
@@ -179,7 +185,7 @@ class ProductListingProvider extends ChangeNotifier {
     _priceMin = null;
     _priceMax = null;
     _minRating = null;
-    _sortBy = ProductSort.newest;
+    _sortBy = _defaultSort;
     await resetAndFetch();
   }
 

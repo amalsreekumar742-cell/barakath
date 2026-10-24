@@ -63,6 +63,7 @@ class ProductRemoteDataSourceImpl implements ProductRemoteDataSource {
   /// counter yet. TODO(server): have a Cloud Function denormalise a `soldCount`
   /// onto the product on order completion, then switch this over.
   static const Map<ProductSort, (String, bool)> _order = {
+    ProductSort.oldest: ('createdAt', false),
     ProductSort.newest: ('createdAt', true),
     ProductSort.priceLowToHigh: ('minPrice', false),
     ProductSort.priceHighToLow: ('maxPrice', true),

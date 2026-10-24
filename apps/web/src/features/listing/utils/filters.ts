@@ -13,7 +13,7 @@ import type { ParsedListingParams } from '../types/listing';
 /** Next 15's resolved `searchParams` shape: a value may be absent, a string, or repeated (array). */
 export type RawSearchParams = Record<string, string | string[] | undefined>;
 
-const SORT_VALUES: ProductSort[] = ['popularity', 'newest', 'priceAsc', 'priceDesc', 'rating'];
+const SORT_VALUES: ProductSort[] = ['popularity', 'oldest', 'newest', 'priceAsc', 'priceDesc', 'rating'];
 
 /** First value of a possibly-repeated searchParam. */
 function first(v: string | string[] | undefined): string | undefined {
@@ -47,8 +47,12 @@ function parseSubParam(raw: string | undefined): string[] {
     .filter(Boolean);
 }
 
-/** Parse the page's `searchParams` into the typed shape every child reads. */
-export function parseListingParams(sp: RawSearchParams): ParsedListingParams {
+/**
+ * Parse the page's `searchParams` into the typed shape every child reads. `defaultSort` applies when
+ * there is no valid `?sort=` — a category page passes `oldest` (upload order, as the app's category
+ * listing does); everything else keeps `newest`.
+ */
+export function parseListingParams(sp: RawSearchParams, defaultSort: ProductSort = 'newest'): ParsedListingParams {
   const subCategoryNames = parseSubParam(first(sp.sub));
 
   const minPrice = toPositiveNumber(first(sp.minPrice));
@@ -61,11 +65,10 @@ export function parseListingParams(sp: RawSearchParams): ParsedListingParams {
   const saleFilter: 'all' | 'onSale' = first(sp.sale) === 'onSale' ? 'onSale' : 'all';
   const isNewArrival = first(sp.new) === 'true';
 
-  // No `?sort=` → newest first (`createdAt desc`), the same default the app's listing uses.
   const sortRaw = first(sp.sort);
   const sort: ProductSort = (SORT_VALUES as string[]).includes(sortRaw ?? '')
     ? (sortRaw as ProductSort)
-    : 'newest';
+    : defaultSort;
 
   const after = first(sp.after) || undefined;
   const before = first(sp.before) || undefined;
