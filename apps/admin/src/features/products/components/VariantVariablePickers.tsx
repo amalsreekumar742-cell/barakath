@@ -6,7 +6,7 @@ import Icon from '@/components/icons/Icon';
 import { updateVariables } from '@/features/settings/api/updateSettings';
 import type { VariantOption } from '@barakath/shared/types';
 import { variantLabel } from '@barakath/shared/utils/variantOptions';
-import { selectedUnit, setGroupOption, toggleGroupOption } from '../utils/variantPick';
+import { filterVariantGroups, selectedUnit, setGroupOption, toggleGroupOption } from '../utils/variantPick';
 
 /**
  * VariantColorPicker / VariantUnitPicker — the product form's variant Color and Variant fields, sourced
@@ -70,6 +70,33 @@ const Dropdown: FC<{
 const triggerCls =
   'flex w-full min-w-[120px] items-center justify-between gap-1.5 rounded-md border border-border-strong bg-surface px-2 py-1.5 text-left text-[13px] text-foreground';
 
+/**
+ * The search box pinned to the top of a dropdown. Sticky (offset by the dropdown's padding) so it
+ * stays in reach while a long colour or unit list scrolls under it. Enter runs `onEnter` — the
+ * pickers use it to pick the option when the search has narrowed to exactly one.
+ */
+const SearchField: FC<{ value: string; onChange: (value: string) => void; onEnter: () => void; placeholder: string }> = ({
+  value,
+  onChange,
+  onEnter,
+  placeholder,
+}) => (
+  <div className="sticky -top-1.5 z-10 -mx-1.5 -mt-1.5 mb-1 border-b border-border bg-surface p-1.5">
+    <div className="relative">
+      <Icon name="SearchLine" size={14} className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-faint" />
+      <input
+        autoFocus
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), onEnter())}
+        placeholder={placeholder}
+        aria-label={placeholder}
+        className="w-full rounded-md border border-border-strong bg-surface py-1.5 pl-7 pr-2 text-[13px] outline-none focus:border-primary"
+      />
+    </div>
+  </div>
+);
+
 // ---------------------------------------------------------------------------------------------------
 
 export const VariantColorPicker: FC<{
@@ -84,9 +111,16 @@ export const VariantColorPicker: FC<{
   const anchorRef = useRef<HTMLButtonElement>(null);
 
   const [open, setOpen] = useState(false);
+  const [term, setTerm] = useState('');
   const [creating, setCreating] = useState(false);
   const [newName, setNewName] = useState('');
   const [newCode, setNewCode] = useState('#0f7a5a');
+
+  const shown = colors.filter((c) => norm(c.name).includes(norm(term)));
+  const pick = (name: string, code: string) => {
+    onSelect(name, code);
+    setOpen(false);
+  };
 
   const create = async () => {
     const name = newName.trim();
@@ -105,7 +139,15 @@ export const VariantColorPicker: FC<{
 
   return (
     <>
-      <button ref={anchorRef} type="button" onClick={() => setOpen((v) => !v)} className={triggerCls}>
+      <button
+        ref={anchorRef}
+        type="button"
+        onClick={() => {
+          setOpen((v) => !v);
+          setTerm('');
+        }}
+        className={triggerCls}
+      >
         <span className="flex min-w-0 items-center gap-1.5">
           {value ? (
             <>
@@ -121,21 +163,35 @@ export const VariantColorPicker: FC<{
 
       {open && (
         <Dropdown anchorRef={anchorRef} onClose={() => setOpen(false)}>
+          {colors.length > 0 && (
+            <SearchField
+              value={term}
+              onChange={setTerm}
+              onEnter={() => {
+                const [only] = shown;
+                if (only && shown.length === 1) pick(only.name, only.code);
+              }}
+              placeholder="Search colours…"
+            />
+          )}
           {colors.length === 0 && !creating && (
             <p className="px-2 py-2 text-[12px] text-muted">No colours yet. Add one below.</p>
           )}
-          {colors.map((c) => (
+          {colors.length > 0 && shown.length === 0 && (
+            <p className="px-2 py-2 text-[12px] text-muted">No colour matches “{term.trim()}”.</p>
+          )}
+          {shown.map((c) => (
             <button
               key={c.name}
               type="button"
-              onClick={() => {
-                onSelect(c.name, c.code);
-                setOpen(false);
-              }}
-              className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-[13px] hover:bg-subtle"
+              onClick={() => pick(c.name, c.code)}
+              className={`flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-[13px] ${
+                c.name === value ? 'bg-primary-subtle font-semibold text-primary' : 'hover:bg-subtle'
+              }`}
             >
               <span className="h-3.5 w-3.5 rounded-full border border-border" style={{ backgroundColor: c.code }} />
-              {c.name}
+              <span className="flex-1">{c.name}</span>
+              {c.name === value && <Icon name="CheckLine" size={14} className="shrink-0" />}
             </button>
           ))}
 
@@ -169,7 +225,15 @@ export const VariantColorPicker: FC<{
               </div>
             </div>
           ) : (
-            <button type="button" onClick={() => setCreating(true)} className="flex w-full items-center gap-1.5 rounded-md px-2 py-1.5 text-left text-[13px] font-semibold text-primary hover:bg-primary-subtle">
+            <button
+              type="button"
+              onClick={() => {
+                // A search that found nothing is usually the colour the admin wants to add.
+                setNewName(term.trim());
+                setCreating(true);
+              }}
+              className="flex w-full items-center gap-1.5 rounded-md px-2 py-1.5 text-left text-[13px] font-semibold text-primary hover:bg-primary-subtle"
+            >
               <Icon name="AddLine" size={14} /> New colour
             </button>
           )}
@@ -201,15 +265,29 @@ export const VariantUnitPicker: FC<{ value: VariantOption[]; onChange: (options:
   const anchorRef = useRef<HTMLButtonElement>(null);
 
   const [open, setOpen] = useState(false);
+  const [term, setTerm] = useState('');
   const [creating, setCreating] = useState(false);
   const [newUnit, setNewUnit] = useState('');
   const [groupName, setGroupName] = useState('');
 
   const groupOrder = groups.map((g) => g.name);
   const label = variantLabel(value);
+  const shownGroups = filterVariantGroups(groups, term);
+
+  // Enter picks only when the search has narrowed to one unit, then clears the search so the next
+  // group's unit can be typed straight away (the dropdown stays open for multi-axis variants).
+  const pickOnlyMatch = () => {
+    const hits = shownGroups.flatMap((g) => g.units.map((u) => ({ group: g.name, unit: u })));
+    const [only] = hits;
+    if (!only || hits.length !== 1) return;
+    onChange(toggleGroupOption(value, groupOrder, only.group, only.unit));
+    setTerm('');
+  };
 
   const openCreate = () => {
     setGroupName(groups[0]?.name ?? 'Size');
+    // A search that found nothing is usually the unit the admin wants to add.
+    setNewUnit(term.trim());
     setCreating(true);
   };
 
@@ -241,7 +319,10 @@ export const VariantUnitPicker: FC<{ value: VariantOption[]; onChange: (options:
       <button
         ref={anchorRef}
         type="button"
-        onClick={() => setOpen((v) => !v)}
+        onClick={() => {
+          setOpen((v) => !v);
+          setTerm('');
+        }}
         title={label || undefined}
         className={triggerCls}
       >
@@ -251,11 +332,14 @@ export const VariantUnitPicker: FC<{ value: VariantOption[]; onChange: (options:
 
       {open && (
         <Dropdown anchorRef={anchorRef} onClose={() => setOpen(false)}>
+          {hasUnits && <SearchField value={term} onChange={setTerm} onEnter={pickOnlyMatch} placeholder="Search units…" />}
           {!hasUnits && !creating && (
             <p className="px-2 py-2 text-[12px] text-muted">No variant units yet. Add one below.</p>
           )}
-          {groups.map((g) => {
-            if (g.units.length === 0) return null;
+          {hasUnits && shownGroups.length === 0 && (
+            <p className="px-2 py-2 text-[12px] text-muted">No unit matches “{term.trim()}”.</p>
+          )}
+          {shownGroups.map((g) => {
             const picked = selectedUnit(value, g.name);
             return (
               <div key={g.name} className="mb-1">
