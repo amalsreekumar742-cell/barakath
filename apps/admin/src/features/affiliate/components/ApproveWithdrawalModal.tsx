@@ -1,4 +1,4 @@
-import { type FC } from 'react';
+import { type FC, useState } from 'react';
 import toast from 'react-hot-toast';
 import type { AffiliateWithdrawalProps } from '@barakath/shared/types';
 import { useAppDispatch, useAppSelector } from '@/stores/store';
@@ -8,11 +8,39 @@ import { formatINR } from '@/utils/format';
 import { approveWithdrawal } from '../api/approveWithdrawal';
 import { maskAccount } from './ui';
 
-/** One label/value row in the request detail block. */
+/** Copies `text` and flips the icon to a check for 1.5s — the admin types these into their bank app. */
+const CopyButton: FC<{ text: string; label: string }> = ({ text, label }) => {
+  const [copied, setCopied] = useState(false);
+  const copy = () => {
+    void navigator.clipboard?.writeText(text).then(
+      () => {
+        setCopied(true);
+        setTimeout(() => setCopied(false), 1500);
+      },
+      () => toast.error('Could not copy'),
+    );
+  };
+  return (
+    <button
+      type="button"
+      onClick={copy}
+      aria-label={`Copy ${label}`}
+      title={`Copy ${label}`}
+      className="rounded p-1 text-muted hover:bg-subtle hover:text-foreground"
+    >
+      <Icon name={copied ? 'CheckLine' : 'Share2Line'} size={13} className={copied ? 'text-success' : ''} />
+    </button>
+  );
+};
+
+/** One label/value row in the request detail block, with a copy button when there is a value. */
 const DetailRow: FC<{ label: string; value: string; mono?: boolean }> = ({ label, value, mono }) => (
   <div className="flex items-center justify-between gap-4 py-1.5">
     <span className="text-[12px] font-semibold uppercase tracking-wide text-faint">{label}</span>
-    <span className={`text-[13px] font-medium text-foreground ${mono ? 'font-mono' : ''}`}>{value || '—'}</span>
+    <span className="flex items-center gap-1">
+      <span className={`text-[13px] font-medium text-foreground ${mono ? 'font-mono' : ''}`}>{value || '—'}</span>
+      {value && <CopyButton text={value} label={label} />}
+    </span>
   </div>
 );
 
@@ -21,7 +49,8 @@ const DetailRow: FC<{ label: string; value: string; mono?: boolean }> = ({ label
  * confirmation dialog: a gold wallet badge, an "Approve withdrawal?" heading, and a plain-language line
  * summarising who is paid and that the amount is deducted from confirmed commission. A compact bank-detail
  * block is retained below so the admin has the account number / IFSC to perform the manual transfer that
- * the copy references. The primary "Approve & pay" button follows the button-loading rule; `processedBy`
+ * the copy references — each value has its own copy button, and "Copy all" copies the whole block. The
+ * affiliate is notified by the onAffiliateWithdrawalUpdate Cloud Function once this commits. The primary "Approve & pay" button follows the button-loading rule; `processedBy`
  * records the acting admin's name. Renders nothing when no target.
  */
 const ApproveWithdrawalModal: FC<{ withdrawal: AffiliateWithdrawalProps | null; onClose: () => void }> = ({
@@ -49,6 +78,20 @@ const ApproveWithdrawalModal: FC<{ withdrawal: AffiliateWithdrawalProps | null; 
     }
   };
 
+  const onCopyAll = () => {
+    const text = [
+      `Amount: ${formatINR(withdrawal.amount)}`,
+      `Account Holder: ${withdrawal.accountHolderName || '—'}`,
+      `Bank: ${withdrawal.bankName || '—'}`,
+      `Account No.: ${withdrawal.accountNumber || '—'}`,
+      `IFSC: ${withdrawal.ifscCode || '—'}`,
+    ].join('\n');
+    void navigator.clipboard?.writeText(text).then(
+      () => toast.success('Transfer details copied'),
+      () => toast.error('Could not copy'),
+    );
+  };
+
   const destination = [withdrawal.bankName, maskAccount(withdrawal.accountNumber)]
     .filter((s) => s && s !== '—')
     .join(' ');
@@ -65,11 +108,24 @@ const ApproveWithdrawalModal: FC<{ withdrawal: AffiliateWithdrawalProps | null; 
         <p className="mx-auto mt-2 max-w-[340px] text-[14px] leading-relaxed text-muted">
           {formatINR(withdrawal.amount)} will be transferred to {withdrawal.userName || 'the affiliate'}
           {destination ? `'s ${destination}` : ''}. The amount is deducted from the affiliate&apos;s confirmed
-          commission balance and must be transferred manually outside the system.
+          commission balance and must be transferred manually outside the system. The affiliate is notified
+          when you approve.
         </p>
 
-        {/* Bank details for the manual transfer */}
-        <div className="mt-4 divide-y divide-border rounded-xl border border-border px-4 text-left">
+        {/* Bank details for the manual transfer — each copyable, plus one block for pasting elsewhere */}
+        <div className="mt-4 flex items-center justify-between">
+          <span className="text-[12px] font-semibold text-muted">Transfer details</span>
+          <button
+            type="button"
+            onClick={onCopyAll}
+            className="inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[12px] font-semibold text-primary hover:bg-primary-subtle"
+          >
+            <Icon name="Share2Line" size={12} />
+            Copy all
+          </button>
+        </div>
+        <div className="mt-1.5 divide-y divide-border rounded-xl border border-border px-4 text-left">
+          <DetailRow label="Amount" value={String(withdrawal.amount)} mono />
           <DetailRow label="Account Holder" value={withdrawal.accountHolderName} />
           <DetailRow label="Bank" value={withdrawal.bankName} />
           <DetailRow label="Account No." value={withdrawal.accountNumber} mono />

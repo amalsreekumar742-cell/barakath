@@ -250,6 +250,8 @@ export const NotificationLinkType = {
   PRODUCT: 'Product',
   CATEGORY: 'Category',
   ORDER: 'Order',
+  /** System-only (withdrawal approved/rejected) — opens the affiliate wallet; not offered in the admin composer. */
+  AFFILIATE: 'Affiliate',
   NONE: 'None',
 } as const;
 export type NotificationLinkType = (typeof NotificationLinkType)[keyof typeof NotificationLinkType];

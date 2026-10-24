@@ -34,6 +34,7 @@ export { onReviewDelete } from './triggers/onReviewDelete'; // onDocumentDeleted
 export { onProductDelete } from './triggers/onProductDelete'; // onDocumentDeleted products/{productId}
 export { onProductCategoryCount } from './triggers/onProductCategoryCount'; // onDocumentWritten products/{productId}
 export { onNotificationSend } from './triggers/onNotificationSend'; // onDocumentWritten notifications/{notificationId}
+export { onAffiliateWithdrawalUpdate } from './triggers/onAffiliateWithdrawalUpdate'; // onDocumentUpdated affiliateWithdrawals/{withdrawalId}
 
 // --- Notification fan-out (spec §1.18) ---
 // The admin panel can only RECORD a notification — fanning it out needs every customer's fcmToken,

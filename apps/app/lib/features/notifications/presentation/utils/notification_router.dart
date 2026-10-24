@@ -47,5 +47,6 @@ String resolveDeepLinkRoute({String? linkType, String? linkValue}) {
     NotificationDeepLink.wallet => '/wallet',
     // NOT '/coupons' — that route is the checkout coupon picker.
     NotificationDeepLink.coupons => '/my-coupons',
+    NotificationDeepLink.affiliate => '/affiliate/wallet',
   };
 }

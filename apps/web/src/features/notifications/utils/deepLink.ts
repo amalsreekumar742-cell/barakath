@@ -6,7 +6,7 @@ import type { NotificationProps } from '@barakath/shared';
  * WHY this does NOT match the brief's Home/Product/Category/Flash sale/Spinner/Order/Wallet/Coupons
  * list, or its `deepLink`/`referenceId` field names: the deployed `notifications` document
  * (`packages/shared/src/types/notification.ts`) only has `linkType: 'Product' | 'Category' | 'Order' |
- * 'None'` and `linkValue: string` — there is no `deepLink`/`referenceId` pair, and no Home / Flash sale
+ * 'Affiliate' | 'None'` and `linkValue: string` — there is no `deepLink`/`referenceId` pair, and no Home / Flash sale
  * / Spinner / Wallet / Coupons link type exists to build for. Routes below are read straight off the
  * real route tree (`apps/web/src/app/**`, not assumed): product is `/product/[productId]`, category is
  * `/category/[categoryName]`, order is the account area's `/account/orders/[orderId]`.
@@ -26,6 +26,9 @@ export function resolveNotificationLink(
       return `/category/${encodeURIComponent(value)}`;
     case 'Order':
       return `/account/orders/${encodeURIComponent(value)}`;
+    // Withdrawal approved/rejected — `linkValue` is the withdrawal id; the wallet page lists it.
+    case 'Affiliate':
+      return '/account/affiliate-wallet';
     default:
       return '/';
   }
