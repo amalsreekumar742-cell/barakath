@@ -9,6 +9,7 @@ import {
   updateDeliveryTax,
   updatePaymentGateway,
   updateHelpSupport,
+  updateAppUpdate,
 } from '../api/updateSettings';
 import { fetchPolicies } from '../api/fetchPolicies';
 import { fetchPolicy } from '../api/fetchPolicy';
@@ -230,9 +231,15 @@ const settingsSlice = createSlice({
         s.policySaveLoading = false;
       });
 
-    // --- the four `general/config` tab saves share one loading flag; each replaces settings with the
+    // --- the `general/config` tab saves share one loading flag; each replaces settings with the
     // merged server doc ---
-    const updateThunks = [updateVariables, updateDeliveryTax, updatePaymentGateway, updateHelpSupport];
+    const updateThunks = [
+      updateVariables,
+      updateDeliveryTax,
+      updatePaymentGateway,
+      updateHelpSupport,
+      updateAppUpdate,
+    ];
     builder
       .addMatcher(isAnyOf(...updateThunks.map((t) => t.pending)), (s) => {
         s.saveLoading = true;

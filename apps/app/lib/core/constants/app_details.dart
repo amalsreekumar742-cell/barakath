@@ -36,6 +36,8 @@ class AppDetails {
 
   // --------------------- STORE / SHARE LINKS --------------------- //
   // NOTE: package id not yet finalised on the stores — update once published.
+  // The update prompt prefers the admin-set links (Settings › App Update) and
+  // only falls back to these; the App Store one needs the real `id…` path.
   static const String playStoreLink =
       'https://play.google.com/store/apps/details?id=$packageName';
   static const String appStoreLink = 'https://apps.apple.com/app/barakath';

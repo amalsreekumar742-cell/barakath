@@ -1,24 +1,28 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_details.dart';
 import '../../../../core/utils/constants.dart';
+import '../../../settings/domain/entities/app_update_policy.dart';
 import '../../../settings/presentation/providers/general_settings_provider.dart';
+import '../../../settings/presentation/widgets/app_update_dialog.dart';
 import '../providers/auth_provider.dart';
 
 /// SplashPage — the launch gate (spec §2.1).
 ///
-/// Shows the brand mark for ~2s, then: (1) reads `general/config` and force-updates
-/// if the installed version is below `appMinVersion`; else (2) routes by first-launch
-/// (onboarding) and auth/profile state.
+/// Shows the brand mark for ~2s, then: (1) reads this platform's update policy
+/// from `general/config.appUpdate` (admin Settings › App Update) — below the
+/// minimum version the app is blocked behind "Update required"; below the
+/// latest it offers "Update available" once per release; else (2) routes by
+/// first-launch (onboarding) and auth/profile state.
 class SplashPage extends StatefulWidget {
   const SplashPage({super.key});
 
@@ -49,34 +53,66 @@ class _SplashPageState extends State<SplashPage>
     // Hold on the splash for the brand moment while auth resolves in parallel.
     final results = await Future.wait<Object?>([
       Future.delayed(const Duration(seconds: 2)),
-      _fetchMinVersion(),
+      _fetchUpdatePolicy(),
       _readCurrentVersion(),
       _waitForAuthResolved(),
     ]);
 
     if (!mounted) return;
 
-    final minVersion = results[1] as String? ?? '';
+    final policy = results[1] as AppUpdatePolicy? ?? AppUpdatePolicy.none;
     final currentVersion = results[2] as String? ?? '';
 
-    if (minVersion.isNotEmpty &&
-        currentVersion.isNotEmpty &&
-        _isVersionLower(currentVersion, minVersion)) {
-      await _showForceUpdateDialog();
-      return; // Non-dismissible — user must update.
+    switch (policy.requirementFor(currentVersion)) {
+      case AppUpdateRequirement.required:
+        await AppUpdateDialog.show(
+          context,
+          isRequired: true,
+          storeUrl: _storeUrl(policy),
+        );
+        return; // Non-dismissible — user must update.
+      case AppUpdateRequirement.optional:
+        await _offerOptionalUpdate(policy);
+      case AppUpdateRequirement.none:
+        break;
     }
 
     await _routeOnward();
   }
 
-  Future<String?> _fetchMinVersion() async {
+  Future<AppUpdatePolicy?> _fetchUpdatePolicy() async {
     try {
       final settings = context.read<GeneralSettingsProvider>();
       await settings.load();
-      return settings.appMinVersion;
+      return settings.updatePolicy;
     } catch (_) {
       return null; // Never block launch on a config read failure.
     }
+  }
+
+  /// "Update available" — once per release: the shown `latestVersion` is
+  /// remembered whether the customer taps Update or Later, so a customer who
+  /// stays on the old build is not nagged on every launch.
+  Future<void> _offerOptionalUpdate(AppUpdatePolicy policy) async {
+    final prefs = await SharedPreferences.getInstance();
+    if (prefs.getString(PrefKeys.seenUpdateVersion) == policy.latestVersion) {
+      return;
+    }
+    if (!mounted) return;
+    await AppUpdateDialog.show(
+      context,
+      isRequired: false,
+      storeUrl: _storeUrl(policy),
+    );
+    await prefs.setString(PrefKeys.seenUpdateVersion, policy.latestVersion);
+  }
+
+  /// The admin-set store link, else this platform's built-in one.
+  String _storeUrl(AppUpdatePolicy policy) {
+    if (policy.storeUrl.isNotEmpty) return policy.storeUrl;
+    return defaultTargetPlatform == TargetPlatform.iOS
+        ? AppDetails.appStoreLink
+        : AppDetails.playStoreLink;
   }
 
   Future<String?> _readCurrentVersion() async {
@@ -130,34 +166,6 @@ class _SplashPageState extends State<SplashPage>
     }
   }
 
-  Future<void> _showForceUpdateDialog() async {
-    await showDialog<void>(
-      context: context,
-      barrierDismissible: false,
-      builder: (_) => const _ForceUpdateDialog(),
-    );
-  }
-
-  /// True when [current] is a lower semantic version than [minimum].
-  /// Missing/short segments are treated as 0 (e.g. "1.2" == "1.2.0").
-  bool _isVersionLower(String current, String minimum) {
-    final a = _parseVersion(current);
-    final b = _parseVersion(minimum);
-    for (var i = 0; i < 3; i++) {
-      if (a[i] != b[i]) return a[i] < b[i];
-    }
-    return false;
-  }
-
-  List<int> _parseVersion(String v) {
-    final clean = v.split('+').first.split('-').first;
-    final parts = clean.split('.');
-    return List<int>.generate(
-      3,
-      (i) => i < parts.length ? (int.tryParse(parts[i].trim()) ?? 0) : 0,
-    );
-  }
-
   @override
   void dispose() {
     _fadeController.dispose();
@@ -205,46 +213,6 @@ class _SplashPageState extends State<SplashPage>
             ),
           ),
         ),
-      ),
-    );
-  }
-}
-
-/// Non-dismissible force-update dialog. The only action is "Update" → store.
-class _ForceUpdateDialog extends StatelessWidget {
-  const _ForceUpdateDialog();
-
-  Future<void> _openStore() async {
-    final uri = Uri.parse(AppDetails.playStoreLink);
-    await launchUrl(uri, mode: LaunchMode.externalApplication);
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return PopScope(
-      canPop: false,
-      child: AlertDialog(
-        backgroundColor: AppColors.surface,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(20),
-        ),
-        title: const Text(
-          'Update required',
-          style: TextStyle(fontWeight: FontWeight.w700, color: AppColors.ink),
-        ),
-        content: const Text(
-          'A newer version of Barakath is available. Please update to continue.',
-          style: TextStyle(color: AppColors.inkSoft, height: 1.4),
-        ),
-        actions: [
-          SizedBox(
-            width: double.infinity,
-            child: ElevatedButton(
-              onPressed: _openStore,
-              child: const Text('Update now'),
-            ),
-          ),
-        ],
       ),
     );
   }

@@ -197,7 +197,7 @@ test.describe('Admin features — per-feature E2E', () => {
     await expect(page.getByRole('heading', { level: 1, name: 'Settings' })).toBeVisible();
 
     // Privacy Policy + Terms & Conditions are now entries inside the single Policies tab.
-    for (const tab of ['Delivery & Tax', 'Payment Gateway', 'OTP (MSG91)', 'Policies', 'Help & Support', 'Variables']) {
+    for (const tab of ['Delivery & Tax', 'Payment Gateway', 'OTP (MSG91)', 'Policies', 'Help & Support', 'App Update', 'Variables']) {
       await page.getByRole('button', { name: tab, exact: true }).click();
       await expect(page).toHaveURL(/\/settings$/);
       if (tab === 'Policies') {

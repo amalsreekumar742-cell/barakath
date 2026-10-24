@@ -13,9 +13,10 @@ import PaymentGatewayTab from './PaymentGatewayTab';
 import OtpTab from './OtpTab';
 import PoliciesTab from './PoliciesTab';
 import HelpSupportTab from './HelpSupportTab';
+import AppUpdateTab from './AppUpdateTab';
 
 /**
- * SettingsPage — the single `/settings` route with a 6-tab bar (spec §1.21). The `general/config` doc
+ * SettingsPage — the single `/settings` route with a 7-tab bar (spec §1.21). The `general/config` doc
  * (plus `variables/config`) backs every tab except Policies, which lists `policies/{id}` documents and
  * opens the policy editor on its own route, and OTP, which edits the admin-only `general/msg91` doc. The active tab index lives in Redux so the unsaved-changes
  * guard can intercept a tab switch, and so the policy editor can send the admin back to Policies.
@@ -77,6 +78,8 @@ const SettingsPage: FC = () => {
         return <PaymentGatewayTab {...props} />;
       case SettingsTab.HELP_SUPPORT:
         return <HelpSupportTab {...props} />;
+      case SettingsTab.APP_UPDATE:
+        return <AppUpdateTab {...props} />;
       default:
         return null;
     }
@@ -92,7 +95,7 @@ const SettingsPage: FC = () => {
   return (
     <div className="p-6">
       <h1 className="text-[22px] font-bold tracking-tight text-foreground">Settings</h1>
-      <p className="mt-1 text-[14px] text-muted">Business, tax, gateway, OTP, policies &amp; variables.</p>
+      <p className="mt-1 text-[14px] text-muted">Business, tax, gateway, OTP, policies, app updates &amp; variables.</p>
 
       {/* Sub-tab bar — chips (design: brand-solid active, neutral-outline rest). */}
       <div className="mt-5 flex flex-wrap gap-2">

@@ -135,11 +135,13 @@ class PushService {
           settings.authorizationStatus == AuthorizationStatus.provisional;
 
       if (granted) {
-        await _saveToken();
         // A rotated token is worthless until it is written back — without this,
-        // pushes stop the first time FCM re-registers the device.
+        // pushes stop the first time FCM re-registers the device. Listening
+        // BEFORE the first read also catches an iOS token that arrives late
+        // (see [_saveToken]).
         await _tokenSub?.cancel();
         _tokenSub = _messaging.onTokenRefresh.listen(_writeToken);
+        await _saveToken();
       }
       return granted;
     } catch (error) {
@@ -167,6 +169,20 @@ class PushService {
   // --- Token ---------------------------------------------------------------
 
   Future<void> _saveToken() async {
+    // iOS: FCM cannot mint a token until APNs has issued one, which lands a
+    // moment after permission is granted — asking sooner throws
+    // `apns-token-not-set`. Wait briefly; if it is still missing, the
+    // onTokenRefresh listener writes the FCM token once it exists.
+    if (defaultTargetPlatform == TargetPlatform.iOS) {
+      String? apnsToken;
+      for (var i = 0; i < 10 && apnsToken == null; i++) {
+        apnsToken = await _messaging.getAPNSToken();
+        if (apnsToken == null) {
+          await Future<void>.delayed(const Duration(milliseconds: 500));
+        }
+      }
+      if (apnsToken == null) return;
+    }
     final token = await _messaging.getToken();
     if (token == null || token.isEmpty) return;
     await _writeToken(token);
@@ -194,6 +210,13 @@ class PushService {
   /// through flutter_local_notifications with the resolved route as its payload.
   Future<void> _showLocal(RemoteMessage message) async {
     final notification = message.notification;
+    // iOS already presents a notification message in the foreground (see
+    // setForegroundNotificationPresentationOptions in [initialize]), and a tap
+    // on it arrives through onMessageOpenedApp — re-raising it here would show
+    // every push twice. Only data-only messages need raising on iOS.
+    if (defaultTargetPlatform == TargetPlatform.iOS && notification != null) {
+      return;
+    }
     final title = notification?.title ?? message.data['title']?.toString() ?? '';
     final body = notification?.body ?? message.data['body']?.toString() ?? '';
     if (title.isEmpty && body.isEmpty) return;

@@ -82,6 +82,24 @@ export interface ContactUsSettings {
 }
 
 /**
+ * Settings › App Update — the customer app's update gate, one policy per store (Play and the App
+ * Store release independently, so iOS can lag Android). Read by the app's splash screen before
+ * sign-in, which is why it lives in the public `general/config`. Blank version = not set → no prompt.
+ */
+export interface AppUpdateSettings {
+  /** Android installs below this are blocked behind "Update required". */
+  androidMinVersion: string;
+  /** Android installs below this are offered a dismissible "Update available" (once per release). */
+  androidLatestVersion: string;
+  /** Play Store listing the Update button opens. */
+  androidStoreUrl: string;
+  iosMinVersion: string;
+  iosLatestVersion: string;
+  /** App Store listing (https://apps.apple.com/app/id…) the Update button opens. */
+  iosStoreUrl: string;
+}
+
+/**
  * Settings › OTP — the admin-only `general/msg91` document (NOT a map in `general/config`, which is
  * world-readable). authOTP / verifyOTP / resendOTP read it on every call; until it holds the app widget
  * pair they fall back to functions/.env. Mirrored by `OtpConfig` in functions/src/utility/otpConfig.ts.
@@ -115,6 +133,8 @@ export interface GeneralSettingsProps {
   terms: TermsSettings;
   /** Tab 6 — Help & Support (spec §1.21 Tab 6). */
   contactus: ContactUsSettings;
+  /** App Update tab — customer app force/optional update, per platform. */
+  appUpdate: AppUpdateSettings;
   /** Last write to any part of the document. */
   updatedAt: Timestamp | null;
 }

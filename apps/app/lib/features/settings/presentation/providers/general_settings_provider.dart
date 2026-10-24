@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:injectable/injectable.dart';
 
 import '../../../../core/usecase/usecase.dart';
+import '../../domain/entities/app_update_policy.dart';
 import '../../domain/entities/general_settings.dart';
 import '../../domain/usecases/get_general_settings.dart';
 
@@ -32,7 +33,12 @@ class GeneralSettingsProvider extends ChangeNotifier {
   String get helpPhone => _settings.helpPhone;
   String get helpWhatsApp => _settings.helpWhatsApp;
   String get helpEmail => _settings.helpEmail;
-  String get appMinVersion => _settings.appMinVersion;
+
+  /// The update policy for the store this build was installed from.
+  AppUpdatePolicy get updatePolicy =>
+      defaultTargetPlatform == TargetPlatform.iOS
+          ? _settings.iosUpdate
+          : _settings.androidUpdate;
 
   /// Fetch (or re-fetch) the settings document.
   Future<void> load() async {
