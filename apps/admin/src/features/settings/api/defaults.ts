@@ -40,6 +40,7 @@ export const DEFAULT_SETTINGS: GeneralSettingsProps = {
     razorpayKeySecret: '',
     razorpayConnected: false,
     walletPaymentsEnabled: false,
+    razorpayWebhookConfigured: false,
   },
   // Legacy, read-only: Privacy / Terms now live in `policies/{id}` (Settings › Policies) and the admin no
   // longer writes these maps. They stay because the shared GeneralSettingsProps still declares them (the

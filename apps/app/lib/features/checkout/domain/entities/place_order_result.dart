@@ -17,6 +17,7 @@ class PlaceOrderResult extends Equatable {
     this.keyId = '',
     this.createdAt,
     this.status = '',
+    this.paymentStatus = '',
   });
 
   final String orderId;
@@ -36,12 +37,19 @@ class PlaceOrderResult extends Equatable {
   /// the payment window already elapsed and the items went back to stock.
   final String status;
 
+  /// The order's payment status, again only on the read-back path. 'Paid'
+  /// means it settled after all — verifyPayment or razorpayWebhook got there
+  /// while the customer sat on the failure screen — so it must not be retried.
+  final String paymentStatus;
+
+  bool get isPaid => paymentStatus == 'Paid';
+
   bool get isWalletOnly =>
       razorpayOrderId == null || razorpayOrderId!.isEmpty || amount <= 0;
 
   @override
   List<Object?> get props =>
-      [orderId, razorpayOrderId, amount, keyId, createdAt, status];
+      [orderId, razorpayOrderId, amount, keyId, createdAt, status, paymentStatus];
 }
 
 /// Result of `verifyPayment` — the server re-checks the Razorpay signature, so

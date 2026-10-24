@@ -15,9 +15,20 @@ interface Props {
 const toForm = (s: GeneralSettingsProps) => ({
   razorpayKeyId: s.payment.razorpayKeyId,
   razorpayKeySecret: s.payment.razorpayKeySecret,
+  // Write-only, like the key secret: never read back, so it starts blank and blank keeps the saved one.
+  razorpayWebhookSecret: '',
   razorpayConnected: s.payment.razorpayConnected,
   walletPaymentsEnabled: s.payment.walletPaymentsEnabled,
 });
+
+/**
+ * Where Razorpay must POST payment events — the deployed `razorpayWebhook` function. asia-south1 is
+ * the region every function is pinned to (functions/src/index.ts; see also lib/firebaseConfig).
+ */
+const WEBHOOK_URL = `https://asia-south1-${import.meta.env.VITE_FIREBASE_PROJECT_ID}.cloudfunctions.net/razorpayWebhook`;
+
+/** The events razorpayWebhook acts on — the only ones worth subscribing to. */
+const WEBHOOK_EVENTS = ['payment.captured', 'payment.failed'];
 
 /** Tab 3 — Payment Gateway (spec §1.21). Razorpay credentials are sensitive: masked, show-on-demand. */
 const PaymentGatewayTab: FC<Props> = ({ settings, onDirtyChange }) => {
@@ -27,6 +38,19 @@ const PaymentGatewayTab: FC<Props> = ({ settings, onDirtyChange }) => {
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [showId, setShowId] = useState(false);
   const [showSecret, setShowSecret] = useState(false);
+  const [showWebhookSecret, setShowWebhookSecret] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const webhookConfigured = settings.payment.razorpayWebhookConfigured;
+
+  const copyWebhookUrl = async () => {
+    try {
+      await navigator.clipboard.writeText(WEBHOOK_URL);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      toast.error('Could not copy — select the URL and copy it manually');
+    }
+  };
 
   const dirty = useMemo(
     () => JSON.stringify(form) !== JSON.stringify(toForm(settings)),
@@ -56,13 +80,17 @@ const PaymentGatewayTab: FC<Props> = ({ settings, onDirtyChange }) => {
       updatePaymentGateway({
         razorpayKeyId: form.razorpayKeyId.trim(),
         razorpayKeySecret: form.razorpayKeySecret.trim(),
+        razorpayWebhookSecret: form.razorpayWebhookSecret.trim(),
         razorpayConnected: form.razorpayConnected,
         walletPaymentsEnabled: form.walletPaymentsEnabled,
       }),
     );
     setConfirmOpen(false);
-    if (updatePaymentGateway.fulfilled.match(res)) toast.success('Payment gateway updated');
-    else toast.error((res.payload as string) ?? 'Could not save payment gateway');
+    if (updatePaymentGateway.fulfilled.match(res)) {
+      toast.success('Payment gateway updated');
+      // The secrets are write-only: clear what was typed so the fields read "keep saved" again.
+      setForm((f) => ({ ...f, razorpayKeySecret: '', razorpayWebhookSecret: '' }));
+    } else toast.error((res.payload as string) ?? 'Could not save payment gateway');
   };
 
   return (
@@ -133,6 +161,86 @@ const PaymentGatewayTab: FC<Props> = ({ settings, onDirtyChange }) => {
             </button>
           </div>
         </Field>
+      </div>
+
+      {/* Webhook — Razorpay's server-to-server backstop. It settles a payment (order or wallet
+          top-up) even when the customer's app closed before it could confirm. */}
+      <div className="mt-6 rounded-lg border border-border px-4 py-4">
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <p className="text-[14px] font-semibold text-foreground">Webhook</p>
+            <p className="text-[12px] text-muted">
+              Confirms payments even if the customer closes the app before it finishes.
+            </p>
+          </div>
+          <span
+            className={`shrink-0 rounded-pill px-3 py-1 text-[12px] font-semibold ${
+              webhookConfigured
+                ? 'bg-success-subtle text-success'
+                : 'bg-subtle text-muted ring-1 ring-border-strong'
+            }`}
+          >
+            {webhookConfigured ? 'Secret saved' : 'Not set up'}
+          </span>
+        </div>
+
+        <ol className="mt-3 list-decimal space-y-1 pl-5 text-[12px] leading-relaxed text-muted">
+          <li>Razorpay Dashboard → Account &amp; Settings → Webhooks → Add new webhook.</li>
+          <li>Paste the URL below and choose a secret (any strong text you make up).</li>
+          <li>
+            Tick the events{' '}
+            {WEBHOOK_EVENTS.map((e, i) => (
+              <span key={e}>
+                {i > 0 && ' and '}
+                <code className="rounded bg-subtle px-1 font-mono text-foreground">{e}</code>
+              </span>
+            ))}
+            , save, then enter the same secret here.
+          </li>
+        </ol>
+
+        <div className="mt-4 grid gap-5">
+          <Field label="Webhook URL">
+            <div className="flex gap-2">
+              <input readOnly className={`${inputCls} font-mono text-[13px]`} value={WEBHOOK_URL} />
+              <button
+                type="button"
+                onClick={() => void copyWebhookUrl()}
+                className="inline-flex shrink-0 items-center gap-1.5 rounded-md border border-border-strong px-3 text-[13px] font-semibold text-foreground hover:bg-subtle"
+              >
+                {copied && <Icon name="CheckLine" size={16} className="text-success" />}
+                {copied ? 'Copied' : 'Copy'}
+              </button>
+            </div>
+          </Field>
+          <Field
+            label="Webhook secret"
+            hint={
+              webhookConfigured
+                ? 'Saved. Leave blank to keep it, or enter a new one if you changed it in Razorpay.'
+                : 'The secret you entered when creating the webhook in Razorpay.'
+            }
+          >
+            <div className="relative">
+              <input
+                type={showWebhookSecret ? 'text' : 'password'}
+                className={`${inputCls} pr-11`}
+                placeholder={webhookConfigured ? '•••••••• (saved)' : 'Webhook secret'}
+                value={form.razorpayWebhookSecret}
+                onChange={(e) => set('razorpayWebhookSecret', e.target.value)}
+                autoComplete="off"
+              />
+              <button
+                type="button"
+                onClick={() => setShowWebhookSecret((v) => !v)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-faint hover:text-foreground"
+                aria-label={showWebhookSecret ? 'Hide webhook secret' : 'Show webhook secret'}
+              >
+                <Icon name="EyeLine" size={18} />
+              </button>
+            </div>
+          </Field>
+        </div>
       </div>
 
       <div className="mt-6 space-y-3">

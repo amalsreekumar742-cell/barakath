@@ -56,6 +56,11 @@ export interface PaymentSettings {
   razorpayConnected: boolean;
   /** Wallet payments toggle — OFF shows the option greyed/disabled at checkout. */
   walletPaymentsEnabled: boolean;
+  /**
+   * True once a Razorpay webhook secret has been saved. The secret itself lives in the admin-only
+   * `general/secrets` (never readable here) — this flag only lets the admin tab show "Set".
+   */
+  razorpayWebhookConfigured: boolean;
 }
 
 /** Tab 4 — Privacy Policy map. */

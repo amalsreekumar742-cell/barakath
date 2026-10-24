@@ -177,14 +177,16 @@ export function CheckoutSection() {
       // Should not happen (checkoutThunks always pairs done:false with a razorpaySuccess), but a
       // missing value here has nothing safe left to confirm — surface it rather than guessing.
       toastError(null, 'Something went wrong confirming your payment. Please check My Orders.');
-      router.push(`/payment-failed?orderId=${orderId}`);
+      router.push(`/payment-failed?orderId=${orderId}&unconfirmed=1`);
       return;
     }
 
     const confirmResult = await dispatch(confirmPayment({ ...razorpaySuccess, orderId }));
     if (confirmPayment.rejected.match(confirmResult)) {
+      // Razorpay already reported success, so this is "not confirmed yet" — razorpayWebhook settles
+      // a real payment server-side, and the payment-failed page watches for it in this mode.
       toastError(confirmResult.payload, 'Could not confirm your payment.');
-      router.push(`/payment-failed?orderId=${orderId}`);
+      router.push(`/payment-failed?orderId=${orderId}&unconfirmed=1`);
       return;
     }
 

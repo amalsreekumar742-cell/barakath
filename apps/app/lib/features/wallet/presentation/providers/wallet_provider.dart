@@ -263,18 +263,21 @@ class WalletProvider extends ChangeNotifier {
     _isToppingUp = false;
     return result.fold(
       (failure) {
-        _error = failure.message;
+        // Razorpay already reported success, so the money may have moved even
+        // though this call failed — razorpayWebhook credits it if so.
+        _error = '${failure.message} If money left your account, it will be '
+            'added to your wallet automatically within a few minutes.';
         notifyListeners();
         return null;
       },
       (amount) {
         if (amount == null) {
-          // The gateway would not vouch for this payment. Money may still have
-          // moved at Razorpay's end, so point the customer at support rather
-          // than implying nothing happened.
+          // The app could not vouch for this payment. If Razorpay really charged
+          // it, razorpayWebhook credits the top-up server-side, so say that
+          // rather than implying nothing happened.
           _error =
-              'We could not confirm that payment. If money left your account it '
-              'will be returned, or contact support with your payment id.';
+              'We could not confirm that payment yet. If money left your account, '
+              'it will be added to your wallet automatically within a few minutes.';
         }
         notifyListeners();
         return amount;
