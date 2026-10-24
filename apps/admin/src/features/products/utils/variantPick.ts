@@ -1,4 +1,4 @@
-import type { VariantOption } from '@barakath/shared/types';
+import type { VariantGroup, VariantOption } from '@barakath/shared/types';
 
 /**
  * The product form's variant picker state — one unit per Settings › Variables group (Size 57 +
@@ -59,4 +59,16 @@ export function toggleGroupOption(
   const current = selectedUnit(options, group);
   const isSame = current !== undefined && norm(current) === norm(value);
   return setGroupOption(options, groupOrder, group, isSame ? null : value);
+}
+
+/**
+ * The Variant dropdown's search: each group trimmed to the units containing `term`, or kept whole
+ * when the GROUP name matches — typing "layer" should list every layer, not nothing. Groups left
+ * with no units drop out; a blank term returns every group with units.
+ */
+export function filterVariantGroups(groups: readonly VariantGroup[], term: string): VariantGroup[] {
+  const q = norm(term);
+  return groups
+    .map((g) => (!q || norm(g.name).includes(q) ? g : { ...g, units: g.units.filter((u) => norm(u).includes(q)) }))
+    .filter((g) => g.units.length > 0);
 }

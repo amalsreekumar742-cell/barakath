@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { setGroupOption, selectedUnit, toggleGroupOption } from './variantPick';
+import { filterVariantGroups, setGroupOption, selectedUnit, toggleGroupOption } from './variantPick';
 
 const ORDER = ['Size', 'Layer'];
 const size = (value: string) => ({ group: 'Size', value });
@@ -57,5 +57,29 @@ describe('selectedUnit', () => {
   it("returns the group's pick, or undefined", () => {
     expect(selectedUnit([size('57'), layer('2')], 'layer')).toBe('2');
     expect(selectedUnit([size('57')], 'Layer')).toBeUndefined();
+  });
+});
+
+describe('filterVariantGroups', () => {
+  const GROUPS = [
+    { name: 'Size', units: ['55', '57', '60'] },
+    { name: 'Layer', units: ['1', '2'] },
+    { name: 'Material', units: [] },
+  ];
+
+  it('returns every group with units on a blank term', () => {
+    expect(filterVariantGroups(GROUPS, '  ')).toEqual(GROUPS.slice(0, 2));
+  });
+
+  it('trims each group to the matching units and drops groups with none', () => {
+    expect(filterVariantGroups(GROUPS, '5')).toEqual([{ name: 'Size', units: ['55', '57'] }]);
+  });
+
+  it('keeps a whole group when its name matches, case-insensitively', () => {
+    expect(filterVariantGroups(GROUPS, ' LAY')).toEqual([{ name: 'Layer', units: ['1', '2'] }]);
+  });
+
+  it('returns nothing when no unit or group matches', () => {
+    expect(filterVariantGroups(GROUPS, 'xyz')).toEqual([]);
   });
 });
