@@ -137,9 +137,10 @@ class HomeRemoteDataSourceImpl implements HomeRemoteDataSource {
     int limit = 6,
   }) =>
       _products(
+        // Upload order, matching the category listing its "View All" opens.
         _activeProducts
             .where('categoryId', isEqualTo: categoryId)
-            .orderBy('createdAt', descending: true)
+            .orderBy('createdAt')
             .limit(limit),
         'Could not load this category.',
       );

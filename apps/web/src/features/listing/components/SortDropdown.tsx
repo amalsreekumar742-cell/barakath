@@ -18,8 +18,12 @@ export interface SortDropdownProps {
   value: ProductSort;
 }
 
-/** Newest leads because it is the default (`parseListingParams`), matching the app's sort sheet. */
+/**
+ * Oldest (upload order) leads because it is a category page's default (`parseListingParams`); Newest
+ * stays the default on `/category/all` and the wishlist. Same order as the app's sort sheet.
+ */
 const OPTIONS: { value: ProductSort; label: string }[] = [
+  { value: 'oldest', label: 'Oldest' },
   { value: 'newest', label: 'Newest' },
   { value: 'popularity', label: 'Popularity' },
   { value: 'priceAsc', label: 'Price: Low to High' },

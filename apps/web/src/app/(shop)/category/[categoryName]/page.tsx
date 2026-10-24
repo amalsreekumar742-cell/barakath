@@ -83,7 +83,10 @@ export async function generateMetadata({ params, searchParams }: CategoryPagePro
 export default async function CategoryPage({ params, searchParams }: CategoryPageProps) {
   const categoryName = decodeSegment((await params).categoryName);
   const sp = await searchParams;
-  const parsed = parseListingParams(sp);
+  const isAll = categoryName === ALL_SLUG;
+  // A real category opens in upload order (first-added product first). `/category/all` backs the home
+  // page's New Arrivals / Flash Sale "See all", so it stays newest-first like those rails.
+  const parsed = parseListingParams(sp, isAll ? 'newest' : 'oldest');
   const basePath = `/category/${encodeURIComponent(categoryName)}`;
   const filterParams = flattenSearchParams(sp);
   // Pagination-only keys are rebuilt by CategoryPagination from its own props — never carried as a
@@ -93,7 +96,6 @@ export default async function CategoryPage({ params, searchParams }: CategoryPag
   delete filterParams.page;
   delete filterParams.trail;
 
-  const isAll = categoryName === ALL_SLUG;
   const category = isAll ? null : await getCategoryByName(categoryName);
   if (!isAll && !category) notFound();
 

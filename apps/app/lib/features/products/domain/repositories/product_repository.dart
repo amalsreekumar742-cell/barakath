@@ -6,6 +6,8 @@ import '../entities/variant.dart';
 
 /// The orderings offered by the listing screen's sort sheet (spec §2.9).
 enum ProductSort {
+  /// Upload order — the first product the admin added comes first.
+  oldest,
   newest,
   priceLowToHigh,
   priceHighToLow,
@@ -14,6 +16,7 @@ enum ProductSort {
 
   /// Stable wire value — safe to put in a deep link or persist.
   String get value => switch (this) {
+        ProductSort.oldest => 'oldest',
         ProductSort.newest => 'newest',
         ProductSort.priceLowToHigh => 'price_low',
         ProductSort.priceHighToLow => 'price_high',
@@ -22,6 +25,7 @@ enum ProductSort {
       };
 
   String get label => switch (this) {
+        ProductSort.oldest => 'Oldest First',
         ProductSort.newest => 'Newest First',
         ProductSort.priceLowToHigh => 'Price: Low to High',
         ProductSort.priceHighToLow => 'Price: High to Low',
