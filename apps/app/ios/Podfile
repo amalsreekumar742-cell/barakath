@@ -1,6 +1,6 @@
-# iOS 14 is the floor: google_maps_flutter_ios requires it (every other plugin needs 13 or less).
+# iOS 15 is the floor: the Firebase iOS SDK 12 (firebase_core 5.x) requires it.
 # Keep in step with IPHONEOS_DEPLOYMENT_TARGET in Runner.xcodeproj.
-platform :ios, '14.0'
+platform :ios, '15.0'
 
 # CocoaPods analytics sends network stats synchronously affecting flutter build latency.
 ENV['COCOAPODS_DISABLE_STATS'] = 'true'
@@ -44,8 +44,8 @@ post_install do |installer|
     target.build_configurations.each do |config|
       # Older plugin pods declare iOS 8–12, which current Xcode warns about (or refuses). Lift them
       # to the app's floor.
-      if config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'].to_f < 14.0
-        config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '14.0'
+      if config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'].to_f < 15.0
+        config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '15.0'
       end
 
       # The app only reads location while open (address autofill). This compiles out geolocator's
