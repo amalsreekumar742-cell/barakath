@@ -2,8 +2,10 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:cloud_functions/cloud_functions.dart';
 import 'package:injectable/injectable.dart';
 
+import '../../../../core/constants/cloud_functions.dart';
 import '../../../../core/constants/firebase_collections.dart';
 import '../../../../core/error/exceptions.dart';
 import '../../../../core/services/storage_service.dart';
@@ -36,25 +38,17 @@ abstract class ProfileRemoteDataSource {
     required File file,
   });
 
-  /// Null out the personal fields, empty the wishlist and block the account.
-  /// Orders, payments and wallet ledgers are deliberately untouched.
-  Future<void> anonymiseAccount(String uid);
+  /// Permanently delete the signed-in customer's account, server-side.
+  Future<void> deleteAccount();
 }
 
 @LazySingleton(as: ProfileRemoteDataSource)
 class ProfileRemoteDataSourceImpl implements ProfileRemoteDataSource {
-  ProfileRemoteDataSourceImpl(this._firestore, this._storage);
+  ProfileRemoteDataSourceImpl(this._firestore, this._storage, this._functions);
 
   final FirebaseFirestore _firestore;
   final StorageService _storage;
-
-  /// Wishlist documents deleted per batch. Firestore caps a write batch at 500;
-  /// staying under it leaves room for the loop to be safe on a big wishlist.
-  static const int _wishlistBatchSize = 400;
-
-  /// A hard stop on the delete loop — an unbounded `while (true)` against a
-  /// network collection is how a "delete account" tap hangs forever.
-  static const int _maxWishlistBatches = 10;
+  final FirebaseFunctions _functions;
 
   DocumentReference<Map<String, dynamic>> _userDoc(String uid) =>
       _firestore.collection(FirebaseCollections.users).doc(uid);
@@ -62,9 +56,8 @@ class ProfileRemoteDataSourceImpl implements ProfileRemoteDataSource {
   @override
   Stream<UserModel> watchUser(String uid) {
     return _userDoc(uid).snapshots().map(
-          (doc) => doc.exists
-              ? UserModel.fromFirestore(doc)
-              : UserModel.empty(uid),
+          (doc) =>
+              doc.exists ? UserModel.fromFirestore(doc) : UserModel.empty(uid),
         );
   }
 
@@ -101,7 +94,8 @@ class ProfileRemoteDataSourceImpl implements ProfileRemoteDataSource {
       // security rules are written against.
       await ref.update(data);
     } on FirebaseException catch (e) {
-      throw ServerException(FirebaseErrorMessage.of(e) ?? 'Could not save your profile.', e.code);
+      throw ServerException(
+          FirebaseErrorMessage.of(e) ?? 'Could not save your profile.', e.code);
     }
   }
 
@@ -114,69 +108,25 @@ class ProfileRemoteDataSourceImpl implements ProfileRemoteDataSource {
       // StoragePaths.profilePhoto overrides spec §4.22 on purpose — see its doc.
       return await _storage.uploadImage(file, StoragePaths.profilePhoto(uid));
     } on FirebaseException catch (e) {
-      throw ServerException(FirebaseErrorMessage.of(e) ?? 'Photo upload failed.', e.code);
+      throw ServerException(
+          FirebaseErrorMessage.of(e) ?? 'Photo upload failed.', e.code);
     }
   }
 
   @override
-  Future<void> anonymiseAccount(String uid) async {
-    final ref = _userDoc(uid);
-
-    // Step 1 — the part that must succeed: the personal data goes first, so a
-    // later failure can never leave the customer's name and email in place
-    // while telling them the account is gone.
+  Future<void> deleteAccount() async {
     try {
-      await ref.update({
-        'fullName': '',
-        'email': '',
-        'whatsapp': '',
-        'profileImage': '',
-        'fcmToken': '',
-        'keywords': <String>[],
-        'updatedAt': FieldValue.serverTimestamp(),
-      });
-    } on FirebaseException catch (e) {
+      await _functions.httpsCallable(CloudFunctions.deleteMyAccount).call();
+    } on FirebaseFunctionsException catch (e) {
       throw ServerException(
-        FirebaseErrorMessage.of(e) ?? 'Could not delete your account. Please try again.',
+        // `failed-precondition` carries the customer-facing reason it was
+        // refused: an order, return or withdrawal is still in progress.
+        e.code == 'failed-precondition' && e.message != null
+            ? e.message!
+            : FirebaseErrorMessage.of(e) ??
+                'Could not delete your account. Please try again.',
         e.code,
       );
-    }
-
-    // Step 2 — best-effort cleanup. Both writes are already "extra": the PII is
-    // gone, and failing the whole action over them would push the customer to
-    // retry a delete that has effectively happened.
-    await _clearWishlist(uid);
-
-    // KNOWN GAP: firestore.rules `onlyOwnProfileFields()` whitelists
-    // fullName/email/whatsapp/profileImage/referredBy/keywords/fcmToken/
-    // updatedAt — `status` is NOT in it, so this write is rejected today and the
-    // account is anonymised but not blocked. Left in (and swallowed) so it
-    // starts working the moment the rules gain `status`, or the flip moves to a
-    // Cloud Function. Reported to the caller.
-    await ref
-        .update({'status': 'Blocked'})
-        .catchError((Object _) {});
-  }
-
-  /// Delete `users/{uid}/wishlist` in bounded batches. Never throws.
-  Future<void> _clearWishlist(String uid) async {
-    final collection = _userDoc(uid).collection(FirebaseCollections.wishlist);
-    try {
-      for (var i = 0; i < _maxWishlistBatches; i++) {
-        final snap = await collection.limit(_wishlistBatchSize).get();
-        if (snap.docs.isEmpty) return;
-
-        final batch = _firestore.batch();
-        for (final doc in snap.docs) {
-          batch.delete(doc.reference);
-        }
-        await batch.commit();
-
-        if (snap.docs.length < _wishlistBatchSize) return;
-      }
-    } catch (_) {
-      // Best-effort: a leftover wishlist entry is not personal data worth
-      // failing an account deletion over.
     }
   }
 }

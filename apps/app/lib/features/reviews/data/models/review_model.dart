@@ -29,7 +29,8 @@ class ReviewModel extends Review {
     required super.updatedAt,
   });
 
-  factory ReviewModel.fromFirestore(DocumentSnapshot<Map<String, dynamic>> doc) {
+  factory ReviewModel.fromFirestore(
+      DocumentSnapshot<Map<String, dynamic>> doc) {
     final data = doc.data() ?? const {};
     return ReviewModel(
       id: doc.id,

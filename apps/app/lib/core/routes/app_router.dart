@@ -41,6 +41,7 @@ import '../../features/profile/presentation/pages/edit_profile_page.dart';
 import '../../features/profile/presentation/pages/help_centre_page.dart';
 import '../../features/profile/presentation/pages/settings_page.dart';
 import '../../features/replacement/presentation/pages/request_replacement_page.dart';
+import '../../features/reviews/presentation/pages/product_reviews_page.dart';
 import '../../features/reviews/presentation/pages/write_review_page.dart';
 import '../../features/spinner/presentation/pages/my_coupons_page.dart';
 import '../../features/spinner/presentation/pages/spin_page.dart';
@@ -166,6 +167,12 @@ class AppRouter {
           parentNavigatorKey: _rootKey,
           builder: (c, s) =>
               ProductDetailPage(productId: s.pathParameters['productId'] ?? ''),
+        ),
+        GoRoute(
+          path: '/product/:productId/reviews',
+          parentNavigatorKey: _rootKey,
+          builder: (c, s) =>
+              ProductReviewsPage(productId: s.pathParameters['productId'] ?? ''),
         ),
 
         // Cart → checkout flow. All root-level: each is a full-screen step with

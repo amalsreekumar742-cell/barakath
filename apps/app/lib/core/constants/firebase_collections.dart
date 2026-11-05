@@ -22,6 +22,10 @@ class FirebaseCollections {
   static const String affiliateWithdrawals = 'affiliateWithdrawals';
   static const String coupons = 'coupons';
   static const String reviews = 'reviews';
+  static const String reviewReports = 'reviewReports';
+
+  /// Subcollection of `users/{uid}`: the customers that user has blocked.
+  static const String blockedUsers = 'blockedUsers';
   static const String spinnerCampaigns = 'spinnerCampaigns';
   static const String spinHistory = 'spinHistory';
   static const String flashSales = 'flashSales';

@@ -33,8 +33,10 @@ class SearchRemoteDataSourceImpl implements SearchRemoteDataSource {
     required int limit,
     Object? startAfter,
   }) async {
-    // Keywords are stored lowercased (spec §4.23), so the needle must match.
-    final needle = query.trim().toLowerCase();
+    // Keywords are stored lowercased with spaces and punctuation stripped
+    // (keywordsBuilder), so the needle must match or multi-word searches find
+    // nothing.
+    final needle = query.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '');
     if (needle.isEmpty) {
       return const SearchResultsModel(
         products: [],

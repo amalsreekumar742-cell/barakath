@@ -231,6 +231,8 @@ import '../../features/replacement/domain/usecases/submit_replacement_request.da
     as _i1013;
 import '../../features/replacement/presentation/providers/replacement_provider.dart'
     as _i985;
+import '../../features/reviews/data/datasources/review_moderation_remote_datasource.dart'
+    as _i28;
 import '../../features/reviews/data/datasources/review_remote_datasource.dart'
     as _i130;
 import '../../features/reviews/data/repositories/review_repository_impl.dart'
@@ -242,6 +244,8 @@ import '../../features/reviews/domain/usecases/get_reviewable_item.dart'
 import '../../features/reviews/domain/usecases/has_existing_review.dart'
     as _i1048;
 import '../../features/reviews/domain/usecases/submit_review.dart' as _i225;
+import '../../features/reviews/presentation/providers/review_moderation_provider.dart'
+    as _i884;
 import '../../features/reviews/presentation/providers/reviews_provider.dart'
     as _i1064;
 import '../../features/search/data/datasources/search_local_datasource.dart'
@@ -375,6 +379,9 @@ extension GetItInjectableX on _i174.GetIt {
         () => _i448.SpinnerRepositoryImpl(gh<_i792.SpinnerRemoteDataSource>()));
     gh.lazySingleton<_i787.AuthRepository>(
         () => _i153.AuthRepositoryImpl(gh<_i161.AuthRemoteDataSource>()));
+    gh.lazySingleton<_i28.ReviewModerationRemoteDataSource>(() =>
+        _i28.ReviewModerationRemoteDataSourceImpl(
+            gh<_i974.FirebaseFirestore>()));
     gh.lazySingleton<_i278.HomeRemoteDataSource>(
         () => _i278.HomeRemoteDataSourceImpl(gh<_i974.FirebaseFirestore>()));
     gh.lazySingleton<_i633.CouponRemoteDataSource>(
@@ -431,6 +438,11 @@ extension GetItInjectableX on _i174.GetIt {
             ));
     gh.lazySingleton<_i463.AddressRepository>(
         () => _i590.AddressRepositoryImpl(gh<_i182.AddressRemoteDataSource>()));
+    gh.factory<_i884.ReviewModerationProvider>(
+        () => _i884.ReviewModerationProvider(
+              gh<_i28.ReviewModerationRemoteDataSource>(),
+              gh<_i59.FirebaseAuth>(),
+            ));
     gh.lazySingleton<_i390.CategoryRemoteDataSource>(() =>
         _i390.CategoryRemoteDataSourceImpl(gh<_i974.FirebaseFirestore>()));
     gh.lazySingleton<_i932.NetworkInfo>(
@@ -483,6 +495,12 @@ extension GetItInjectableX on _i174.GetIt {
               gh<_i974.FirebaseFirestore>(),
               gh<_i306.StorageService>(),
             ));
+    gh.lazySingleton<_i327.ProfileRemoteDataSource>(
+        () => _i327.ProfileRemoteDataSourceImpl(
+              gh<_i974.FirebaseFirestore>(),
+              gh<_i306.StorageService>(),
+              gh<_i809.FirebaseFunctions>(),
+            ));
     gh.lazySingleton<_i266.CategoryRepository>(() =>
         _i894.CategoryRepositoryImpl(gh<_i390.CategoryRemoteDataSource>()));
     gh.lazySingleton<_i985.ReviewRepository>(
@@ -492,6 +510,8 @@ extension GetItInjectableX on _i174.GetIt {
               gh<_i342.AffiliateRemoteDataSource>(),
               gh<_i251.IfscRemoteDataSource>(),
             ));
+    gh.lazySingleton<_i894.ProfileRepository>(
+        () => _i334.ProfileRepositoryImpl(gh<_i327.ProfileRemoteDataSource>()));
     gh.factory<_i872.GetCategories>(
         () => _i872.GetCategories(gh<_i266.CategoryRepository>()));
     gh.factory<_i777.GetCategoryById>(
@@ -587,13 +607,16 @@ extension GetItInjectableX on _i174.GetIt {
         _i955.SettingsRepositoryImpl(gh<_i140.SettingsRemoteDataSource>()));
     gh.lazySingleton<_i543.OrderRepository>(
         () => _i376.OrderRepositoryImpl(gh<_i1007.OrderRemoteDataSource>()));
+    gh.factory<_i457.DeleteAccount>(
+        () => _i457.DeleteAccount(gh<_i894.ProfileRepository>()));
+    gh.factory<_i78.UpdateProfile>(
+        () => _i78.UpdateProfile(gh<_i894.ProfileRepository>()));
+    gh.factory<_i535.UploadProfilePhoto>(
+        () => _i535.UploadProfilePhoto(gh<_i894.ProfileRepository>()));
+    gh.factory<_i472.WatchUser>(
+        () => _i472.WatchUser(gh<_i894.ProfileRepository>()));
     gh.factory<_i123.GetGeneralSettings>(
         () => _i123.GetGeneralSettings(gh<_i674.SettingsRepository>()));
-    gh.lazySingleton<_i327.ProfileRemoteDataSource>(
-        () => _i327.ProfileRemoteDataSourceImpl(
-              gh<_i974.FirebaseFirestore>(),
-              gh<_i306.StorageService>(),
-            ));
     gh.lazySingleton<_i520.ReplacementRepository>(() =>
         _i887.ReplacementRepositoryImpl(
             gh<_i103.ReplacementRemoteDataSource>()));
@@ -717,8 +740,6 @@ extension GetItInjectableX on _i174.GetIt {
           gh<_i741.GetOrderPayment>(),
           gh<_i741.ReleaseAbandonedOrder>(),
         ));
-    gh.lazySingleton<_i894.ProfileRepository>(
-        () => _i334.ProfileRepositoryImpl(gh<_i327.ProfileRemoteDataSource>()));
     gh.factory<_i216.FetchCartDetails>(
         () => _i216.FetchCartDetails(gh<_i88.CartPricingRepository>()));
     gh.factory<_i594.CancelOrder>(
@@ -735,6 +756,14 @@ extension GetItInjectableX on _i174.GetIt {
         () => _i941.GetOrders(gh<_i543.OrderRepository>()));
     gh.factory<_i965.GetReturnStatuses>(
         () => _i965.GetReturnStatuses(gh<_i543.OrderRepository>()));
+    gh.factory<_i919.ProfileProvider>(() => _i919.ProfileProvider(
+          gh<_i472.WatchUser>(),
+          gh<_i78.UpdateProfile>(),
+          gh<_i535.UploadProfilePhoto>(),
+          gh<_i457.DeleteAccount>(),
+          gh<_i568.SignOut>(),
+          gh<_i224.ClearFcmToken>(),
+        ));
     gh.factory<_i412.GetBroadcastNotifications>(() =>
         _i412.GetBroadcastNotifications(gh<_i367.NotificationRepository>()));
     gh.factory<_i501.GetPersonalNotifications>(() =>
@@ -760,14 +789,6 @@ extension GetItInjectableX on _i174.GetIt {
           gh<_i807.FindCouponByCode>(),
           gh<_i427.ValidateCoupon>(),
         ));
-    gh.factory<_i457.DeleteAccount>(
-        () => _i457.DeleteAccount(gh<_i894.ProfileRepository>()));
-    gh.factory<_i78.UpdateProfile>(
-        () => _i78.UpdateProfile(gh<_i894.ProfileRepository>()));
-    gh.factory<_i535.UploadProfilePhoto>(
-        () => _i535.UploadProfilePhoto(gh<_i894.ProfileRepository>()));
-    gh.factory<_i472.WatchUser>(
-        () => _i472.WatchUser(gh<_i894.ProfileRepository>()));
     gh.factory<_i915.WishlistProvider>(() => _i915.WishlistProvider(
           gh<_i160.WatchWishlistProductIds>(),
           gh<_i1071.AddToWishlist>(),
@@ -803,14 +824,6 @@ extension GetItInjectableX on _i174.GetIt {
           gh<_i892.GetProductDetail>(),
           gh<_i366.GetProductVariant>(),
           gh<_i965.GetReturnStatuses>(),
-        ));
-    gh.factory<_i919.ProfileProvider>(() => _i919.ProfileProvider(
-          gh<_i472.WatchUser>(),
-          gh<_i78.UpdateProfile>(),
-          gh<_i535.UploadProfilePhoto>(),
-          gh<_i457.DeleteAccount>(),
-          gh<_i568.SignOut>(),
-          gh<_i224.ClearFcmToken>(),
         ));
     gh.factory<_i462.OrderDetailProvider>(() => _i462.OrderDetailProvider(
           gh<_i43.GetOrderById>(),

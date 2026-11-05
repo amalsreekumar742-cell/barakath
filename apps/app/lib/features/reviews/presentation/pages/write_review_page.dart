@@ -117,10 +117,12 @@ class _WriteReviewPageState extends State<WriteReviewPage> {
         await ReviewSubmittedDialog.show(context, rating: provider.rating);
         if (mounted) Navigator.of(context).pop(true);
       case SubmitReviewOutcome.duplicate:
-        AppToast.error(context, 'You have already reviewed this product on this order.');
+        AppToast.error(
+            context, 'You have already reviewed this product on this order.');
         Navigator.of(context).pop(false);
       case SubmitReviewOutcome.failure:
-        AppToast.error(context, provider.submitError ?? 'Could not submit your review.');
+        AppToast.error(
+            context, provider.submitError ?? 'Could not submit your review.');
     }
   }
 
@@ -249,11 +251,24 @@ class _WriteReviewPageState extends State<WriteReviewPage> {
       ),
       child: SafeArea(
         top: false,
-        child: CustomButton(
-          label: 'Submit rating',
-          isLoading: provider.isSubmitting,
-          isDisabled: !provider.canSubmit,
-          onPressed: _submit,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text(
+              'By posting you agree to our Terms. Abusive or objectionable '
+              'content is not allowed and will be removed, and the customer '
+              'who posted it may be blocked.',
+              textAlign: TextAlign.center,
+              style: TextStyle(fontSize: 11.5, color: AppColors.textFaint),
+            ),
+            const SizedBox(height: AppDimens.space8),
+            CustomButton(
+              label: 'Submit rating',
+              isLoading: provider.isSubmitting,
+              isDisabled: !provider.canSubmit,
+              onPressed: _submit,
+            ),
+          ],
         ),
       ),
     );
@@ -323,11 +338,13 @@ class _WriteReviewSkeleton extends StatelessWidget {
         ),
         SizedBox(height: AppDimens.space24),
         ShimmerLoading(
-          child: Center(child: ShimmerBox(width: 220, height: 40, borderRadius: 8)),
+          child: Center(
+              child: ShimmerBox(width: 220, height: 40, borderRadius: 8)),
         ),
         SizedBox(height: AppDimens.space24),
         ShimmerLoading(
-          child: ShimmerBox(width: double.infinity, height: 110, borderRadius: 8),
+          child:
+              ShimmerBox(width: double.infinity, height: 110, borderRadius: 8),
         ),
         SizedBox(height: AppDimens.space16),
         ShimmerLoading(

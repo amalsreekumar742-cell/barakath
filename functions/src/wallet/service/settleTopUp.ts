@@ -1,4 +1,5 @@
 import { HttpsError } from 'firebase-functions/v2/https';
+import { logger } from 'firebase-functions';
 import { getFirestore, FieldValue } from 'firebase-admin/firestore';
 import { Collections } from '../../config/collections';
 
@@ -14,13 +15,17 @@ import { Collections } from '../../config/collections';
  *
  * WHY the amount comes from the stored top-up: neither a signature nor a webhook event is trusted for
  * the VALUE here — the top-up document recorded what the Razorpay order was opened for.
+ *
+ * WHY RefundDue instead of throwing when the user is gone: the account was deleted while the payment
+ *   was in flight. Throwing would 500 the webhook, Razorpay would retry indefinitely, and the charge
+ *   would be recorded nowhere. Marking the top-up RefundDue keeps a record that the money must go back.
  */
 export async function settleWalletTopUp(
   topUpRef: FirebaseFirestore.DocumentReference,
   payment: { razorpayPaymentId: string; razorpaySignature?: string; settledVia: 'client' | 'webhook' },
-): Promise<{ amount: number; newBalance: number; alreadySettled: boolean }> {
+): Promise<{ amount: number; newBalance: number; alreadySettled: boolean; refundDue?: boolean }> {
   const db = getFirestore();
-  return db.runTransaction(async (tx) => {
+  const result = await db.runTransaction(async (tx) => {
     const topUp = await tx.get(topUpRef);
     if (!topUp.exists) throw new HttpsError('not-found', 'No top-up found for this payment.');
     const userId = String(topUp.get('userId') ?? '');
@@ -30,14 +35,23 @@ export async function settleWalletTopUp(
 
     // Already settled — report the balance as it stands rather than crediting a second time. This is
     // the retry / second-path case, not an error.
-    if (topUp.get('status') === 'Paid') {
+    if (topUp.get('status') === 'Paid' || topUp.get('status') === 'RefundDue') {
       return {
         amount: recorded,
         newBalance: (userDoc.get('walletBalance') as number | undefined) ?? 0,
         alreadySettled: true,
       };
     }
-    if (!userId || !userDoc.exists) throw new HttpsError('not-found', 'User not found.');
+    if (!userId || !userDoc.exists) {
+      tx.update(topUpRef, {
+        status: 'RefundDue',
+        razorpayPaymentId: payment.razorpayPaymentId,
+        settledVia: payment.settledVia,
+        note: 'Payment captured after the account was deleted — refund the customer.',
+        updatedAt: FieldValue.serverTimestamp(),
+      });
+      return { amount: recorded, newBalance: 0, alreadySettled: false, refundDue: true };
+    }
     if (recorded <= 0) {
       throw new HttpsError('failed-precondition', 'This top-up has no amount recorded.');
     }
@@ -71,4 +85,12 @@ export async function settleWalletTopUp(
 
     return { amount: recorded, newBalance: updatedBalance, alreadySettled: false };
   });
+  if (result.refundDue) {
+    logger.error('Wallet top-up captured for a deleted account — refund owed', {
+      topUpId: topUpRef.id,
+      razorpayPaymentId: payment.razorpayPaymentId,
+      amount: result.amount,
+    });
+  }
+  return result;
 }

@@ -35,10 +35,9 @@ class AppDetails {
   static const int affiliateClearingDays = 7;
 
   // --------------------- STORE / SHARE LINKS --------------------- //
-  // NOTE: package id not yet finalised on the stores — update once published.
   // The update prompt prefers the admin-set links (Settings › App Update) and
-  // only falls back to these; the App Store one needs the real `id…` path.
+  // only falls back to these. 6826983147 is the App Store Connect Apple ID.
   static const String playStoreLink =
       'https://play.google.com/store/apps/details?id=$packageName';
-  static const String appStoreLink = 'https://apps.apple.com/app/barakath';
+  static const String appStoreLink = 'https://apps.apple.com/app/id6826983147';
 }

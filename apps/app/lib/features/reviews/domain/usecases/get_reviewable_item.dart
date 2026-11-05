@@ -10,7 +10,8 @@ import '../repositories/review_repository.dart';
 /// Loads the product header (image, name, variant) for the Write Review screen
 /// from the order's own line-item snapshot.
 @injectable
-class GetReviewableItem implements UseCase<ReviewableItem, ReviewableItemParams> {
+class GetReviewableItem
+    implements UseCase<ReviewableItem, ReviewableItemParams> {
   GetReviewableItem(this._repository);
 
   final ReviewRepository _repository;

@@ -184,6 +184,11 @@ service cloud.firestore {
         allow read: if isAdmin() || isOwner(userId);
         allow create, update, delete: if isOwner(userId);
       }
+
+      // Customers this user has blocked — their reviews are hidden from this user. Private to them.
+      match /blockedUsers/{blockedUserId} {
+        allow read, write: if isOwner(userId);
+      }
     }
 
     // --- Wallet ledger (spec §1.8) — admin reads history and appends an Admin credit; entries are
@@ -325,6 +330,16 @@ service cloud.firestore {
         && request.resource.data.rating is number
         && request.resource.data.rating >= 1
         && request.resource.data.rating <= 5;
+    }
+
+    // --- Review reports (App Store guideline 1.2) — a customer files one per review (the id makes a
+    // repeat report an update, which is denied); only admins read and resolve them. ---
+    match /reviewReports/{reportId} {
+      allow read, update, delete: if isAdmin();
+      allow create: if isSignedIn()
+        && request.resource.data.reporterId == request.auth.uid
+        && reportId == request.auth.uid + '_' + request.resource.data.reviewId
+        && request.resource.data.status == 'Open';
     }
 
     // --- Coupons (spec §1.12) — admin full CRUD. Public read for redemption is added when the
