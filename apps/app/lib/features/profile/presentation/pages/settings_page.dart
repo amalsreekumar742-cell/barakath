@@ -40,9 +40,10 @@ class _SettingsPageState extends State<SettingsPage> {
     final confirmed = await showConfirmDialog(
       context,
       title: 'Delete your account?',
-      message: 'This permanently removes your name, email, photo and saved '
-          'wishlist, and signs you out on every device. You will not be able '
-          'to sign back in with this number. This cannot be undone.',
+      message: 'This permanently deletes your profile, addresses, wishlist, '
+          'reviews, saved bank accounts, wallet balance and any affiliate '
+          'earnings. Order records are kept without your personal details, '
+          'as the law requires. This cannot be undone.',
       confirmLabel: 'Delete account',
       cancelLabel: 'Keep my account',
       destructive: true,
@@ -51,6 +52,12 @@ class _SettingsPageState extends State<SettingsPage> {
 
     final router = GoRouter.of(context);
     final cart = context.read<CartProvider>();
+
+    // The server removes the profile before it finishes. Without this the
+    // router would see an incomplete profile and jump to Create Profile,
+    // closing this page mid-delete. Harmless if the delete is refused: the
+    // profile is still complete, and signing out resets the flag.
+    context.read<AuthProvider>().skipProfileSetup();
 
     final error = await context.read<ProfileProvider>().deleteAccount();
     if (!mounted) return;

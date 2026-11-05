@@ -1,12 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_rating_bar/flutter_rating_bar.dart';
 import 'package:intl/intl.dart';
+import 'package:provider/provider.dart';
 
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_dimens.dart';
 import '../../../../core/widgets/cached_image.dart';
 import '../../../../core/widgets/image_viewer.dart';
 import '../../../reviews/domain/entities/review.dart';
+import '../../../reviews/presentation/providers/review_moderation_provider.dart';
+import '../../../reviews/presentation/widgets/review_actions_menu.dart';
 
 /// The 5→1 star distribution bars beside the average (Figma node 46:6173).
 class _RatingBars extends StatelessWidget {
@@ -83,6 +86,9 @@ class ProductDetailReviewsSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final visibleReviews =
+        context.watch<ReviewModerationProvider>().visible(reviews);
+
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: AppDimens.screenPadding),
       child: Column(
@@ -152,7 +158,7 @@ class ProductDetailReviewsSection extends StatelessWidget {
             ),
             const SizedBox(height: 12),
           ],
-          if (reviews.isEmpty)
+          if (visibleReviews.isEmpty)
             Container(
               width: double.infinity,
               padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 14),
@@ -171,7 +177,7 @@ class ProductDetailReviewsSection extends StatelessWidget {
               ),
             )
           else
-            for (final review in reviews)
+            for (final review in visibleReviews)
               Padding(
                 padding: const EdgeInsets.only(bottom: 10),
                 child: ProductDetailReviewCard(review: review),
@@ -239,6 +245,7 @@ class _ProductDetailReviewCardState extends State<ProductDetailReviewCard> {
                     fontSize: 11.5,
                   ),
                 ),
+              ReviewActionsMenu(review: review),
             ],
           ),
           const SizedBox(height: 6),

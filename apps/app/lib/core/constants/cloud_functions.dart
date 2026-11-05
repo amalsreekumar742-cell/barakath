@@ -21,6 +21,9 @@ class CloudFunctions {
   static const String verifyOTP = 'verifyOTP';
   static const String resendOTP = 'resendOTP';
 
+  /// Permanently deletes the signed-in customer's account.
+  static const String deleteMyAccount = 'deleteMyAccount';
+
   /// Cancels an order and refunds it (spec §5.2).
   ///
   /// NOTE: spec §5.2 describes this as admin-auth, but §2.17 gives the customer

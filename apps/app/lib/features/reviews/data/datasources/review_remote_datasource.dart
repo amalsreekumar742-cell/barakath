@@ -55,7 +55,9 @@ class ReviewRemoteDataSourceImpl implements ReviewRemoteDataSource {
       }
       return item;
     } on FirebaseException catch (e) {
-      throw ServerException(FirebaseErrorMessage.of(e) ?? 'Could not load this purchase.', e.code);
+      throw ServerException(
+          FirebaseErrorMessage.of(e) ?? 'Could not load this purchase.',
+          e.code);
     }
   }
 
@@ -106,7 +108,8 @@ class ReviewRemoteDataSourceImpl implements ReviewRemoteDataSource {
       // Storage and the review would publish without them.
       final urls = photos.isEmpty
           ? const <String>[]
-          : await _storage.uploadImages(photos, StoragePaths.reviewPrefix(ref.id));
+          : await _storage.uploadImages(
+              photos, StoragePaths.reviewPrefix(ref.id));
 
       final payload = ReviewModel(
         id: ref.id,
@@ -135,7 +138,8 @@ class ReviewRemoteDataSourceImpl implements ReviewRemoteDataSource {
       return ref.id;
     } on FirebaseException catch (e) {
       throw ServerException(
-        FirebaseErrorMessage.of(e) ?? 'Could not submit your review. Please try again.',
+        FirebaseErrorMessage.of(e) ??
+            'Could not submit your review. Please try again.',
         e.code,
       );
     }

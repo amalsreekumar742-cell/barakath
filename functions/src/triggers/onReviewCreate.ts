@@ -3,6 +3,7 @@ import { getFirestore } from 'firebase-admin/firestore';
 import { logger } from 'firebase-functions';
 import { Collections } from '../config/collections';
 import { recomputeProductRating } from './service/recomputeProductRating';
+import { containsObjectionableText } from './service/reviewContentFilter';
 
 /**
  * onReviewCreate — when a customer posts a review, refresh the product's aggregate rating and stamp the
@@ -28,6 +29,11 @@ export const onReviewCreate = onDocumentCreated('reviews/{reviewId}', async (eve
   if (!productId) return;
 
   try {
+    // Hold back objectionable text. This update fires onReviewUpdate, which recomputes the rating.
+    if (containsObjectionableText(review.title, review.comment)) {
+      await snap.ref.update({ isPublished: false });
+    }
+
     // Published-only aggregate recompute (shared helper — same math as update/delete).
     await recomputeProductRating(productId);
 

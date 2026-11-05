@@ -187,7 +187,8 @@ class ReviewsProvider extends ChangeNotifier {
       ),
     );
 
-    final duplicateFailure = duplicate.fold<String?>((f) => f.message, (_) => null);
+    final duplicateFailure =
+        duplicate.fold<String?>((f) => f.message, (_) => null);
     if (duplicateFailure != null) {
       _isSubmitting = false;
       _submitError = duplicateFailure;

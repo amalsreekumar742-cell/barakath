@@ -64,7 +64,7 @@ class ProfileRepositoryImpl implements ProfileRepository {
   @override
   Future<Either<Failure, Unit>> deleteAccount(String uid) async {
     try {
-      await _remote.anonymiseAccount(uid);
+      await _remote.deleteAccount();
       return const Right(unit);
     } on ServerException catch (e) {
       return Left(ServerFailure(e.message));

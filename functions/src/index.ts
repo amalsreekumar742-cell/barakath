@@ -63,6 +63,7 @@ export { deleteSubAdmin } from './utility/deleteSubAdmin'; // onCall (super admi
 export { resetSubAdminPassword } from './utility/resetSubAdminPassword'; // onCall (super admin)
 export { authOTP } from './utility/authOTP'; // onCall (pre-login)
 export { verifyOTP } from './utility/verifyOTP'; // onCall (pre-login)
+export { deleteMyAccount } from './utility/deleteMyAccount'; // onCall (customer deletes own account)
 export { resendOTP } from './utility/resendOTP'; // onCall (pre-login)
 export { generateInvoicePDF } from './utility/generateInvoicePDF'; // onCall
 export { flashSaleManager } from './utility/flashSaleManager'; // onSchedule (every 5 min)

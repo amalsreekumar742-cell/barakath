@@ -78,7 +78,9 @@ class ReviewSubmittedDialog extends StatelessWidget {
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 2),
                     child: Icon(
-                      i < stars ? Icons.star_rounded : Icons.star_outline_rounded,
+                      i < stars
+                          ? Icons.star_rounded
+                          : Icons.star_outline_rounded,
                       size: 22,
                       color: AppColors.cta,
                     ),

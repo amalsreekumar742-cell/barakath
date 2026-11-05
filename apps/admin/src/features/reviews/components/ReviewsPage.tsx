@@ -7,6 +7,7 @@ import { fetchReviews } from '../api/fetchReviews';
 import { fetchReviewStats } from '../api/fetchReviewStats';
 import { setPublishFilter, setReviewSearch } from '../stores/reviewsSlice';
 import type { ReviewPublishStatus } from '../types';
+import ReportedReviewsPanel from './ReportedReviewsPanel';
 import ReviewRow from './ReviewRow';
 
 // Filter tabs mirror the ReviewFilter enum labels (spec §1.11: All / Published / Hidden — no Reported).
@@ -73,6 +74,8 @@ const ReviewsPage: FC = () => {
           )}
         </p>
       </div>
+
+      <ReportedReviewsPanel onChanged={() => void dispatch(fetchReviews({ filters, cursor: null }))} />
 
       {/* Filter tabs */}
       <div className="mb-4 flex gap-1 overflow-x-auto border-b border-border">

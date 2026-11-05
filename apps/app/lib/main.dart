@@ -26,6 +26,7 @@ import 'features/orders/presentation/providers/orders_provider.dart';
 import 'features/policies/presentation/providers/policies_provider.dart';
 import 'features/profile/presentation/providers/profile_provider.dart';
 import 'features/replacement/presentation/providers/replacement_provider.dart';
+import 'features/reviews/presentation/providers/review_moderation_provider.dart';
 import 'features/reviews/presentation/providers/reviews_provider.dart';
 import 'features/spinner/presentation/providers/spinner_provider.dart';
 import 'features/wallet/presentation/providers/wallet_provider.dart';
@@ -112,6 +113,9 @@ class _BarakathAppState extends State<BarakathApp> {
         ChangeNotifierProvider<AffiliateProvider>(create: (_) => sl<AffiliateProvider>()),
         ChangeNotifierProvider<SpinnerProvider>(create: (_) => sl<SpinnerProvider>()),
         ChangeNotifierProvider<ReviewsProvider>(create: (_) => sl<ReviewsProvider>()),
+        ChangeNotifierProvider<ReviewModerationProvider>(
+          create: (_) => sl<ReviewModerationProvider>(),
+        ),
         ChangeNotifierProvider<NotificationsProvider>(
           create: (_) => sl<NotificationsProvider>(),
         ),

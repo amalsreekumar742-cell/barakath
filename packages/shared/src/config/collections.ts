@@ -84,6 +84,8 @@ export const FirestoreCollections = {
   replacements: 'replacements',
   /** Product reviews written by the user app after delivery (spec §1.11). */
   reviews: 'reviews',
+  /** Customer reports against a review, doc id `{reporterId}_{reviewId}`. Admin reviews them. */
+  reviewReports: 'reviewReports',
   /** Discount coupons (spec §1.12). */
   coupons: 'coupons',
   /** Spin-the-wheel promotions (spec §1.13). */

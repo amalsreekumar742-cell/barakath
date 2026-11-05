@@ -29,6 +29,7 @@ export const Collections = {
   banners: 'banners',
   notifications: 'notifications',
   reviews: 'reviews',
+  reviewReports: 'reviewReports',
   stockAdjustments: 'stockAdjustments',
   subAdmins: 'subAdmins',
   addresses: 'addresses',

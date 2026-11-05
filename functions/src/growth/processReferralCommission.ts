@@ -87,6 +87,8 @@ export const processReferralCommission = onDocumentUpdated('orders/{orderId}', a
   const created = await db.runTransaction(async (tx) => {
     const [existing, referrerDoc] = await Promise.all([tx.get(txnRef), tx.get(referrerRef)]);
     if (existing.exists) return false;
+    // The referrer deleted their account after this buyer signed up — there is nobody to pay.
+    if (!referrerDoc.exists) return false;
 
     const currentBalance = (referrerDoc.get('affiliateBalance') as number | undefined) ?? 0;
 

@@ -297,6 +297,11 @@ class _SpinPageState extends State<SpinPage> with SingleTickerProviderStateMixin
           _Note(
             'Rewards become coupons · valid ${campaign.validityLabel} · one per order',
           ),
+          const SizedBox(height: AppDimens.space8),
+          const _Note(
+            'Free to play. Run by Barakath. Apple is not a sponsor and is not '
+            'involved in any way.',
+          ),
         ],
       ),
     );
