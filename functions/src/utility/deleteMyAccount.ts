@@ -1,7 +1,7 @@
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import { logger } from 'firebase-functions';
 import { getAuth } from 'firebase-admin/auth';
-import { getFirestore, type QueryDocumentSnapshot } from 'firebase-admin/firestore';
+import { getFirestore, Timestamp, type QueryDocumentSnapshot } from 'firebase-admin/firestore';
 import { getStorage } from 'firebase-admin/storage';
 import { Collections } from '../config/collections';
 import { validateAuth } from '../utils/validateAuth';
@@ -10,6 +10,16 @@ import { validateAuth } from '../utils/validateAuth';
 const FINISHED_ORDER_STATUSES = new Set(['Delivered', 'Cancelled']);
 
 const DELETED_CUSTOMER_NAME = 'Deleted customer';
+
+/** How long an unpaid wallet top-up counts as in flight (the Razorpay sheet may still be open). */
+const TOP_UP_IN_FLIGHT_MS = 30 * 60 * 1000;
+
+/**
+ * How long after approval a withdrawal's bank details are kept. Approval only means the admin WILL
+ * transfer the money (approveWithdrawal.ts); there is no "paid" status, so this is the window allowed
+ * for the manual transfer to happen.
+ */
+const WITHDRAWAL_PAYOUT_WINDOW_MS = 7 * 24 * 60 * 60 * 1000;
 
 /**
  * deleteMyAccount — permanently delete the signed-in customer's account (App Store guideline 5.1.1(v)).
@@ -26,7 +36,9 @@ const DELETED_CUSTOMER_NAME = 'Deleted customer';
  *   approving a return would credit a wallet that no longer exists. The customer can retry once it closes.
  *   An unpaid checkout (`orderDrafts`, status Pending) counts too: a payment landing after deletion would
  *   be promoted into a live order for an account that no longer exists. The expiry sweep releases it
- *   within ~15 minutes, or at once if the customer closes the payment sheet.
+ *   within ~15 minutes, or at once if the customer closes the payment sheet. A recent unpaid wallet
+ *   top-up and a recently approved withdrawal (still to be transferred by hand) count as open too. A
+ *   top-up captured after deletion anyway is recorded as RefundDue by settleWalletTopUp.
  * WHY a released (Cancelled) draft is scrubbed, not deleted: a late payment must still find it, so
  *   promoteDraftToOrder can raise a Cancelled order flagged for refund. Scrubbing it first means that
  *   order (and its payment record) carries no personal details.
@@ -43,10 +55,11 @@ export const deleteMyAccount = onCall({ timeoutSeconds: 300 }, async (request) =
   const byUser = (collection: string) =>
     db.collection(collection).where('userId', '==', uid).get();
 
-  const [orders, drafts, replacements, withdrawals, payments, reviews, commissions, reports] =
+  const [orders, drafts, topUps, replacements, withdrawals, payments, reviews, commissions, reports] =
     await Promise.all([
       byUser(Collections.orders),
       byUser(Collections.orderDrafts),
+      byUser(Collections.walletTopUps),
       byUser(Collections.replacements),
       byUser(Collections.affiliateWithdrawals),
       byUser(Collections.payments),
@@ -73,6 +86,26 @@ export const deleteMyAccount = onCall({ timeoutSeconds: 300 }, async (request) =
     throw new HttpsError(
       'failed-precondition',
       'You have a return request in progress. You can delete your account once it is resolved.',
+    );
+  }
+  const isRecent = (value: unknown, windowMs: number) =>
+    value instanceof Timestamp && Date.now() - value.toMillis() < windowMs;
+  if (topUps.docs.some((d) => isPending(d) && isRecent(d.get('createdAt'), TOP_UP_IN_FLIGHT_MS))) {
+    throw new HttpsError(
+      'failed-precondition',
+      'You have a wallet top-up in progress. Please try again in about 30 minutes.',
+    );
+  }
+  if (
+    withdrawals.docs.some(
+      (d) =>
+        d.get('status') === 'Approved' &&
+        isRecent(d.get('processedAt'), WITHDRAWAL_PAYOUT_WINDOW_MS),
+    )
+  ) {
+    throw new HttpsError(
+      'failed-precondition',
+      'A withdrawal is still being transferred to your bank. You can delete your account a week after it was approved.',
     );
   }
   if (withdrawals.docs.some(isPending)) {
@@ -106,6 +139,7 @@ export const deleteMyAccount = onCall({ timeoutSeconds: 300 }, async (request) =
         userName: DELETED_CUSTOMER_NAME,
         userPhone: '',
         userEmail: '',
+        keywords: [replacement.id.toLowerCase()],
       });
     }
     for (const withdrawal of withdrawals.docs) {
@@ -113,6 +147,7 @@ export const deleteMyAccount = onCall({ timeoutSeconds: 300 }, async (request) =
       writer.update(withdrawal.ref, {
         userName: DELETED_CUSTOMER_NAME,
         userPhone: '',
+        keywords: [withdrawal.id.toLowerCase()],
         accountHolderName: '',
         ifscCode: '',
         // Last 4 only: enough to reconcile the payout, useless to anyone else.

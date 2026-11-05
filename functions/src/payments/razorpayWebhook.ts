@@ -115,7 +115,11 @@ export const razorpayWebhook = onRequest({ cors: true }, async (req, res) => {
         });
         res.status(200).json({
           received: true,
-          outcome: settled.alreadySettled ? 'top-up already settled' : 'top-up credited',
+          outcome: settled.refundDue
+            ? 'top-up refund due (account deleted)'
+            : settled.alreadySettled
+              ? 'top-up already settled'
+              : 'top-up credited',
         });
         return;
       }
