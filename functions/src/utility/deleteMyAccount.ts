@@ -17,13 +17,19 @@ const DELETED_CUSTOMER_NAME = 'Deleted customer';
  * Removes: the Auth user, `users/{uid}` with every subcollection (addresses, wishlist, payout accounts,
  *   blocked users), profile photos, their reviews (onReviewDelete refreshes ratings and purges photos),
  *   and their own review reports. Signing in again with the same number creates a new, empty account.
- * Keeps, with personal details removed: orders, payments, wallet and affiliate ledgers, and withdrawals —
- *   financial records the business must retain. City/state/pincode stay on the order for tax purposes.
+ * Keeps, with personal details removed: orders, released checkout drafts, payments, return requests,
+ *   wallet and affiliate ledgers, and withdrawals — financial records the business must retain. City/state/pincode stay on the order for tax purposes.
  *
  * WHY a Cloud Function: a client cannot rewrite its own orders, and Security Rules deliberately forbid
  *   deleting `users/{uid}` from a client.
  * WHY refuse while something is open: an undelivered order still needs the address, and cancelling it or
  *   approving a return would credit a wallet that no longer exists. The customer can retry once it closes.
+ *   An unpaid checkout (`orderDrafts`, status Pending) counts too: a payment landing after deletion would
+ *   be promoted into a live order for an account that no longer exists. The expiry sweep releases it
+ *   within ~15 minutes, or at once if the customer closes the payment sheet.
+ * WHY a released (Cancelled) draft is scrubbed, not deleted: a late payment must still find it, so
+ *   promoteDraftToOrder can raise a Cancelled order flagged for refund. Scrubbing it first means that
+ *   order (and its payment record) carries no personal details.
  * WHY the Auth user goes last: if anything earlier fails the caller is still signed in and can retry, and
  *   every step is idempotent.
  *
@@ -37,9 +43,10 @@ export const deleteMyAccount = onCall({ timeoutSeconds: 300 }, async (request) =
   const byUser = (collection: string) =>
     db.collection(collection).where('userId', '==', uid).get();
 
-  const [orders, replacements, withdrawals, payments, reviews, commissions, reports] =
+  const [orders, drafts, replacements, withdrawals, payments, reviews, commissions, reports] =
     await Promise.all([
       byUser(Collections.orders),
+      byUser(Collections.orderDrafts),
       byUser(Collections.replacements),
       byUser(Collections.affiliateWithdrawals),
       byUser(Collections.payments),
@@ -55,6 +62,13 @@ export const deleteMyAccount = onCall({ timeoutSeconds: 300 }, async (request) =
     );
   }
   const isPending = (d: QueryDocumentSnapshot) => d.get('status') === 'Pending';
+  // Anything not yet released — Pending, or paid and awaiting promotion — is still a live checkout.
+  if (drafts.docs.some((d) => d.get('status') !== 'Cancelled')) {
+    throw new HttpsError(
+      'failed-precondition',
+      'You have a payment in progress. Please try again in about 15 minutes.',
+    );
+  }
   if (replacements.docs.some(isPending)) {
     throw new HttpsError(
       'failed-precondition',
@@ -71,10 +85,11 @@ export const deleteMyAccount = onCall({ timeoutSeconds: 300 }, async (request) =
   try {
     const writer = db.bulkWriter();
 
-    for (const order of orders.docs) {
+    for (const order of [...orders.docs, ...drafts.docs]) {
       writer.update(order.ref, {
         userName: DELETED_CUSTOMER_NAME,
         userPhone: '',
+        userEmail: '',
         keywords: [order.id.toLowerCase()],
         'shippingAddress.fullName': DELETED_CUSTOMER_NAME,
         'shippingAddress.phone': '',
@@ -83,8 +98,15 @@ export const deleteMyAccount = onCall({ timeoutSeconds: 300 }, async (request) =
         'shippingAddress.landmark': '',
       });
     }
-    for (const doc of [...payments.docs, ...replacements.docs]) {
-      writer.update(doc.ref, { userName: DELETED_CUSTOMER_NAME, userPhone: '' });
+    for (const payment of payments.docs) {
+      writer.update(payment.ref, { userName: DELETED_CUSTOMER_NAME, userPhone: '' });
+    }
+    for (const replacement of replacements.docs) {
+      writer.update(replacement.ref, {
+        userName: DELETED_CUSTOMER_NAME,
+        userPhone: '',
+        userEmail: '',
+      });
     }
     for (const withdrawal of withdrawals.docs) {
       const accountNumber = String(withdrawal.get('accountNumber') ?? '');
