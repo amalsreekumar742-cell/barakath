@@ -51,6 +51,12 @@
   --color-info: #005aa5;
   --color-info-subtle: #dfefff;
 
+  /* --- Third-party brand (web only, not part of the Barakath palette) ---
+     WhatsApp's own green for the floating chat button. A token rather than a raw hex in the
+     component, per the rule above; it has no admin/Flutter counterpart because only the
+     storefront links out to WhatsApp. */
+  --color-whatsapp: #25d366;
+
   /*
    * --- Typography: Manrope, one brand typeface ---
    * `--font-manrope` is the self-hosted family next/font generates in `src/app/layout.tsx` and
@@ -167,6 +173,41 @@
 
   .has-mobile-nav.has-sticky-cta {
     padding-bottom: calc(var(--mobile-nav-h) + var(--sticky-cta-h) + var(--safe-bottom));
+  }
+}
+
+/*
+ * The floating WhatsApp button (`WhatsAppFab`) — its bottom offset has to clear whatever fixed
+ * chrome owns the bottom edge, so it is derived from the SAME variables that chrome reserves with,
+ * hand-authored here for the same cascade reason as `.has-mobile-nav` above.
+ *
+ * - Desktop: no bottom chrome, so a plain 24px corner inset.
+ * - Mobile: sits 16px above the tab bar when the route shows one (`data-with-nav`, set from the same
+ *   `isMobileNavVisible` rule the nav itself uses), and above the sticky CTA bar too on a page that
+ *   reserves room for one (`has-sticky-cta`, i.e. the PDP's Add-to-bag bar). `:has()` keys this off
+ *   the class that page already sets, so no page needs to know the button exists.
+ */
+.whatsapp-fab {
+  right: 24px;
+  bottom: 24px;
+}
+
+@media (max-width: 1023.98px) {
+  .whatsapp-fab {
+    right: 16px;
+    bottom: calc(16px + var(--safe-bottom));
+  }
+
+  .whatsapp-fab[data-with-nav] {
+    bottom: calc(var(--mobile-nav-h) + 16px + var(--safe-bottom));
+  }
+
+  body:has(.has-sticky-cta) .whatsapp-fab {
+    bottom: calc(var(--sticky-cta-h) + 16px + var(--safe-bottom));
+  }
+
+  body:has(.has-sticky-cta) .whatsapp-fab[data-with-nav] {
+    bottom: calc(var(--mobile-nav-h) + var(--sticky-cta-h) + 16px + var(--safe-bottom));
   }
 }
 

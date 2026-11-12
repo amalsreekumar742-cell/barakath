@@ -4,6 +4,7 @@ import { Footer } from './Footer';
 import { MobileBottomNav } from './MobileBottomNav';
 import { MobileSearchPill } from './MobileSearchPill';
 import { LoginSheet } from './LoginSheet';
+import { WhatsAppFab } from './WhatsAppFab';
 import { getCategories, toNavCategories } from '@/lib/data/catalog';
 import { getGeneralSettings } from '@/lib/data/settings';
 import { getEnabledPolicies } from '@/lib/data/policies';
@@ -65,6 +66,9 @@ export async function StorefrontShell({
       {/* Mobile-only chrome. Both render nothing above 1024px. */}
       <MobileBottomNav />
       <LoginSheet />
+
+      {/* Every breakpoint; positions itself clear of the mobile chrome above (see globals.css). */}
+      <WhatsAppFab />
     </div>
   );
 }

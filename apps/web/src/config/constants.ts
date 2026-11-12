@@ -30,6 +30,14 @@ export const Constants = {
   /** The sitemap is the one place that legitimately wants the whole catalogue. */
   SITEMAP_MAX_PRODUCTS: 5000,
 
+  /**
+   * The customer-support WhatsApp line behind the floating chat button (`WhatsAppFab`).
+   * WHY two forms: `wa.me` accepts only the bare international number — country code, no `+`, no
+   * spaces — so the link uses `WHATSAPP_NUMBER`, while anything a person reads uses the formatted one.
+   */
+  WHATSAPP_NUMBER: '917736732663',
+  WHATSAPP_DISPLAY: '+91 77367 32663',
+
   DEFAULT_COUNTRY_CODE: '+91',
   /** Indian mobile numbers are 10 digits; the OTP form validates against this. */
   PHONE_DIGITS: 10,
