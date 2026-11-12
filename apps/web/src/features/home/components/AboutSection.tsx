@@ -14,12 +14,12 @@ import { MapPin } from 'lucide-react';
 /**
  * Headline facts, taken from the story copy below — keep the two in step if either changes.
  * WHY bare numbers with the unit in the label: three tiles share ~80px of text width each on a phone,
- * and "4,000 sq ft" / "16 branches" wrapped mid-value there.
+ * and "4,000 sq ft" / "17 branches" wrapped mid-value there.
  */
 const HIGHLIGHTS = [
   { value: '2017', label: 'Founded' },
   { value: '4,000', label: 'Sq ft store' },
-  { value: '16', label: 'Branches' },
+  { value: '17', label: 'Branches' },
 ] as const;
 
 /** In the order the business lists them, Chemmad (the flagship) first. */
@@ -73,7 +73,7 @@ export function AboutSection() {
               This expansive space houses our wholesale operations, the Barkath Ulama Collection
               (offering both wholesale and retail), and our exclusive Barkath Abaya Collection. We offer
               a wide range of products, including specialized scholar attire, fabrics, dhotis, thobes,
-              premium perfumes, bakhoor, and complete Hajj and Umrah items across our 16 branches.
+              premium perfumes, bakhoor, and complete Hajj and Umrah items across our 17 branches.
             </p>
           </div>
 
