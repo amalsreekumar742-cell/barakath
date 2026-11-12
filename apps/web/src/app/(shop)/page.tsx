@@ -13,6 +13,7 @@ import { CategorySection } from '@/features/home/components/CategorySection';
 import { SpinWinBanner } from '@/features/home/components/SpinWinBanner';
 import { FlashSaleSection } from '@/features/home/components/FlashSaleSection';
 import { NewArrivalsSection } from '@/features/home/components/NewArrivalsSection';
+import { AboutSection } from '@/features/home/components/AboutSection';
 
 /**
  * The home page (spec §3.4) — Server Component, ISR.
@@ -79,6 +80,7 @@ export default async function HomePage() {
       <SpinWinBanner />
       <FlashSaleSection flashSale={flashSale} />
       <NewArrivalsSection products={newArrivals} />
+      <AboutSection />
     </main>
   );
 }

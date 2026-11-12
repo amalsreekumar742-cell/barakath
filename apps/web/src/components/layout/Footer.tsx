@@ -147,27 +147,28 @@ export function Footer({ settings, policies }: FooterProps) {
           )}
         </div>
 
-        {/* Company — every enabled policy, in the admin's order. Before the policies migration has run
-            (or if every policy is disabled) the list is empty, so it degrades to a note like the
-            Support column rather than a heading over nothing. */}
-        <nav aria-label="Policies">
+        {/* Company — "About us" (the home page's About section), then every enabled policy in the
+            admin's order. "About us" is always there, so the column is never a heading over nothing
+            even before the policies migration has run or when every policy is disabled. */}
+        <nav aria-label="Company">
           <h2 className="text-[13px] font-semibold text-white">Company</h2>
-          {policies.length > 0 ? (
-            <ul className="mt-3 space-y-2.5 text-[13px] text-white/72">
-              {policies.map((policy) => (
-                <li key={policy.id}>
-                  <Link
-                    href={`/policies/${encodeURIComponent(policy.id)}`}
-                    className="transition-colors hover:text-white"
-                  >
-                    {policy.name}
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <p className="mt-3 text-[13px] text-white/60">Policies coming soon.</p>
-          )}
+          <ul className="mt-3 space-y-2.5 text-[13px] text-white/72">
+            <li>
+              <Link href="/#about" className="transition-colors hover:text-white">
+                About us
+              </Link>
+            </li>
+            {policies.map((policy) => (
+              <li key={policy.id}>
+                <Link
+                  href={`/policies/${encodeURIComponent(policy.id)}`}
+                  className="transition-colors hover:text-white"
+                >
+                  {policy.name}
+                </Link>
+              </li>
+            ))}
+          </ul>
         </nav>
       </div>
 
