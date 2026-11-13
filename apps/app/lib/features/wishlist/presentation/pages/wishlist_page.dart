@@ -89,14 +89,21 @@ class _WishlistPageState extends State<WishlistPage> {
     if (mounted && _isLoading) setState(() => _isLoading = false);
   }
 
+  /// A page of ids is being resolved. The list now requests pages on its own
+  /// as it scrolls, so a second call must not resolve the same ids again (that
+  /// would add every row twice).
+  bool _resolving = false;
+
   /// Resolve the next page of ids into products + first variants.
   Future<void> _loadMore() async {
+    if (_resolving) return;
     final next = _pendingIds.take(AppDimens.pageSize).toList();
     if (next.isEmpty) {
       if (mounted) setState(() => _isLoading = false);
       return;
     }
 
+    _resolving = true;
     if (mounted && !_isLoading) setState(() => _isLoadingMore = true);
 
     // One batched variant read for the page, plus one document read per
@@ -105,7 +112,9 @@ class _WishlistPageState extends State<WishlistPage> {
     final variants = variantsResult.getOrElse(() => const {});
     final products = await Future.wait(next.map(_getProductDetail.call));
 
+    _resolving = false;
     if (!mounted) return;
+    var added = 0;
     setState(() {
       String? firstError;
       for (var i = 0; i < next.length; i++) {
@@ -121,6 +130,7 @@ class _WishlistPageState extends State<WishlistPage> {
             _resolvedIds.add(id);
             if (product.status == 'Archived') return;
             _items.add(_WishlistEntry(product: product, variant: variants[id]));
+            added++;
           },
         );
       }
@@ -129,6 +139,12 @@ class _WishlistPageState extends State<WishlistPage> {
       _isLoading = false;
       _isLoadingMore = false;
     });
+
+    // Every product in that page was deleted or archived, so no row was added.
+    // Go straight on to the next ids: the list reads "a load that added nothing"
+    // as a failure and would stop paging. Each pass resolves its ids, so this
+    // ends once the ids run out.
+    if (added == 0 && _pendingIds.isNotEmpty) await _loadMore();
   }
 
   // --- Actions --------------------------------------------------------------

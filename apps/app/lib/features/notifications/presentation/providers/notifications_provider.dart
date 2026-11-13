@@ -45,6 +45,9 @@ class NotificationsProvider extends ChangeNotifier {
   final List<AppNotification> _personal = [];
   List<AppNotification> _merged = const [];
 
+  /// The part of [_merged] that is safe to show — see [_rebuildMerged].
+  List<AppNotification> _visible = const [];
+
   Object? _broadcastCursor;
   Object? _personalCursor;
   bool _broadcastHasMore = true;
@@ -56,8 +59,8 @@ class NotificationsProvider extends ChangeNotifier {
   bool _isLoadingMore = false;
   String? _error;
 
-  /// Newest-first across both streams.
-  List<AppNotification> get notifications => List.unmodifiable(_merged);
+  /// Newest-first across both streams, down to the point both have loaded.
+  List<AppNotification> get notifications => _visible;
 
   Set<String> get readIds => Set.unmodifiable(_readIds);
 
@@ -198,6 +201,31 @@ class NotificationsProvider extends ChangeNotifier {
       });
 
     _merged = List.unmodifiable(merged);
+
+    // Show nothing older than the oldest row loaded from a stream that still
+    // has more pages: that stream's NEXT page may hold rows newer than it, and
+    // they'd land above what the customer is reading. The streams page at very
+    // different rates (personal notifications are far denser than broadcasts),
+    // so page one of broadcasts can reach back months while page one of
+    // personal covers days. Held-back rows appear as more pages load — the
+    // stream that sets this cutoff always reveals its whole new page, so the
+    // list grows on every successful load.
+    DateTime? cutoff;
+    void holdBackBelow(List<AppNotification> stream, bool streamHasMore) {
+      final oldest = stream.isEmpty ? null : stream.last.createdAt;
+      if (!streamHasMore || oldest == null) return;
+      if (cutoff == null || oldest.isAfter(cutoff!)) cutoff = oldest;
+    }
+
+    holdBackBelow(_broadcasts, _broadcastHasMore);
+    holdBackBelow(_personal, _personalHasMore);
+
+    final limit = cutoff;
+    _visible = limit == null
+        ? _merged
+        : List.unmodifiable(merged.where(
+            (n) => n.createdAt != null && !n.createdAt!.isBefore(limit),
+          ));
   }
 
   // --- Read state ----------------------------------------------------------
