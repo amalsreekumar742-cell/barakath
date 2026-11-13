@@ -124,8 +124,9 @@ export function CheckoutSection() {
   // A sold-out line can't be bought and the server would reject the whole order over it — the bag is
   // where the customer removes it (spec 2.11: greyed there, never auto-removed).
   const hasOutOfStockItem = cart.items.some((i) => stockByKey[lineKey(i.productId, i.variantId)] === 0);
-  // The store's online-payment switch (Settings › Payment Gateway). Only an explicit `false` is off —
-  // missing or still loading reads as on, and `createPaymentOrder` refuses a Razorpay leg either way.
+  // The store's online-payment switch (Settings › Payment Gateway). Only an explicit `false` is off — a
+  // missing field reads as on. While the settings are still loading nothing is known yet, so placing
+  // the order waits for them (below) rather than assuming "on"; `createPaymentOrder` enforces it anyway.
   const onlinePaymentsEnabled = checkout.settings?.payment.onlinePaymentsEnabled !== false;
   const onlinePaymentBlocked = !onlinePaymentsEnabled && totals.razorpayAmount > 0;
   const canPlaceOrder =
@@ -134,6 +135,7 @@ export function CheckoutSection() {
     !isBusy &&
     !isCheckingLines &&
     !hasOutOfStockItem &&
+    !checkout.settingsLoading &&
     !onlinePaymentBlocked;
 
   /** Resolves once the customer answers the reconcile dialog — handed to `placeOrder` as `onReconcileRequired`. */
@@ -299,6 +301,10 @@ export function CheckoutSection() {
         loading={isBusy}
         onConfirm={() => {
           setShowConfirm(false);
+          // Re-checked at the moment of confirming: the dialog may have been opened before something
+          // changed (settings landing with online payment off, a line selling out). This closure is
+          // rebuilt every render, so it sees the current gate.
+          if (!canPlaceOrder) return;
           void runCheckout();
         }}
         onCancel={() => setShowConfirm(false)}

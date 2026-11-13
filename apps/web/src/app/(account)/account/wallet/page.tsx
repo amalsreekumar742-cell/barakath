@@ -44,9 +44,8 @@ export default function WalletPage() {
   const uid = useAppSelector((s) => s.auth.uid);
   const authLoading = useAppSelector((s) => s.auth.authLoading);
   const user = useAppSelector((s) => s.auth.user);
-  const { rewardsTotal, breakdownLoading, walletPaymentsEnabled, onlinePaymentsEnabled } = useAppSelector(
-    (s) => s.wallet,
-  );
+  const { rewardsTotal, breakdownLoading, walletPaymentsEnabled, onlinePaymentsEnabled, settingsLoading } =
+    useAppSelector((s) => s.wallet);
 
   const [addMoneyOpen, setAddMoneyOpen] = useState(false);
 
@@ -68,7 +67,14 @@ export default function WalletPage() {
   });
 
   // A top-up is a Razorpay payment, so it needs the wallet AND the store's online-payment switch on.
-  const canTopUp = walletPaymentsEnabled === true && onlinePaymentsEnabled === true;
+  // Held while the flags are being re-read: a revisit still holds the previous visit's values in Redux,
+  // and the store may have switched online payment off since.
+  const canTopUp = walletPaymentsEnabled === true && onlinePaymentsEnabled === true && !settingsLoading;
+
+  // The modal doesn't read the flags itself, so close it if top-ups stop being allowed while it's open.
+  useEffect(() => {
+    if (!canTopUp) setAddMoneyOpen(false);
+  }, [canTopUp]);
   // Only asserted once a flag is confirmed OFF — `null` (still loading, or the read failed) shows no
   // reason at all rather than a false "switched off" flash before the real answer arrives.
   const disabledMessage =
