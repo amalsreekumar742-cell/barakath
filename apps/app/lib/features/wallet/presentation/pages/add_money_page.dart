@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
@@ -58,6 +60,18 @@ class _AddMoneyPageState extends State<AddMoneyPage> {
       ..on(Razorpay.EVENT_PAYMENT_SUCCESS, _onPaymentSuccess)
       ..on(Razorpay.EVENT_PAYMENT_ERROR, _onPaymentError)
       ..on(Razorpay.EVENT_EXTERNAL_WALLET, _onExternalWallet);
+
+    // Re-read the payment switches on every visit: this is the screen that
+    // starts a top-up, and the Wallet tab behind it may hold a copy from
+    // splash. The button below follows the fresh value once it lands.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      try {
+        unawaited(context.read<GeneralSettingsProvider>().load());
+      } catch (_) {
+        // No settings provider above this page — nothing to refresh.
+      }
+    });
   }
 
   @override

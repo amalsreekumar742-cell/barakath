@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
@@ -40,7 +42,29 @@ class _WalletPageState extends State<WalletPage> {
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) => _syncUser());
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _syncUser();
+      unawaited(_reloadSettings());
+    });
+  }
+
+  /// Re-read the store's payment switches (`walletPaymentsEnabled`,
+  /// `onlinePaymentsEnabled`). Without this the copy loaded at splash decides
+  /// "Add money" for the whole session, so a switch flipped while the app is
+  /// open would never show up. A failed read keeps the last good copy.
+  Future<void> _reloadSettings() async {
+    if (!mounted) return;
+    try {
+      await context.read<GeneralSettingsProvider>().load();
+    } catch (_) {
+      // No settings provider above this page — nothing to refresh.
+    }
+  }
+
+  /// Pull-to-refresh: the ledger and the payment switches together.
+  Future<void> _refresh() async {
+    final wallet = context.read<WalletProvider>();
+    await Future.wait([wallet.refresh(), _reloadSettings()]);
   }
 
   @override
@@ -142,7 +166,7 @@ class _WalletPageState extends State<WalletPage> {
         isLoadingMore: wallet.isLoadingMore,
         hasMore: wallet.hasMore,
         onLoadMore: wallet.loadMore,
-        onRefresh: wallet.refresh,
+        onRefresh: _refresh,
         error: wallet.transactions.isEmpty ? wallet.error : null,
         onRetry: wallet.refresh,
         skeleton: const WalletTransactionSkeleton(),
