@@ -124,8 +124,19 @@ export function CheckoutSection() {
   // A sold-out line can't be bought and the server would reject the whole order over it — the bag is
   // where the customer removes it (spec 2.11: greyed there, never auto-removed).
   const hasOutOfStockItem = cart.items.some((i) => stockByKey[lineKey(i.productId, i.variantId)] === 0);
+  // The store's online-payment switch (Settings › Payment Gateway). Only an explicit `false` is off — a
+  // missing field reads as on. While the settings are still loading nothing is known yet, so placing
+  // the order waits for them (below) rather than assuming "on"; `createPaymentOrder` enforces it anyway.
+  const onlinePaymentsEnabled = checkout.settings?.payment.onlinePaymentsEnabled !== false;
+  const onlinePaymentBlocked = !onlinePaymentsEnabled && totals.razorpayAmount > 0;
   const canPlaceOrder =
-    cart.items.length > 0 && selectedAddress !== null && !isBusy && !isCheckingLines && !hasOutOfStockItem;
+    cart.items.length > 0 &&
+    selectedAddress !== null &&
+    !isBusy &&
+    !isCheckingLines &&
+    !hasOutOfStockItem &&
+    !checkout.settingsLoading &&
+    !onlinePaymentBlocked;
 
   /** Resolves once the customer answers the reconcile dialog — handed to `placeOrder` as `onReconcileRequired`. */
   function onReconcileRequired(server: { amount: number; displayed: number }): Promise<boolean> {
@@ -241,6 +252,7 @@ export function CheckoutSection() {
           ) : (
             <PaymentMethodBlock
               walletPaymentsEnabled={checkout.settings?.payment.walletPaymentsEnabled ?? null}
+              onlinePaymentsEnabled={onlinePaymentsEnabled}
               walletBalance={user?.walletBalance ?? 0}
               walletApplied={cart.walletApplied}
               onToggleWallet={() => dispatch({ type: 'cart/toggleWallet', payload: undefined })}
@@ -269,6 +281,12 @@ export function CheckoutSection() {
           </p>
         )}
 
+        {onlinePaymentBlocked && (
+          <p role="alert" className="flex items-center justify-center gap-1.5 text-center text-xs font-medium text-error">
+            <AlertTriangle size={13} aria-hidden className="shrink-0" /> Online payment is temporarily unavailable.
+          </p>
+        )}
+
         {checkout.lastFailure?.reason === 'server-error' && (
           <p role="alert" className="text-sm font-medium text-error">
             {checkout.lastFailure.message}
@@ -283,6 +301,10 @@ export function CheckoutSection() {
         loading={isBusy}
         onConfirm={() => {
           setShowConfirm(false);
+          // Re-checked at the moment of confirming: the dialog may have been opened before something
+          // changed (settings landing with online payment off, a line selling out). This closure is
+          // rebuilt every render, so it sees the current gate.
+          if (!canPlaceOrder) return;
           void runCheckout();
         }}
         onCancel={() => setShowConfirm(false)}

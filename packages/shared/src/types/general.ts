@@ -57,6 +57,12 @@ export interface PaymentSettings {
   /** Wallet payments toggle — OFF shows the option greyed/disabled at checkout. */
   walletPaymentsEnabled: boolean;
   /**
+   * Online payment (Razorpay) switch. OFF: checkout only accepts orders the wallet fully covers and
+   * wallet top-ups are refused — enforced by createPaymentOrder / createWalletTopUpOrder. A missing
+   * field reads as ON (it was added after launch); optional so code reading it must handle `undefined`.
+   */
+  onlinePaymentsEnabled?: boolean;
+  /**
    * True once a Razorpay webhook secret has been saved. The secret itself lives in the admin-only
    * `general/secrets` (never readable here) — this flag only lets the admin tab show "Set".
    */

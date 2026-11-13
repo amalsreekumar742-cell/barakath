@@ -58,3 +58,20 @@ export function isWalletEnabled(config: FirebaseFirestore.DocumentData): boolean
   const payment = (config.payment as Record<string, unknown> | undefined) ?? {};
   return Boolean(payment.walletPaymentsEnabled ?? config.walletPaymentsEnabled ?? false);
 }
+
+/**
+ * Whether customers may pay online through Razorpay — the store-wide switch in Settings › Payment
+ * Gateway (`payment.onlinePaymentsEnabled`). When off, no new Razorpay order is opened: checkout only
+ * accepts an order the wallet fully covers, and wallet top-ups are refused.
+ *
+ * WHY a missing field counts as ON: the switch was added after launch, so a store that never saved it
+ * must keep taking payments. Only an explicit `false` turns online payment off.
+ *
+ * WHY it is NOT checked when settling a payment (verifyPayment, verifyWalletTopUp, razorpayWebhook):
+ * a customer who opened the Razorpay sheet before the switch flipped has already paid, and that money
+ * must still become an order or a wallet credit.
+ */
+export function isOnlinePaymentEnabled(config: FirebaseFirestore.DocumentData): boolean {
+  const payment = (config.payment as Record<string, unknown> | undefined) ?? {};
+  return (payment.onlinePaymentsEnabled ?? config.onlinePaymentsEnabled) !== false;
+}

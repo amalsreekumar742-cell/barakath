@@ -33,4 +33,11 @@ class WalletTopUpSupport {
   static const String unavailableMessage =
       'Adding money is not available right now. Rewards and refunds still credit '
       'your wallet automatically.';
+
+  /// Shown when the store has switched online payment off
+  /// (`payment.onlinePaymentsEnabled` in `general/config`) — a top-up is a
+  /// Razorpay payment, so `createWalletTopUpOrder` refuses it too.
+  static const String onlinePaymentsOffMessage =
+      'Adding money is temporarily unavailable. Your balance is safe and can '
+      'still be used at checkout.';
 }

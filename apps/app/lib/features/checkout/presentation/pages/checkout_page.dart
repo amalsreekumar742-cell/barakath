@@ -64,6 +64,11 @@ class _CheckoutPageState extends State<CheckoutPage> {
     final cart = context.read<CartProvider>();
     final settings = context.read<GeneralSettingsProvider>();
 
+    // Settings are otherwise read once at splash. Re-read them here so a store
+    // switch flipped while the app was open (online payment off/on) shows up
+    // before the customer taps Pay. A failed read keeps the last good copy.
+    unawaited(settings.load());
+
     cart.applySettings(
       slabs: settings.deliverySlabs,
       freeDeliveryThreshold: settings.freeDeliveryThreshold,
@@ -202,10 +207,21 @@ class _CheckoutPageState extends State<CheckoutPage> {
     final checkout = context.watch<CheckoutProvider>();
     final auth = context.watch<AuthProvider>();
 
+    final settingsProvider = context.watch<GeneralSettingsProvider>();
+    final settings = settingsProvider.settings;
+    // The payment switches are being re-read (checkout just opened). Hold Pay
+    // until they land, so a stale "online payments on" from splash can't send
+    // the customer into an order the server is about to refuse.
+    final settingsRefreshing = settingsProvider.isLoading;
+
     final walletBalance = auth.currentUser?.walletBalance ?? 0;
     final payable = (cart.grandTotal - checkout.walletAmountToUse)
         .clamp(0, double.infinity)
         .toDouble();
+    // The store switched online payment off and there is still something to
+    // pay by card/UPI — only an order the wallet fully covers can go through.
+    // createPaymentOrder refuses it anyway; this just says so before the tap.
+    final onlineBlocked = !settings.onlinePaymentsEnabled && payable > 0;
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -254,7 +270,9 @@ class _CheckoutPageState extends State<CheckoutPage> {
             onToggle: () => setState(() => _expandItems = !_expandItems),
           ),
           const SizedBox(height: 16),
-          const _PaymentMethodSection(),
+          // Greyed whenever the store has online payment off — even when the
+          // wallet covers the order, so it never reads as the chosen method.
+          _PaymentMethodSection(available: settings.onlinePaymentsEnabled),
           if (walletBalance > 0) ...[
             const SizedBox(height: 16),
             _WalletSection(
@@ -297,6 +315,17 @@ class _CheckoutPageState extends State<CheckoutPage> {
               style: TextStyle(fontSize: 12, color: AppColors.success),
             ),
           ],
+          if (onlineBlocked) ...[
+            const SizedBox(height: 8),
+            Text(
+              settings.walletPaymentsEnabled && walletBalance > 0
+                  ? 'Online payment is temporarily unavailable. You can still '
+                      'order if your wallet balance covers the full amount.'
+                  : 'Online payment is temporarily unavailable. Please try '
+                      'again later.',
+              style: const TextStyle(fontSize: 12, color: AppColors.danger),
+            ),
+          ],
         ],
       ),
       bottomNavigationBar: SafeArea(
@@ -318,7 +347,9 @@ class _CheckoutPageState extends State<CheckoutPage> {
             child: ElevatedButton(
               onPressed: checkout.isPlacingOrder ||
                       checkout.selectedAddress == null ||
-                      cart.items.isEmpty
+                      cart.items.isEmpty ||
+                      onlineBlocked ||
+                      settingsRefreshing
                   ? null
                   : _placeOrder,
               child: checkout.isPlacingOrder
@@ -582,8 +613,14 @@ class _DeliveryMethodCard extends StatelessWidget {
 /// The design's "Payment method" block. Razorpay is the only option — the spec
 /// removed cash on delivery — but it still earns its place: the customer knows
 /// which sheet is about to open before they commit.
+///
+/// [available] is false while the store has online payment switched off: the
+/// row stays, greyed, so the customer can see the option exists but cannot be
+/// used right now.
 class _PaymentMethodSection extends StatelessWidget {
-  const _PaymentMethodSection();
+  const _PaymentMethodSection({required this.available});
+
+  final bool available;
 
   @override
   Widget build(BuildContext context) {
@@ -593,26 +630,50 @@ class _PaymentMethodSection extends StatelessWidget {
         const Text('Payment method',
             style: TextStyle(fontSize: 14, fontWeight: FontWeight.w800)),
         const SizedBox(height: 10),
-        Container(
-          padding: const EdgeInsets.all(14),
-          decoration: BoxDecoration(
-            color: AppColors.surface,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: AppColors.brandGreen, width: 1.5),
-          ),
-          child: const Row(
-            children: [
-              Icon(Icons.credit_card_rounded,
-                  size: 20, color: AppColors.brandGreen),
-              SizedBox(width: 12),
-              Expanded(
-                child: Text('Card / UPI · Razorpay',
-                    style:
-                        TextStyle(fontSize: 15, fontWeight: FontWeight.w700)),
-              ),
-              Icon(Icons.check_circle_rounded,
-                  size: 22, color: AppColors.brandGreen),
-            ],
+        Opacity(
+          opacity: available ? 1 : 0.6,
+          child: Container(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: AppColors.surface,
+              borderRadius: BorderRadius.circular(12),
+              border: available
+                  ? Border.all(color: AppColors.brandGreen, width: 1.5)
+                  : Border.all(color: AppColors.hairline),
+            ),
+            child: Row(
+              children: [
+                Icon(Icons.credit_card_rounded,
+                    size: 20,
+                    color: available
+                        ? AppColors.brandGreen
+                        : AppColors.textSecondary),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text('Card / UPI · Razorpay',
+                          style: TextStyle(
+                              fontSize: 15, fontWeight: FontWeight.w700)),
+                      if (!available)
+                        const Text('Temporarily unavailable',
+                            style: TextStyle(
+                                fontSize: 12, color: AppColors.danger)),
+                    ],
+                  ),
+                ),
+                Icon(
+                  available
+                      ? Icons.check_circle_rounded
+                      : Icons.block_rounded,
+                  size: 22,
+                  color: available
+                      ? AppColors.brandGreen
+                      : AppColors.textSecondary,
+                ),
+              ],
+            ),
           ),
         ),
       ],

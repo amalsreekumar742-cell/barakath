@@ -44,6 +44,7 @@ class GeneralSettings extends Equatable {
     required this.razorpayKeyId,
     required this.razorpayConnected,
     required this.walletPaymentsEnabled,
+    required this.onlinePaymentsEnabled,
     required this.helpPhone,
     required this.helpWhatsApp,
     required this.helpEmail,
@@ -63,6 +64,12 @@ class GeneralSettings extends Equatable {
   final String razorpayKeyId;
   final bool razorpayConnected;
   final bool walletPaymentsEnabled;
+
+  /// The store's online-payment (Razorpay) switch — `payment.onlinePaymentsEnabled`.
+  /// When false, checkout only accepts an order the wallet fully covers and
+  /// "Add money" is unavailable. A missing field reads as true; the server
+  /// (`createPaymentOrder`, `createWalletTopUpOrder`) enforces it regardless.
+  final bool onlinePaymentsEnabled;
 
   // contactus map
   final String helpPhone;
@@ -86,6 +93,9 @@ class GeneralSettings extends Equatable {
     razorpayKeyId: '',
     razorpayConnected: false,
     walletPaymentsEnabled: false,
+    // On until the settings say otherwise: a failed settings read must not
+    // block checkout — the server still refuses Razorpay when it is off.
+    onlinePaymentsEnabled: true,
     helpPhone: '',
     helpWhatsApp: '',
     helpEmail: '',
@@ -118,6 +128,7 @@ class GeneralSettings extends Equatable {
         razorpayKeyId,
         razorpayConnected,
         walletPaymentsEnabled,
+        onlinePaymentsEnabled,
         helpPhone,
         helpWhatsApp,
         helpEmail,

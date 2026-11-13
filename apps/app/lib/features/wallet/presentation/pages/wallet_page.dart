@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
@@ -40,7 +42,29 @@ class _WalletPageState extends State<WalletPage> {
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) => _syncUser());
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _syncUser();
+      unawaited(_reloadSettings());
+    });
+  }
+
+  /// Re-read the store's payment switches (`walletPaymentsEnabled`,
+  /// `onlinePaymentsEnabled`). Without this the copy loaded at splash decides
+  /// "Add money" for the whole session, so a switch flipped while the app is
+  /// open would never show up. A failed read keeps the last good copy.
+  Future<void> _reloadSettings() async {
+    if (!mounted) return;
+    try {
+      await context.read<GeneralSettingsProvider>().load();
+    } catch (_) {
+      // No settings provider above this page — nothing to refresh.
+    }
+  }
+
+  /// Pull-to-refresh: the ledger and the payment switches together.
+  Future<void> _refresh() async {
+    final wallet = context.read<WalletProvider>();
+    await Future.wait([wallet.refresh(), _reloadSettings()]);
   }
 
   @override
@@ -86,6 +110,17 @@ class _WalletPageState extends State<WalletPage> {
     }
   }
 
+  /// A top-up is a Razorpay payment, so the store's online-payment switch
+  /// (`payment.onlinePaymentsEnabled`) gates "Add money" too.
+  bool _onlinePaymentsEnabled(BuildContext context) {
+    try {
+      return context.watch<GeneralSettingsProvider>().settings
+          .onlinePaymentsEnabled;
+    } catch (_) {
+      return false;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     if (_isGuest(context)) {
@@ -104,7 +139,9 @@ class _WalletPageState extends State<WalletPage> {
 
     final wallet = context.watch<WalletProvider>();
     final paymentsEnabled = _walletPaymentsEnabled(context);
-    final canTopUp = paymentsEnabled && WalletTopUpSupport.isAvailable;
+    final onlineEnabled = _onlinePaymentsEnabled(context);
+    final canTopUp =
+        paymentsEnabled && onlineEnabled && WalletTopUpSupport.isAvailable;
 
     // A failure with transactions already on screen is a failed REFRESH — toast
     // it and move on, so the ledger the customer is reading stays put. A failure
@@ -129,7 +166,7 @@ class _WalletPageState extends State<WalletPage> {
         isLoadingMore: wallet.isLoadingMore,
         hasMore: wallet.hasMore,
         onLoadMore: wallet.loadMore,
-        onRefresh: wallet.refresh,
+        onRefresh: _refresh,
         error: wallet.transactions.isEmpty ? wallet.error : null,
         onRetry: wallet.refresh,
         skeleton: const WalletTransactionSkeleton(),
@@ -147,7 +184,9 @@ class _WalletPageState extends State<WalletPage> {
           disabledReason: !paymentsEnabled
               ? 'Wallet payments are currently switched off by the store. Your '
                   'balance is safe and never expires.'
-              : WalletTopUpSupport.unavailableMessage,
+              : !onlineEnabled
+                  ? WalletTopUpSupport.onlinePaymentsOffMessage
+                  : WalletTopUpSupport.unavailableMessage,
           onAddMoney: () => context.push('/wallet/add-money'),
         ),
         itemBuilder: (_, item, __) => WalletTransactionTile(transaction: item),

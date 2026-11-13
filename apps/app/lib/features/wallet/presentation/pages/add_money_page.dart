@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
@@ -58,6 +60,18 @@ class _AddMoneyPageState extends State<AddMoneyPage> {
       ..on(Razorpay.EVENT_PAYMENT_SUCCESS, _onPaymentSuccess)
       ..on(Razorpay.EVENT_PAYMENT_ERROR, _onPaymentError)
       ..on(Razorpay.EVENT_EXTERNAL_WALLET, _onExternalWallet);
+
+    // Re-read the payment switches on every visit: this is the screen that
+    // starts a top-up, and the Wallet tab behind it may hold a copy from
+    // splash. The button below follows the fresh value once it lands.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      try {
+        unawaited(context.read<GeneralSettingsProvider>().load());
+      } catch (_) {
+        // No settings provider above this page — nothing to refresh.
+      }
+    });
   }
 
   @override
@@ -82,6 +96,27 @@ class _AddMoneyPageState extends State<AddMoneyPage> {
           .watch<GeneralSettingsProvider>()
           .settings
           .walletPaymentsEnabled;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /// The payment switches are being re-read right now.
+  bool get _settingsLoading {
+    try {
+      return context.watch<GeneralSettingsProvider>().isLoading;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /// The store's online-payment switch — a top-up is a Razorpay payment.
+  bool get _onlinePaymentsEnabled {
+    try {
+      return context
+          .watch<GeneralSettingsProvider>()
+          .settings
+          .onlinePaymentsEnabled;
     } catch (_) {
       return false;
     }
@@ -250,7 +285,9 @@ class _AddMoneyPageState extends State<AddMoneyPage> {
   Widget build(BuildContext context) {
     final wallet = context.watch<WalletProvider>();
     final paymentsEnabled = _paymentsEnabled;
-    final canTopUp = paymentsEnabled && WalletTopUpSupport.isAvailable;
+    final onlineEnabled = _onlinePaymentsEnabled;
+    final canTopUp =
+        paymentsEnabled && onlineEnabled && WalletTopUpSupport.isAvailable;
     final amount = _amount;
 
     return Scaffold(
@@ -320,10 +357,12 @@ class _AddMoneyPageState extends State<AddMoneyPage> {
             const SizedBox(height: AppDimens.gapCards),
             _InfoBar(
               tone: _InfoTone.warning,
-              message: paymentsEnabled
-                  ? WalletTopUpSupport.unavailableMessage
-                  : 'Wallet payments are currently switched off by the store. '
-                      'Your balance is safe and never expires.',
+              message: !paymentsEnabled
+                  ? 'Wallet payments are currently switched off by the store. '
+                      'Your balance is safe and never expires.'
+                  : !onlineEnabled
+                      ? WalletTopUpSupport.onlinePaymentsOffMessage
+                      : WalletTopUpSupport.unavailableMessage,
             ),
           ],
         ],
@@ -345,7 +384,9 @@ class _AddMoneyPageState extends State<AddMoneyPage> {
                 ? 'Add money'
                 : 'Add ${WalletMoney.whole(amount)}',
             isLoading: wallet.isToppingUp,
-            isDisabled: !canTopUp || amount == null,
+            // Also held while the payment switches are being re-read (see
+            // initState), so a stale copy can't start a refused top-up.
+            isDisabled: !canTopUp || amount == null || _settingsLoading,
             onPressed: _addMoney,
           ),
         ),

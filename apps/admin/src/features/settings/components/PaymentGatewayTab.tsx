@@ -19,6 +19,8 @@ const toForm = (s: GeneralSettingsProps) => ({
   razorpayWebhookSecret: '',
   razorpayConnected: s.payment.razorpayConnected,
   walletPaymentsEnabled: s.payment.walletPaymentsEnabled,
+  // Missing on stores that never saved it — the server treats that as ON, so the toggle does too.
+  onlinePaymentsEnabled: s.payment.onlinePaymentsEnabled !== false,
 });
 
 /**
@@ -83,6 +85,7 @@ const PaymentGatewayTab: FC<Props> = ({ settings, onDirtyChange }) => {
         razorpayWebhookSecret: form.razorpayWebhookSecret.trim(),
         razorpayConnected: form.razorpayConnected,
         walletPaymentsEnabled: form.walletPaymentsEnabled,
+        onlinePaymentsEnabled: form.onlinePaymentsEnabled,
       }),
     );
     setConfirmOpen(false);
@@ -244,6 +247,23 @@ const PaymentGatewayTab: FC<Props> = ({ settings, onDirtyChange }) => {
       </div>
 
       <div className="mt-6 space-y-3">
+        {/* The real on/off switch for taking money through Razorpay — enforced server-side by
+            createPaymentOrder and createWalletTopUpOrder, so it also covers app builds that predate it. */}
+        <div
+          className={`flex items-center justify-between gap-4 rounded-lg border px-4 py-3 ${
+            form.onlinePaymentsEnabled ? 'border-border bg-subtle' : 'border-gold-border bg-gold-subtle'
+          }`}
+        >
+          <div>
+            <p className="text-[14px] font-semibold text-foreground">Online payments (Card / UPI)</p>
+            <p className="text-[12px] text-muted">
+              {form.onlinePaymentsEnabled
+                ? 'Customers can pay with Razorpay at checkout and add money to their wallet.'
+                : 'Off — customers can only order when their wallet covers the full amount, and cannot add money to their wallet. Payments already in progress still complete.'}
+            </p>
+          </div>
+          <Toggle on={form.onlinePaymentsEnabled} onChange={(v) => set('onlinePaymentsEnabled', v)} />
+        </div>
         <div className="flex items-center justify-between rounded-lg border border-border bg-subtle px-4 py-3">
           <div>
             <p className="text-[14px] font-semibold text-foreground">Mark as connected</p>
