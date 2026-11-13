@@ -101,6 +101,15 @@ class _AddMoneyPageState extends State<AddMoneyPage> {
     }
   }
 
+  /// The payment switches are being re-read right now.
+  bool get _settingsLoading {
+    try {
+      return context.watch<GeneralSettingsProvider>().isLoading;
+    } catch (_) {
+      return false;
+    }
+  }
+
   /// The store's online-payment switch — a top-up is a Razorpay payment.
   bool get _onlinePaymentsEnabled {
     try {
@@ -375,7 +384,9 @@ class _AddMoneyPageState extends State<AddMoneyPage> {
                 ? 'Add money'
                 : 'Add ${WalletMoney.whole(amount)}',
             isLoading: wallet.isToppingUp,
-            isDisabled: !canTopUp || amount == null,
+            // Also held while the payment switches are being re-read (see
+            // initState), so a stale copy can't start a refused top-up.
+            isDisabled: !canTopUp || amount == null || _settingsLoading,
             onPressed: _addMoney,
           ),
         ),

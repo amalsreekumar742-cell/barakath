@@ -207,7 +207,12 @@ class _CheckoutPageState extends State<CheckoutPage> {
     final checkout = context.watch<CheckoutProvider>();
     final auth = context.watch<AuthProvider>();
 
-    final settings = context.watch<GeneralSettingsProvider>().settings;
+    final settingsProvider = context.watch<GeneralSettingsProvider>();
+    final settings = settingsProvider.settings;
+    // The payment switches are being re-read (checkout just opened). Hold Pay
+    // until they land, so a stale "online payments on" from splash can't send
+    // the customer into an order the server is about to refuse.
+    final settingsRefreshing = settingsProvider.isLoading;
 
     final walletBalance = auth.currentUser?.walletBalance ?? 0;
     final payable = (cart.grandTotal - checkout.walletAmountToUse)
@@ -343,7 +348,8 @@ class _CheckoutPageState extends State<CheckoutPage> {
               onPressed: checkout.isPlacingOrder ||
                       checkout.selectedAddress == null ||
                       cart.items.isEmpty ||
-                      onlineBlocked
+                      onlineBlocked ||
+                      settingsRefreshing
                   ? null
                   : _placeOrder,
               child: checkout.isPlacingOrder
