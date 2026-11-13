@@ -265,7 +265,9 @@ class _CheckoutPageState extends State<CheckoutPage> {
             onToggle: () => setState(() => _expandItems = !_expandItems),
           ),
           const SizedBox(height: 16),
-          _PaymentMethodSection(available: !onlineBlocked),
+          // Greyed whenever the store has online payment off — even when the
+          // wallet covers the order, so it never reads as the chosen method.
+          _PaymentMethodSection(available: settings.onlinePaymentsEnabled),
           if (walletBalance > 0) ...[
             const SizedBox(height: 16),
             _WalletSection(
@@ -606,9 +608,9 @@ class _DeliveryMethodCard extends StatelessWidget {
 /// removed cash on delivery — but it still earns its place: the customer knows
 /// which sheet is about to open before they commit.
 ///
-/// [available] is false while the store has online payment switched off and
-/// there is still an amount to pay by card/UPI: the row stays, greyed, so the
-/// customer can see the option exists but cannot be used right now.
+/// [available] is false while the store has online payment switched off: the
+/// row stays, greyed, so the customer can see the option exists but cannot be
+/// used right now.
 class _PaymentMethodSection extends StatelessWidget {
   const _PaymentMethodSection({required this.available});
 
