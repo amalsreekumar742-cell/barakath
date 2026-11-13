@@ -118,7 +118,7 @@ class AffiliateRemoteDataSourceImpl implements AffiliateRemoteDataSource {
         items: snap.docs.map(AffiliateTransactionModel.fromFirestore).toList(),
         nextCursor: snap.docs.isEmpty ? null : snap.docs.last,
         // A short page means the end; a full page MIGHT have more, and the
-        // "View More" tap resolves it without a second count query.
+        // next scroll-triggered page resolves it without a second count query.
         hasMore: snap.docs.length == limit,
       );
     } on FirebaseException catch (e) {

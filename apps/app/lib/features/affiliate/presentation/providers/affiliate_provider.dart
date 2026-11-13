@@ -20,8 +20,9 @@ import '../../domain/usecases/affiliate_usecases.dart';
 /// same document would double the reads and let the two views disagree — the
 /// affiliate screens read `AuthProvider.currentUser` directly.
 ///
-/// Both lists are cursor-paginated (12/page, "View More"), each with its own
-/// loading/cursor state so one section refreshing never blanks the other.
+/// Both lists are cursor-paginated (12/page, loaded as the customer scrolls),
+/// each with its own loading/cursor state so one tab refreshing never blanks
+/// the other.
 @injectable
 class AffiliateProvider extends ChangeNotifier {
   AffiliateProvider(

@@ -2,18 +2,19 @@ import 'package:flutter/material.dart';
 
 import '../constants/app_colors.dart';
 import '../constants/app_dimens.dart';
-import 'custom_button.dart';
 import 'empty_state.dart';
 import 'error_state.dart';
 import 'shimmer_loading.dart';
 
-/// The list every Batch-4 feature uses: cursor pagination with an explicit
-/// "View More" button, a shimmer skeleton on first load, and a message-only
-/// empty state (spec §2.25 — empty states carry no action button).
+/// The list every Batch-4 feature uses: cursor pagination that loads the next
+/// page on its own as the customer reaches the end, a shimmer skeleton on first
+/// load, and a message-only empty state (spec §2.25 — empty states carry no
+/// action button).
 ///
-/// WHY a button and not infinite scroll: the skill mandates cursor pagination,
-/// and an explicit tap makes each extra page a deliberate read rather than one
-/// the customer triggers by overscrolling.
+/// The next page is requested when the footer spinner is built — i.e. when the
+/// end of the list comes within the viewport's cache extent — so a page is read
+/// only once the customer has scrolled to it. A first page too short to fill
+/// the screen keeps loading until it does (or the data runs out).
 class PaginatedListView<T> extends StatelessWidget {
   const PaginatedListView({
     super.key,
@@ -204,13 +205,100 @@ class PaginatedListView<T> extends StatelessWidget {
 
   Widget _buildFooter() {
     if (!hasMore) return const SizedBox(height: AppDimens.space8);
+    return _AutoLoadFooter(
+      // Keyed on the row count, so every page that lands mounts a FRESH footer
+      // and the next request fires only if that new footer is on screen. A
+      // load that adds nothing (it failed) keeps the same footer, which then
+      // offers a retry instead of re-requesting in a loop.
+      key: ValueKey<int>(items.length),
+      isLoadingMore: isLoadingMore,
+      // A pull-to-refresh is rebuilding page one — paging the old cursor
+      // meanwhile would append rows the refresh is about to replace.
+      canLoad: !isLoading,
+      onLoadMore: onLoadMore,
+    );
+  }
+}
+
+/// The list's last slot while more pages exist: requests the next page as soon
+/// as it is built, and shows a spinner while that page loads.
+class _AutoLoadFooter extends StatefulWidget {
+  const _AutoLoadFooter({
+    super.key,
+    required this.isLoadingMore,
+    required this.canLoad,
+    required this.onLoadMore,
+  });
+
+  final bool isLoadingMore;
+  final bool canLoad;
+  final VoidCallback onLoadMore;
+
+  @override
+  State<_AutoLoadFooter> createState() => _AutoLoadFooterState();
+}
+
+class _AutoLoadFooterState extends State<_AutoLoadFooter> {
+  /// A load finished without adding rows (otherwise the row-count key would
+  /// have replaced this footer) — almost always a failed read.
+  bool _stalled = false;
+
+  @override
+  void initState() {
+    super.initState();
+    // After the frame: the load notifies listeners, which must not happen
+    // while the list is still building.
+    WidgetsBinding.instance.addPostFrameCallback((_) => _request());
+  }
+
+  @override
+  void didUpdateWidget(_AutoLoadFooter old) {
+    super.didUpdateWidget(old);
+    if (old.isLoadingMore && !widget.isLoadingMore) {
+      setState(() => _stalled = true);
+    }
+    // A refresh held the request back and has now finished with the same row
+    // count (so this footer was kept) — make the request it skipped.
+    if (!old.canLoad && widget.canLoad) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => _request());
+    }
+  }
+
+  void _request() {
+    if (!mounted || widget.isLoadingMore || !widget.canLoad) return;
+    widget.onLoadMore();
+  }
+
+  void _retry() {
+    setState(() => _stalled = false);
+    _request();
+  }
+
+  @override
+  Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.only(top: AppDimens.space16),
-      child: CustomButton(
-        label: 'View More',
-        variant: ButtonVariant.outline,
-        isLoading: isLoadingMore,
-        onPressed: isLoadingMore ? null : onLoadMore,
+      padding: const EdgeInsets.symmetric(vertical: AppDimens.space16),
+      child: Center(
+        child: _stalled && !widget.isLoadingMore
+            ? TextButton(
+                onPressed: _retry,
+                child: const Text(
+                  "Couldn't load more. Tap to retry",
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.brandGreen,
+                  ),
+                ),
+              )
+            : const SizedBox(
+                width: 22,
+                height: 22,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2.2,
+                  color: AppColors.brandGreen,
+                ),
+              ),
       ),
     );
   }
