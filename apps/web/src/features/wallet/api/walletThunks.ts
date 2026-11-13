@@ -36,11 +36,24 @@ import { openCheckout, type RazorpaySuccessResponse } from '@/lib/commerce/razor
  * of truth" is the `general/config` DOCUMENT, not any one feature's thunk reading it. A second, narrow
  * read of the same doc costs one extra Firestore read on this page, once.
  */
-export const fetchWalletSettings = createAsyncThunk<boolean | null>('wallet/fetchSettings', async () => {
+export interface WalletSettings {
+  /** `payment.walletPaymentsEnabled` — null when the field is missing. */
+  walletPaymentsEnabled: boolean | null;
+  /**
+   * `payment.onlinePaymentsEnabled` — a top-up is a Razorpay payment, so the store's online-payment
+   * switch gates "Add money" too (createWalletTopUpOrder enforces it). Missing reads as ON.
+   */
+  onlinePaymentsEnabled: boolean;
+}
+
+export const fetchWalletSettings = createAsyncThunk<WalletSettings | null>('wallet/fetchSettings', async () => {
   const snap = await getDoc(doc(db, FirestoreCollections.general, FirestoreDocs.generalConfig));
   if (!snap.exists()) return null;
   const data = snap.data() as { payment?: GeneralSettingsProps['payment'] };
-  return data.payment?.walletPaymentsEnabled ?? null;
+  return {
+    walletPaymentsEnabled: data.payment?.walletPaymentsEnabled ?? null,
+    onlinePaymentsEnabled: data.payment?.onlinePaymentsEnabled !== false,
+  };
 });
 
 // ---- Breakdown: Rewards + Refunds, both via sum() aggregation -----------------------------------

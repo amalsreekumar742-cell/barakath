@@ -87,6 +87,18 @@ class _AddMoneyPageState extends State<AddMoneyPage> {
     }
   }
 
+  /// The store's online-payment switch — a top-up is a Razorpay payment.
+  bool get _onlinePaymentsEnabled {
+    try {
+      return context
+          .watch<GeneralSettingsProvider>()
+          .settings
+          .onlinePaymentsEnabled;
+    } catch (_) {
+      return false;
+    }
+  }
+
   void _selectPill(double value) {
     // Whole rupees — the pills are round numbers and a trailing ".0" in the
     // field reads like a typo.
@@ -250,7 +262,9 @@ class _AddMoneyPageState extends State<AddMoneyPage> {
   Widget build(BuildContext context) {
     final wallet = context.watch<WalletProvider>();
     final paymentsEnabled = _paymentsEnabled;
-    final canTopUp = paymentsEnabled && WalletTopUpSupport.isAvailable;
+    final onlineEnabled = _onlinePaymentsEnabled;
+    final canTopUp =
+        paymentsEnabled && onlineEnabled && WalletTopUpSupport.isAvailable;
     final amount = _amount;
 
     return Scaffold(
@@ -320,10 +334,12 @@ class _AddMoneyPageState extends State<AddMoneyPage> {
             const SizedBox(height: AppDimens.gapCards),
             _InfoBar(
               tone: _InfoTone.warning,
-              message: paymentsEnabled
-                  ? WalletTopUpSupport.unavailableMessage
-                  : 'Wallet payments are currently switched off by the store. '
-                      'Your balance is safe and never expires.',
+              message: !paymentsEnabled
+                  ? 'Wallet payments are currently switched off by the store. '
+                      'Your balance is safe and never expires.'
+                  : !onlineEnabled
+                      ? WalletTopUpSupport.onlinePaymentsOffMessage
+                      : WalletTopUpSupport.unavailableMessage,
             ),
           ],
         ],

@@ -4,7 +4,11 @@ import { getFirestore, FieldValue } from 'firebase-admin/firestore';
 import { Collections } from '../config/collections';
 import { getRazorpayInstance, getGeneralConfig, getSecretsDoc } from '../config/razorpay';
 import { validateAuth } from '../utils/validateAuth';
-import { getRazorpaySecrets, isWalletEnabled } from '../orders/service/configReader';
+import {
+  getRazorpaySecrets,
+  isOnlinePaymentEnabled,
+  isWalletEnabled,
+} from '../orders/service/configReader';
 import { toPaisa } from '../orders/service/computeTotals';
 
 /** Smallest top-up we will open a gateway order for. */
@@ -64,6 +68,14 @@ export const createWalletTopUpOrder = onCall(async (request) => {
       throw new HttpsError(
         'failed-precondition',
         'Wallet payments are currently switched off by the store.',
+      );
+    }
+
+    // A top-up is paid through Razorpay, so the store's online-payment switch stops it too.
+    if (!isOnlinePaymentEnabled(config)) {
+      throw new HttpsError(
+        'failed-precondition',
+        'Adding money is temporarily unavailable. Please try again later.',
       );
     }
 

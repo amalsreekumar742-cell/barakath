@@ -22,6 +22,8 @@ import { walletTransactionIcon } from '@/features/wallet/components/walletTransa
 
 const WALLET_DISABLED_MESSAGE =
   'Wallet payments are currently switched off by the store. Your balance is safe and never expires.';
+const ONLINE_PAYMENTS_OFF_MESSAGE =
+  'Adding money is temporarily unavailable. Your balance is safe and can still be used at checkout.';
 
 /**
  * /account/wallet (spec §3.13) — balance, Add money, the Rewards/Refunds breakdown, the Spin & Win
@@ -42,7 +44,9 @@ export default function WalletPage() {
   const uid = useAppSelector((s) => s.auth.uid);
   const authLoading = useAppSelector((s) => s.auth.authLoading);
   const user = useAppSelector((s) => s.auth.user);
-  const { rewardsTotal, breakdownLoading, walletPaymentsEnabled } = useAppSelector((s) => s.wallet);
+  const { rewardsTotal, breakdownLoading, walletPaymentsEnabled, onlinePaymentsEnabled } = useAppSelector(
+    (s) => s.wallet,
+  );
 
   const [addMoneyOpen, setAddMoneyOpen] = useState(false);
 
@@ -63,10 +67,16 @@ export default function WalletPage() {
     mapper: mapWalletTransaction,
   });
 
-  const canTopUp = walletPaymentsEnabled === true;
-  // Only asserted once the flag is confirmed OFF — `null` (still loading, or the read failed) shows no
+  // A top-up is a Razorpay payment, so it needs the wallet AND the store's online-payment switch on.
+  const canTopUp = walletPaymentsEnabled === true && onlinePaymentsEnabled === true;
+  // Only asserted once a flag is confirmed OFF — `null` (still loading, or the read failed) shows no
   // reason at all rather than a false "switched off" flash before the real answer arrives.
-  const confirmedDisabled = walletPaymentsEnabled === false;
+  const disabledMessage =
+    walletPaymentsEnabled === false
+      ? WALLET_DISABLED_MESSAGE
+      : onlinePaymentsEnabled === false
+        ? ONLINE_PAYMENTS_OFF_MESSAGE
+        : null;
 
   return (
     <div>
@@ -86,7 +96,7 @@ export default function WalletPage() {
               </Button>
             }
           />
-          {confirmedDisabled && <p className="text-xs leading-relaxed text-muted">{WALLET_DISABLED_MESSAGE}</p>}
+          {disabledMessage && <p className="text-xs leading-relaxed text-muted">{disabledMessage}</p>}
 
           {/* Rewards received — the design's tile row also has Refunds/Cashback, but cashback is
            *  removed from the product (see above) and refunds is intentionally not shown here either. */}

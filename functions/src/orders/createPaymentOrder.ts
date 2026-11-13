@@ -8,6 +8,7 @@ import keywordsBuilder from '../utils/keywordsBuilder';
 import {
   getDeliveryTaxConfig,
   getRazorpaySecrets,
+  isOnlinePaymentEnabled,
   isWalletEnabled,
 } from './service/configReader';
 import {
@@ -220,6 +221,20 @@ export const createPaymentOrder = onCall(async (request) => {
     // ---- 6. Totals ------------------------------------------------------------------------------
     const totals = computeOrderTotals(resolved, couponDiscount, walletRequested, deliveryTax);
     const isRazorpay = totals.razorpayAmount > 0;
+
+    // Online payment switched off by the store (Settings › Payment Gateway). Checked HERE — after the
+    // totals say a Razorpay leg is needed, and before any id is minted or any stock, coupon or wallet
+    // amount is reserved — so a refused order leaves nothing behind. A cart the wallet fully covers
+    // needs no Razorpay leg and still goes through.
+    if (isRazorpay && !isOnlinePaymentEnabled(config)) {
+      throw new HttpsError(
+        'failed-precondition',
+        isWalletEnabled(config)
+          ? 'Online payment is temporarily unavailable. You can still order if your wallet balance covers the full amount.'
+          : 'Online payment is temporarily unavailable. Please try again later.',
+      );
+    }
+
     const paymentMethod: 'Razorpay' | 'Wallet' | 'Both' = isRazorpay
       ? totals.walletAmountUsed > 0
         ? 'Both'

@@ -86,6 +86,17 @@ class _WalletPageState extends State<WalletPage> {
     }
   }
 
+  /// A top-up is a Razorpay payment, so the store's online-payment switch
+  /// (`payment.onlinePaymentsEnabled`) gates "Add money" too.
+  bool _onlinePaymentsEnabled(BuildContext context) {
+    try {
+      return context.watch<GeneralSettingsProvider>().settings
+          .onlinePaymentsEnabled;
+    } catch (_) {
+      return false;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     if (_isGuest(context)) {
@@ -104,7 +115,9 @@ class _WalletPageState extends State<WalletPage> {
 
     final wallet = context.watch<WalletProvider>();
     final paymentsEnabled = _walletPaymentsEnabled(context);
-    final canTopUp = paymentsEnabled && WalletTopUpSupport.isAvailable;
+    final onlineEnabled = _onlinePaymentsEnabled(context);
+    final canTopUp =
+        paymentsEnabled && onlineEnabled && WalletTopUpSupport.isAvailable;
 
     // A failure with transactions already on screen is a failed REFRESH — toast
     // it and move on, so the ledger the customer is reading stays put. A failure
@@ -147,7 +160,9 @@ class _WalletPageState extends State<WalletPage> {
           disabledReason: !paymentsEnabled
               ? 'Wallet payments are currently switched off by the store. Your '
                   'balance is safe and never expires.'
-              : WalletTopUpSupport.unavailableMessage,
+              : !onlineEnabled
+                  ? WalletTopUpSupport.onlinePaymentsOffMessage
+                  : WalletTopUpSupport.unavailableMessage,
           onAddMoney: () => context.push('/wallet/add-money'),
         ),
         itemBuilder: (_, item, __) => WalletTransactionTile(transaction: item),

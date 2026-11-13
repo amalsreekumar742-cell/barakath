@@ -124,8 +124,17 @@ export function CheckoutSection() {
   // A sold-out line can't be bought and the server would reject the whole order over it — the bag is
   // where the customer removes it (spec 2.11: greyed there, never auto-removed).
   const hasOutOfStockItem = cart.items.some((i) => stockByKey[lineKey(i.productId, i.variantId)] === 0);
+  // The store's online-payment switch (Settings › Payment Gateway). Only an explicit `false` is off —
+  // missing or still loading reads as on, and `createPaymentOrder` refuses a Razorpay leg either way.
+  const onlinePaymentsEnabled = checkout.settings?.payment.onlinePaymentsEnabled !== false;
+  const onlinePaymentBlocked = !onlinePaymentsEnabled && totals.razorpayAmount > 0;
   const canPlaceOrder =
-    cart.items.length > 0 && selectedAddress !== null && !isBusy && !isCheckingLines && !hasOutOfStockItem;
+    cart.items.length > 0 &&
+    selectedAddress !== null &&
+    !isBusy &&
+    !isCheckingLines &&
+    !hasOutOfStockItem &&
+    !onlinePaymentBlocked;
 
   /** Resolves once the customer answers the reconcile dialog — handed to `placeOrder` as `onReconcileRequired`. */
   function onReconcileRequired(server: { amount: number; displayed: number }): Promise<boolean> {
@@ -241,6 +250,7 @@ export function CheckoutSection() {
           ) : (
             <PaymentMethodBlock
               walletPaymentsEnabled={checkout.settings?.payment.walletPaymentsEnabled ?? null}
+              onlinePaymentsEnabled={onlinePaymentsEnabled}
               walletBalance={user?.walletBalance ?? 0}
               walletApplied={cart.walletApplied}
               onToggleWallet={() => dispatch({ type: 'cart/toggleWallet', payload: undefined })}
@@ -266,6 +276,12 @@ export function CheckoutSection() {
             <Link href="/cart" className="underline">
               Review bag
             </Link>
+          </p>
+        )}
+
+        {onlinePaymentBlocked && (
+          <p role="alert" className="flex items-center justify-center gap-1.5 text-center text-xs font-medium text-error">
+            <AlertTriangle size={13} aria-hidden className="shrink-0" /> Online payment is temporarily unavailable.
           </p>
         )}
 

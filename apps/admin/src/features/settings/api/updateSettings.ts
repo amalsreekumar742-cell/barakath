@@ -99,6 +99,7 @@ export const updatePaymentGateway = createAsyncThunk<
     razorpayWebhookSecret: string;
     razorpayConnected: boolean;
     walletPaymentsEnabled: boolean;
+    onlinePaymentsEnabled: boolean;
   },
   { rejectValue: string }
 >('settings/updatePaymentGateway', async (input, { rejectWithValue }) => {

@@ -40,6 +40,8 @@ export interface WalletState {
   breakdownLoading: boolean;
   /** `general/config.payment.walletPaymentsEnabled` — null while still loading/unknown. */
   walletPaymentsEnabled: boolean | null;
+  /** `general/config.payment.onlinePaymentsEnabled` (missing = true) — null while still loading/unknown. */
+  onlinePaymentsEnabled: boolean | null;
   settingsLoading: boolean;
   /** A Razorpay top-up is in flight — drives the "Add money" button + the modal's submit button. */
   toppingUp: boolean;
@@ -56,6 +58,7 @@ const initialState: WalletState = {
   refundsTotal: 0,
   breakdownLoading: false,
   walletPaymentsEnabled: null,
+  onlinePaymentsEnabled: null,
   settingsLoading: false,
   toppingUp: false,
   error: null,
@@ -112,13 +115,15 @@ const walletSlice = createSlice({
       })
       .addCase(fetchWalletSettings.fulfilled, (state, action) => {
         state.settingsLoading = false;
-        state.walletPaymentsEnabled = action.payload;
+        state.walletPaymentsEnabled = action.payload?.walletPaymentsEnabled ?? null;
+        state.onlinePaymentsEnabled = action.payload?.onlinePaymentsEnabled ?? null;
       })
       .addCase(fetchWalletSettings.rejected, (state) => {
         state.settingsLoading = false;
         // Unknown on failure, not "enabled" — the "Add money" button stays gated shut rather than
         // risking an unattempted top-up because the flag couldn't be read.
         state.walletPaymentsEnabled = null;
+        state.onlinePaymentsEnabled = null;
       })
 
       .addCase(fetchWalletBreakdown.pending, (state) => {

@@ -6,6 +6,11 @@ import { formatInr } from '@/components/catalog/PriceBlock';
 export interface PaymentMethodBlockProps {
   /** `general/config.payment.walletPaymentsEnabled` — null while settings are still loading. */
   walletPaymentsEnabled: boolean | null;
+  /**
+   * `general/config.payment.onlinePaymentsEnabled` — false only when the store has explicitly switched
+   * Razorpay off (missing/loading reads as true; `createPaymentOrder` enforces it either way).
+   */
+  onlinePaymentsEnabled: boolean;
   walletBalance: number;
   walletApplied: boolean;
   onToggleWallet: () => void;
@@ -23,6 +28,7 @@ export interface PaymentMethodBlockProps {
  */
 export function PaymentMethodBlock({
   walletPaymentsEnabled,
+  onlinePaymentsEnabled,
   walletBalance,
   walletApplied,
   onToggleWallet,
@@ -39,6 +45,8 @@ export function PaymentMethodBlock({
           : null;
   const walletUsable = walletDisabledReason === null;
   const fullyCoveredByWallet = razorpayAmount === 0 && walletAmountUsed > 0;
+  // Razorpay switched off and there is still something left to pay by card/UPI.
+  const onlineBlocked = !onlinePaymentsEnabled && !fullyCoveredByWallet;
 
   return (
     <div>
@@ -75,7 +83,7 @@ export function PaymentMethodBlock({
             but visibly inert, so the customer sees WHY there is nothing left to pay by card/UPI. */}
         <div
           className={`flex items-center gap-3 rounded-lg border p-4 ${
-            fullyCoveredByWallet
+            fullyCoveredByWallet || onlineBlocked
               ? 'border-border bg-subtle opacity-60'
               : 'border-primary bg-primary-subtle'
           }`}
@@ -83,13 +91,24 @@ export function PaymentMethodBlock({
           <CreditCard size={18} className="shrink-0 text-primary" />
           <div>
             <p className="text-sm font-semibold text-foreground">
-              {fullyCoveredByWallet ? 'Card / UPI / Netbanking — not needed' : 'Card / UPI / Netbanking'}
-            </p>
-            <p className="text-xs text-muted">
               {fullyCoveredByWallet
-                ? 'Your wallet balance covers the full order — nothing more to pay.'
-                : `You'll choose UPI, card or netbanking on Razorpay's secure screen · To pay: ${formatInr(razorpayAmount)}`}
+                ? 'Card / UPI / Netbanking — not needed'
+                : onlineBlocked
+                  ? 'Card / UPI / Netbanking — unavailable'
+                  : 'Card / UPI / Netbanking'}
             </p>
+            {onlineBlocked ? (
+              <p className="text-xs text-error">
+                Online payment is temporarily unavailable.
+                {walletPaymentsEnabled ? ' You can still order if your wallet balance covers the full amount.' : ''}
+              </p>
+            ) : (
+              <p className="text-xs text-muted">
+                {fullyCoveredByWallet
+                  ? 'Your wallet balance covers the full order — nothing more to pay.'
+                  : `You'll choose UPI, card or netbanking on Razorpay's secure screen · To pay: ${formatInr(razorpayAmount)}`}
+              </p>
+            )}
           </div>
         </div>
       </div>

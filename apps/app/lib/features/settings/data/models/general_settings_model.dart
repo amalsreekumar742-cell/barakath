@@ -19,6 +19,7 @@ class GeneralSettingsModel extends GeneralSettings {
     required super.razorpayKeyId,
     required super.razorpayConnected,
     required super.walletPaymentsEnabled,
+    required super.onlinePaymentsEnabled,
     required super.helpPhone,
     required super.helpWhatsApp,
     required super.helpEmail,
@@ -48,6 +49,9 @@ class GeneralSettingsModel extends GeneralSettings {
       razorpayKeyId: ModelParse.toStr(payment['razorpayKeyId']),
       razorpayConnected: ModelParse.toBool(payment['razorpayConnected']),
       walletPaymentsEnabled: ModelParse.toBool(payment['walletPaymentsEnabled']),
+      // Only an explicit `false` switches online payment off — the field was
+      // added after launch, so a store that never saved it keeps taking payments.
+      onlinePaymentsEnabled: payment['onlinePaymentsEnabled'] != false,
       helpPhone: ModelParse.toStr(contact['helpPhone']),
       helpWhatsApp: ModelParse.toStr(contact['helpWhatsApp']),
       helpEmail: ModelParse.toStr(contact['helpEmail']),

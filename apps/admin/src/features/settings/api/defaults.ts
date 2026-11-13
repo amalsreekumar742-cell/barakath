@@ -40,6 +40,9 @@ export const DEFAULT_SETTINGS: GeneralSettingsProps = {
     razorpayKeySecret: '',
     razorpayConnected: false,
     walletPaymentsEnabled: false,
+    // ON when never saved — matches the server (configReader.isOnlinePaymentEnabled), which only treats
+    // an explicit `false` as off.
+    onlinePaymentsEnabled: true,
     razorpayWebhookConfigured: false,
   },
   // Legacy, read-only: Privacy / Terms now live in `policies/{id}` (Settings › Policies) and the admin no
