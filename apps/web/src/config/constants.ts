@@ -38,6 +38,17 @@ export const Constants = {
   WHATSAPP_NUMBER: '917736732663',
   WHATSAPP_DISPLAY: '+91 77367 32663',
 
+  /**
+   * The store's contact lines, listed in the About section. Each number takes both calls and
+   * WhatsApp, so `digits` (country code, no `+`) feeds both `tel:+…` and `wa.me/…`; the first one is
+   * the same line as the floating WhatsApp button above.
+   */
+  CONTACT_PHONES: [
+    { display: '+91 77367 32663', digits: '917736732663' },
+    { display: '+91 97473 72663', digits: '919747372663' },
+  ],
+  CONTACT_EMAIL: 'barakathapp@gmail.com',
+
   DEFAULT_COUNTRY_CODE: '+91',
   /** Indian mobile numbers are 10 digits; the OTP form validates against this. */
   PHONE_DIGITS: 10,

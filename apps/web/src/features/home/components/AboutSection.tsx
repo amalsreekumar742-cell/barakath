@@ -1,7 +1,10 @@
-import { MapPin } from 'lucide-react';
+import { Mail, MapPin, Phone } from 'lucide-react';
+import { Constants } from '@/config/constants';
+import { WhatsAppIcon } from '@/components/icons/WhatsAppIcon';
 
 /**
- * The home "About us" block — who runs the store, how it grew, and every location it serves.
+ * The home "About us" block — who runs the store, how it grew, every location it serves, and how to
+ * reach it.
  *
  * WHY a static Server Component: this is the business's own fixed copy (no `general/config` field
  * carries it), so there is nothing to fetch, and rendering it on the server keeps the story and the
@@ -17,7 +20,7 @@ import { MapPin } from 'lucide-react';
  * and "4,000 sq ft" / "17 branches" wrapped mid-value there.
  */
 const HIGHLIGHTS = [
-  { value: '2017', label: 'Founded' },
+  { value: '2016', label: 'Founded' },
   { value: '4,000', label: 'Sq ft store' },
   { value: '17', label: 'Branches' },
 ] as const;
@@ -59,19 +62,19 @@ export function AboutSection() {
             id="about-heading"
             className="mt-2 font-display text-2xl font-semibold tracking-tight text-foreground md:text-[28px]"
           >
-            Barkath Ulama Collections, Chemmad
+            Barakath Ulama Collection, Chemmad
           </h2>
 
           <div className="mt-4 space-y-3 text-[15px] leading-relaxed text-muted">
             <p>
-              Barkath Ulama Collections in Chemmad, founded by Ameen Falily Barkath in 2017, is your
-              destination for affordable Islamic essentials across Kerala and Karnataka. Having started
-              in a modest 200 square feet, we have now expanded into a 4,000 square feet establishment
-              in Chemmad.
+              Barakath Ulama Collection in Chemmad, founded by Ameen Falily Barakath on 17 October 2016,
+              is your destination for affordable Islamic essentials across Kerala and Karnataka. Having
+              started in a modest 200 square feet, we have now expanded into a 4,000 square feet
+              establishment in Chemmad.
             </p>
             <p>
-              This expansive space houses our wholesale operations, the Barkath Ulama Collection
-              (offering both wholesale and retail), and our exclusive Barkath Abaya Collection. We offer
+              This expansive space houses our wholesale operations, the Barakath Ulama Collection
+              (offering both wholesale and retail), and our exclusive Barakath Abaya Collection. We offer
               a wide range of products, including specialized scholar attire, fabrics, dhotis, thobes,
               premium perfumes, bakhoor, and complete Hajj and Umrah items across our 17 branches.
             </p>
@@ -102,6 +105,52 @@ export function AboutSection() {
                 {place}
               </li>
             ))}
+          </ul>
+
+          {/* Contact — each number takes calls and WhatsApp, so each row offers both. */}
+          <h3 className="mt-8 text-sm font-semibold text-foreground">Contact us</h3>
+          <ul className="mt-3 space-y-2">
+            {Constants.CONTACT_PHONES.map((line) => (
+              <li
+                key={line.digits}
+                className="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-xl bg-subtle px-4 py-3"
+              >
+                {/* No `min-w-0`: the number keeps its full width, so on a narrow phone the row wraps
+                    and the buttons drop below it instead of sliding over the digits. */}
+                <span className="flex-1 whitespace-nowrap text-[15px] font-semibold text-foreground">
+                  {line.display}
+                </span>
+                <span className="flex gap-2">
+                  <a
+                    href={`tel:+${line.digits}`}
+                    aria-label={`Call ${line.display}`}
+                    className="inline-flex items-center gap-1.5 rounded-full border border-border bg-surface px-3 py-1.5 text-[13px] font-semibold text-foreground transition-colors hover:border-primary hover:text-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+                  >
+                    <Phone className="size-3.5 shrink-0 text-primary" aria-hidden />
+                    Call
+                  </a>
+                  <a
+                    href={`https://wa.me/${line.digits}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    aria-label={`WhatsApp ${line.display}`}
+                    className="inline-flex items-center gap-1.5 rounded-full border border-border bg-surface px-3 py-1.5 text-[13px] font-semibold text-foreground transition-colors hover:border-whatsapp hover:text-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+                  >
+                    <WhatsAppIcon className="size-3.5 shrink-0 text-whatsapp" />
+                    WhatsApp
+                  </a>
+                </span>
+              </li>
+            ))}
+            <li>
+              <a
+                href={`mailto:${Constants.CONTACT_EMAIL}`}
+                className="flex items-center gap-2.5 rounded-xl bg-subtle px-4 py-3 text-[15px] font-semibold text-foreground transition-colors hover:text-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+              >
+                <Mail className="size-4 shrink-0 text-primary" aria-hidden />
+                <span className="min-w-0 break-all">{Constants.CONTACT_EMAIL}</span>
+              </a>
+            </li>
           </ul>
         </div>
       </div>
